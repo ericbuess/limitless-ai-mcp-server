@@ -1,0 +1,246 @@
+import { z } from 'zod';
+import {
+  Lifelog,
+  ListLifelogsOptions,
+  DateRangeOptions,
+  SearchOptions,
+  LimitlessAPIResponse,
+  LimitlessClientConfig
+} from '../types/limitless';
+import { logger } from '../utils/logger';
+import { retry } from '../utils/retry';
+import { formatDate, parseDate } from '../utils/date';
+
+const DEFAULT_BASE_URL = 'https://api.limitless.ai/v1';
+const DEFAULT_TIMEOUT = 120000; // 120 seconds
+const DEFAULT_RETRY_ATTEMPTS = 3;
+const DEFAULT_RETRY_DELAY = 1000;
+
+export class LimitlessAPIError extends Error {
+  constructor(
+    message: string,
+    public statusCode?: number,
+    public code?: string,
+    public details?: any
+  ) {
+    super(message);
+    this.name = 'LimitlessAPIError';
+  }
+}
+
+export class LimitlessClient {
+  private apiKey: string;
+  private baseUrl: string;
+  private timeout: number;
+  private retryAttempts: number;
+  private retryDelay: number;
+
+  constructor(config: LimitlessClientConfig) {
+    if (!config.apiKey) {
+      throw new Error('API key is required');
+    }
+
+    this.apiKey = config.apiKey;
+    this.baseUrl = config.baseUrl || DEFAULT_BASE_URL;
+    this.timeout = config.timeout || DEFAULT_TIMEOUT;
+    this.retryAttempts = config.retryAttempts || DEFAULT_RETRY_ATTEMPTS;
+    this.retryDelay = config.retryDelay || DEFAULT_RETRY_DELAY;
+  }
+
+  private async makeRequest<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    try {
+      const response = await retry(
+        async () => {
+          const res = await fetch(url, {
+            ...options,
+            headers: {
+              'Authorization': `Bearer ${this.apiKey}`,
+              'Content-Type': 'application/json',
+              ...options.headers,
+            },
+            signal: controller.signal,
+          });
+
+          if (!res.ok) {
+            const error = await res.json().catch(() => ({ message: res.statusText }));
+            throw new LimitlessAPIError(
+              error.message || `HTTP ${res.status}`,
+              res.status,
+              error.code,
+              error
+            );
+          }
+
+          return res;
+        },
+        {
+          attempts: this.retryAttempts,
+          delay: this.retryDelay,
+          shouldRetry: (error) => {
+            if (error instanceof LimitlessAPIError) {
+              // Retry on 5xx errors or specific 4xx errors
+              return error.statusCode ? error.statusCode >= 500 || error.statusCode === 429 : false;
+            }
+            return true; // Retry on network errors
+          }
+        }
+      );
+
+      const data = await response.json();
+      return data as T;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new LimitlessAPIError('Request timeout', 408, 'TIMEOUT');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async getLifelogById(
+    id: string,
+    options: Pick<ListLifelogsOptions, 'includeMarkdown' | 'includeHeadings'> = {}
+  ): Promise<Lifelog> {
+    logger.debug(`Fetching lifelog with ID: ${id}`);
+    
+    const params = new URLSearchParams();
+    if (options.includeMarkdown !== undefined) {
+      params.append('includeMarkdown', String(options.includeMarkdown));
+    }
+    if (options.includeHeadings !== undefined) {
+      params.append('includeHeadings', String(options.includeHeadings));
+    }
+
+    const queryString = params.toString();
+    const endpoint = `/lifelogs/${id}${queryString ? `?${queryString}` : ''}`;
+
+    const response = await this.makeRequest<LimitlessAPIResponse<Lifelog>>(endpoint);
+    
+    if (response.error) {
+      throw new LimitlessAPIError(response.error.message, undefined, response.error.code);
+    }
+
+    return response.data;
+  }
+
+  async listLifelogsByDate(
+    date: string,
+    options: ListLifelogsOptions = {}
+  ): Promise<Lifelog[]> {
+    const formattedDate = formatDate(date);
+    logger.debug(`Listing lifelogs for date: ${formattedDate}`);
+
+    const params = this.buildQueryParams(options);
+    params.append('date', formattedDate);
+
+    return this.fetchAllLifelogs('/lifelogs', params, options.limit);
+  }
+
+  async listLifelogsByRange(options: DateRangeOptions): Promise<Lifelog[]> {
+    const { start, end, ...listOptions } = options;
+    const formattedStart = formatDate(start);
+    const formattedEnd = formatDate(end);
+    
+    logger.debug(`Listing lifelogs from ${formattedStart} to ${formattedEnd}`);
+
+    const params = this.buildQueryParams(listOptions);
+    params.append('start', formattedStart);
+    params.append('end', formattedEnd);
+
+    return this.fetchAllLifelogs('/lifelogs', params, listOptions.limit);
+  }
+
+  async listRecentLifelogs(options: ListLifelogsOptions = {}): Promise<Lifelog[]> {
+    const limit = options.limit || 10;
+    logger.debug(`Listing ${limit} recent lifelogs`);
+
+    const params = this.buildQueryParams(options);
+    params.append('recent', 'true');
+
+    return this.fetchAllLifelogs('/lifelogs', params, limit);
+  }
+
+  async searchLifelogs(options: SearchOptions): Promise<Lifelog[]> {
+    const { searchTerm, fetchLimit = 20, ...listOptions } = options;
+    logger.debug(`Searching for "${searchTerm}" in recent ${fetchLimit} lifelogs`);
+
+    // First fetch recent lifelogs
+    const recentLogs = await this.listRecentLifelogs({ 
+      ...listOptions, 
+      limit: fetchLimit,
+      includeMarkdown: true 
+    });
+
+    // Search within the fetched logs
+    const searchLower = searchTerm.toLowerCase();
+    const results = recentLogs.filter(log => {
+      const titleMatch = log.title?.toLowerCase().includes(searchLower);
+      const contentMatch = log.content?.toLowerCase().includes(searchLower);
+      const markdownMatch = log.markdown?.toLowerCase().includes(searchLower);
+      
+      return titleMatch || contentMatch || markdownMatch;
+    });
+
+    // Apply limit if specified
+    return listOptions.limit ? results.slice(0, listOptions.limit) : results;
+  }
+
+  private buildQueryParams(options: ListLifelogsOptions): URLSearchParams {
+    const params = new URLSearchParams();
+    
+    if (options.timezone) params.append('timezone', options.timezone);
+    if (options.direction) params.append('direction', options.direction);
+    if (options.includeMarkdown !== undefined) {
+      params.append('includeMarkdown', String(options.includeMarkdown));
+    }
+    if (options.includeHeadings !== undefined) {
+      params.append('includeHeadings', String(options.includeHeadings));
+    }
+
+    return params;
+  }
+
+  private async fetchAllLifelogs(
+    endpoint: string,
+    params: URLSearchParams,
+    limit?: number
+  ): Promise<Lifelog[]> {
+    const results: Lifelog[] = [];
+    let nextCursor: string | undefined;
+    const pageSize = 100; // API max page size
+
+    do {
+      if (nextCursor) {
+        params.set('cursor', nextCursor);
+      }
+      params.set('limit', String(Math.min(pageSize, (limit || pageSize) - results.length)));
+
+      const queryString = params.toString();
+      const fullEndpoint = `${endpoint}${queryString ? `?${queryString}` : ''}`;
+
+      const response = await this.makeRequest<LimitlessAPIResponse<Lifelog[]>>(fullEndpoint);
+      
+      if (response.error) {
+        throw new LimitlessAPIError(response.error.message, undefined, response.error.code);
+      }
+
+      results.push(...response.data);
+      nextCursor = response.pagination?.nextCursor;
+
+      // Stop if we've reached the limit or there's no more data
+      if ((limit && results.length >= limit) || !response.pagination?.hasMore) {
+        break;
+      }
+    } while (nextCursor);
+
+    return limit ? results.slice(0, limit) : results;
+  }
+}
