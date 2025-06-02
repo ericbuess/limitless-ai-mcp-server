@@ -10,6 +10,7 @@ import {
   ReadResourceRequestSchema,
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
+  CreateMessageRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { LimitlessClient } from './core/limitless-client';
 import { ToolHandlers } from './tools/handlers';
@@ -17,6 +18,7 @@ import { toolDefinitions } from './tools/definitions';
 import { ResourceManager } from './resources/manager';
 import { ResourceHandlers } from './resources/handlers';
 import { PromptHandlers } from './prompts/handlers';
+import { SamplingHandlers } from './sampling/handlers';
 import { logger } from './utils/logger';
 
 // Server metadata
@@ -53,6 +55,7 @@ async function main() {
   const resourceManager = new ResourceManager(client);
   const resourceHandlers = new ResourceHandlers(resourceManager);
   const promptHandlers = new PromptHandlers();
+  const samplingHandlers = new SamplingHandlers(client);
 
   // Create MCP server
   const server = new Server(
@@ -70,6 +73,7 @@ async function main() {
         prompts: {
           listChanged: false,
         },
+        sampling: {},
       },
     }
   );
@@ -112,6 +116,12 @@ async function main() {
   server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     logger.debug(`Getting prompt: ${request.params.name}`);
     return promptHandlers.handleGetPrompt(request);
+  });
+
+  // Register sampling handler
+  server.setRequestHandler(CreateMessageRequestSchema, async (request) => {
+    logger.debug('Handling sampling request');
+    return samplingHandlers.handleCreateMessage(request);
   });
 
   // Error handling
