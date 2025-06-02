@@ -4,13 +4,21 @@ An advanced Model Context Protocol (MCP) server that enables AI assistants to in
 
 ## 🌟 Features
 
+### Core Capabilities
 - **Full Limitless API Integration**: Access all your Pendant recordings programmatically
 - **Advanced Search**: Search through your recordings with keyword matching
 - **Flexible Querying**: List recordings by date, date range, or get recent recordings
 - **Rich Content Access**: Retrieve markdown content, headings, and metadata
+- **High Performance**: Intelligent caching with LRU eviction and TTL support
 - **Robust Error Handling**: Built-in retry logic and timeout management
 - **Type Safety**: Full TypeScript support with comprehensive type definitions
-- **Extensible Architecture**: Modular design for easy feature additions
+
+### MCP Protocol Implementation
+- **🔧 Tools**: 5 specialized tools for searching and retrieving recordings
+- **📁 Resources**: Browse recordings as structured resources with URI navigation
+- **📝 Prompts**: Pre-built templates for common analysis tasks
+- **🔍 Sampling**: AI-powered content analysis and summarization
+- **🔎 Discovery**: Automatic capability exposure to MCP clients
 
 ## 📋 Requirements
 
@@ -54,6 +62,12 @@ export LIMITLESS_API_KEY="your-api-key-here"
 export LIMITLESS_TIMEOUT=120000  # Timeout in milliseconds
 export LIMITLESS_BASE_URL="https://api.limitless.ai/v1"  # Custom API endpoint
 export LOG_LEVEL="INFO"  # Options: DEBUG, INFO, WARN, ERROR
+
+# Optional: Configure caching
+export CACHE_MAX_SIZE=100  # Maximum cached items
+export CACHE_TTL=300000  # Cache lifetime in ms (5 minutes)
+export SEARCH_CACHE_MAX_SIZE=50  # Search cache size
+export SEARCH_CACHE_TTL=180000  # Search cache lifetime (3 minutes)
 ```
 
 ### 2. Configure your MCP client
@@ -134,6 +148,94 @@ Searches for keywords in recent recordings.
 - `limit`: Maximum results to return
 - `includeMarkdown`: Include markdown content
 - `includeHeadings`: Include headings
+
+## 🔌 MCP Protocol Features
+
+This server implements all five core MCP protocol features to provide multiple ways to access and analyze your Limitless data:
+
+### 📁 Resources
+Browse and access your lifelogs as structured resources. Resources provide a file-system-like interface to your recordings.
+
+**Available URIs:**
+- `lifelog://recent` - Browse recent recordings
+- `lifelog://2024-01-15` - Browse recordings from a specific date
+- `lifelog://2024-01-15/abc123` - Access a specific recording
+
+**Usage in Claude:**
+```
+"Browse my recent recordings"
+"Show me resources from January 15th"
+"Open lifelog://recent"
+```
+
+### 📝 Prompts
+Pre-built prompt templates for common analysis tasks. Each prompt can be customized with arguments.
+
+**Available Prompts:**
+1. **daily-summary** - Summarize all recordings from a specific day
+   - Arguments: `date` (required)
+   
+2. **action-items** - Extract action items from recordings
+   - Arguments: `date` or `dateRange` (optional)
+   
+3. **key-topics** - Identify main topics discussed
+   - Arguments: `date` or `searchTerm` (optional)
+   
+4. **meeting-notes** - Format recordings as structured meeting notes
+   - Arguments: `date` (required)
+   
+5. **search-insights** - Analyze patterns in search results
+   - Arguments: `searchTerm` (required)
+
+**Usage in Claude:**
+```
+"Use the daily-summary prompt for yesterday"
+"Extract action items from this week"
+"Show me key topics I discussed about the project"
+```
+
+### 🔍 Sampling
+Enable AI-powered content analysis of your recordings. The sampling feature allows the AI to process and analyze lifelog content directly.
+
+**Capabilities:**
+- Summarize long recordings
+- Extract specific information
+- Identify patterns and trends
+- Generate insights from multiple recordings
+- Analyze sentiment and tone
+
+**Usage in Claude:**
+```
+"Analyze the tone of my meetings this week"
+"Summarize the key decisions from yesterday's recordings"
+"Find patterns in how I discuss project timelines"
+```
+
+### 🔎 Discovery
+Automatically exposes server capabilities to MCP clients. This allows Claude and other tools to understand what features are available.
+
+**Exposed Information:**
+- Server name and version
+- Available tools, resources, and prompts
+- Supported features and limitations
+- API capabilities
+
+### ⚡ Performance & Caching
+
+The server includes an intelligent caching system to optimize performance:
+
+**Cache Features:**
+- LRU (Least Recently Used) eviction strategy
+- Configurable TTL (Time To Live)
+- Separate caches for lifelogs and search results
+- Automatic cache invalidation
+- Cache statistics tracking
+
+**Configuration (via environment variables):**
+- `CACHE_MAX_SIZE` - Maximum cached items (default: 100)
+- `CACHE_TTL` - Cache lifetime in ms (default: 300000 / 5 minutes)
+- `SEARCH_CACHE_MAX_SIZE` - Search cache size (default: 50)
+- `SEARCH_CACHE_TTL` - Search cache lifetime (default: 180000 / 3 minutes)
 
 ## 💡 Usage Examples
 
