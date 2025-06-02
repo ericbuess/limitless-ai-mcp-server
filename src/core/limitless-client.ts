@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import {
   Lifelog,
   ListLifelogsOptions,
@@ -9,7 +8,7 @@ import {
 } from '../types/limitless';
 import { logger } from '../utils/logger';
 import { retry } from '../utils/retry';
-import { formatDate, parseDate } from '../utils/date';
+import { formatDate } from '../utils/date';
 
 const DEFAULT_BASE_URL = 'https://api.limitless.ai/v1';
 const DEFAULT_TIMEOUT = 120000; // 120 seconds
@@ -61,7 +60,7 @@ export class LimitlessClient {
           const res = await fetch(url, {
             ...options,
             headers: {
-              'Authorization': `Bearer ${this.apiKey}`,
+              'X-API-Key': this.apiKey,
               'Content-Type': 'application/json',
               ...options.headers,
             },
@@ -69,12 +68,12 @@ export class LimitlessClient {
           });
 
           if (!res.ok) {
-            const error = await res.json().catch(() => ({ message: res.statusText }));
+            const errorData = await res.json().catch(() => ({ message: res.statusText })) as any;
             throw new LimitlessAPIError(
-              error.message || `HTTP ${res.status}`,
+              errorData.message || `HTTP ${res.status}`,
               res.status,
-              error.code,
-              error
+              errorData.code,
+              errorData
             );
           }
 
@@ -99,7 +98,10 @@ export class LimitlessClient {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new LimitlessAPIError('Request timeout', 408, 'TIMEOUT');
       }
-      throw error;
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error(String(error));
     } finally {
       clearTimeout(timeoutId);
     }
@@ -232,7 +234,14 @@ export class LimitlessClient {
         throw new LimitlessAPIError(response.error.message, undefined, response.error.code);
       }
 
-      results.push(...response.data);
+      // Handle both array response and object with lifelogs array
+      if (Array.isArray(response.data)) {
+        results.push(...response.data);
+      } else if (response.data && 'lifelogs' in response.data) {
+        results.push(...(response.data as any).lifelogs);
+      } else {
+        throw new Error('Unexpected API response format');
+      }
       nextCursor = response.pagination?.nextCursor;
 
       // Stop if we've reached the limit or there's no more data
