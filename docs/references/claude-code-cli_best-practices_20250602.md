@@ -14,7 +14,8 @@ This post outlines general patterns that have proven effective, both for Anthrop
 _Looking for more detailed information? Our comprehensive documentation at [claude.ai/code](https://claude.ai/code)_ _covers all the features mentioned in this post and provides additional examples, implementation details, and advanced techniques._
 
 1. Customize your setup
------------------------
+
+---
 
 Claude Code is an agentic coding assistant that automatically pulls context into prompts. This context gathering consumes time and tokens, but you can optimize it through environment tuning.
 
@@ -22,14 +23,14 @@ Claude Code is an agentic coding assistant that automatically pulls context into
 
 `CLAUDE.md` is a special file that Claude automatically pulls into context when starting a conversation. This makes it an ideal place for documenting:
 
-*   Common bash commands
-*   Core files and utility functions
-*   Code style guidelines
-*   Testing instructions
-*   Repository etiquette (e.g., branch naming, merge vs. rebase, etc.)
-*   Developer environment setup (e.g., pyenv use, which compilers work)
-*   Any unexpected behaviors or warnings particular to the project
-*   Other information you want Claude to remember
+- Common bash commands
+- Core files and utility functions
+- Code style guidelines
+- Testing instructions
+- Repository etiquette (e.g., branch naming, merge vs. rebase, etc.)
+- Developer environment setup (e.g., pyenv use, which compilers work)
+- Any unexpected behaviors or warnings particular to the project
+- Other information you want Claude to remember
 
 There’s no required format for `CLAUDE.md` files. We recommend keeping them concise and human-readable. For example:
 
@@ -49,10 +50,10 @@ There’s no required format for `CLAUDE.md` files. We recommend keeping them co
 
 You can place `CLAUDE.md` files in several locations:
 
-*   **The root of your repo**, or wherever you run `claude` from (the most common usage). Name it `CLAUDE.md` and check it into git so that you can share it across sessions and with your team (recommended), or name it `CLAUDE.local.md` and `.gitignore` it
-*   **Any parent of the directory** where you run `claude`. This is most useful for monorepos, where you might run `claude` from `root/foo`, and have `CLAUDE.md` files in both `root/CLAUDE.md` and `root/foo/CLAUDE.md`. Both of these will be pulled into context automatically
-*   **Any child of the directory** where you run `claude`. This is the inverse of the above, and in this case, Claude will pull in `CLAUDE.md` files on demand when you work with files in child directories
-*   **Your home folder** (`~/.claude/CLAUDE.md`), which applies it to all your _claude_ sessions
+- **The root of your repo**, or wherever you run `claude` from (the most common usage). Name it `CLAUDE.md` and check it into git so that you can share it across sessions and with your team (recommended), or name it `CLAUDE.local.md` and `.gitignore` it
+- **Any parent of the directory** where you run `claude`. This is most useful for monorepos, where you might run `claude` from `root/foo`, and have `CLAUDE.md` files in both `root/CLAUDE.md` and `root/foo/CLAUDE.md`. Both of these will be pulled into context automatically
+- **Any child of the directory** where you run `claude`. This is the inverse of the above, and in this case, Claude will pull in `CLAUDE.md` files on demand when you work with files in child directories
+- **Your home folder** (`~/.claude/CLAUDE.md`), which applies it to all your _claude_ sessions
 
 When you run the `/init` command, Claude will automatically generate a `CLAUDE.md` for you.
 
@@ -72,17 +73,18 @@ By default, Claude Code requests permission for any action that might modify you
 
 There are four ways to manage allowed tools:
 
-*   **Select "Always allow"** when prompted during a session.
-*   **Use the`/allowed-tools`command** after starting Claude Code to add or remove tools from the allowlist. For example, you can add `Edit` to always allow file edits, `Bash(git commit:*)` to allow git commits, or `mcp__puppeteer__puppeteer_navigate` to allow navigating with the Puppeteer MCP server.
-*   **Manually edit** your `.claude/settings.json` or `~/.claude.json` (we recommend checking the former into source control to share with your team)_._
-*   **Use the`--allowedTools` CLI flag** for session-specific permissions.
+- **Select "Always allow"** when prompted during a session.
+- **Use the`/allowed-tools`command** after starting Claude Code to add or remove tools from the allowlist. For example, you can add `Edit` to always allow file edits, `Bash(git commit:*)` to allow git commits, or `mcp__puppeteer__puppeteer_navigate` to allow navigating with the Puppeteer MCP server.
+- **Manually edit** your `.claude/settings.json` or `~/.claude.json` (we recommend checking the former into source control to share with your team)_._
+- **Use the`--allowedTools` CLI flag** for session-specific permissions.
 
 ### d. If using GitHub, install the gh CLI
 
 Claude knows how to use the `gh` CLI to interact with GitHub for creating issues, opening pull requests, reading comments, and more. Without `gh` installed, Claude can still use the GitHub API or MCP server (if you have it installed).
 
 2. Give Claude more tools
--------------------------
+
+---
 
 Claude has access to your shell environment, where you can build up sets of convenience scripts and functions for it just like you would for yourself. It can also leverage more complex tools through MCP and REST APIs.
 
@@ -90,17 +92,17 @@ Claude has access to your shell environment, where you can build up sets of conv
 
 Claude Code inherits your bash environment, giving it access to all your tools. While Claude knows common utilities like unix tools and `gh`, it won't know about your custom bash tools without instructions:
 
-1.   Tell Claude the tool name with usage examples
-2.   Tell Claude to run`--help`to see tool documentation
-3.   Document frequently used tools in `CLAUDE.md`
+1.  Tell Claude the tool name with usage examples
+2.  Tell Claude to run`--help`to see tool documentation
+3.  Document frequently used tools in `CLAUDE.md`
 
 ### b. Use Claude with MCP
 
 Claude Code functions as both an MCP server and client. As a client, it can connect to any number of MCP servers to access their tools in three ways:
 
-*   **In project config** (available when running Claude Code in that directory)
-*   **In global config**(available in all projects)
-*   **In a checked-in `.mcp.json` file** (available to anyone working in your codebase). For example, you can add Puppeteer and Sentry servers to your `.mcp.json`, so that every engineer working on your repo can use these out of the box.
+- **In project config** (available when running Claude Code in that directory)
+- **In global config**(available in all projects)
+- **In a checked-in `.mcp.json` file** (available to anyone working in your codebase). For example, you can add Puppeteer and Sentry servers to your `.mcp.json`, so that every engineer working on your repo can use these out of the box.
 
 When working with MCP, it can also be helpful to launch Claude with the `--mcp-debug` flag to help identify configuration issues.
 
@@ -132,7 +134,8 @@ Remember to use the GitHub CLI (`gh`) for all GitHub-related tasks.
 Putting the above content into `.claude/commands/fix-github-issue.md` makes it available as the `/project:fix-github-issue` command in Claude Code. You could then for example use `/project:fix-github-issue 1234` to have Claude fix issue #1234. Similarly, you can add your own personal commands to the`~/.claude/commands` folder for commands you want available in all of your sessions.
 
 3. Try common workflows
------------------------
+
+---
 
 Claude Code doesn’t impose a specific workflow, giving you the flexibility to use it how you want. Within the space this flexibility affords, several successful patterns for effectively using Claude Code have emerged across our community of users:
 
@@ -140,14 +143,14 @@ Claude Code doesn’t impose a specific workflow, giving you the flexibility to 
 
 This versatile workflow suits many problems:
 
-1.   **Ask Claude to read relevant files, images, or URLs**, providing either general pointers ("read the file that handles logging") or specific filenames ("read logging.py"), but explicitly tell it not to write any code just yet.
-    1.   This is the part of the workflow where you should consider strong use of subagents, especially for complex problems. Telling Claude to use subagents to verify details or investigate particular questions it might have, especially early on in a conversation or task, tends to preserve context availability without much downside in terms of lost efficiency.
+1.  **Ask Claude to read relevant files, images, or URLs**, providing either general pointers ("read the file that handles logging") or specific filenames ("read logging.py"), but explicitly tell it not to write any code just yet.
+1.  This is the part of the workflow where you should consider strong use of subagents, especially for complex problems. Telling Claude to use subagents to verify details or investigate particular questions it might have, especially early on in a conversation or task, tends to preserve context availability without much downside in terms of lost efficiency.
 
-2.   **Ask Claude to make a plan for how to approach a specific problem**. We recommend using the word "think" to trigger extended thinking mode, which gives Claude additional computation time to evaluate alternatives more thoroughly. These specific phrases are mapped directly to increasing levels of thinking budget in the system: "think" < "think hard" < "think harder" < "ultrathink." Each level allocates progressively more thinking budget for Claude to use.
-    1.   If the results of this step seem reasonable, you can have Claude create a document or a GitHub issue with its plan so that you can reset to this spot if the implementation (step 3) isn’t what you want.
+1.  **Ask Claude to make a plan for how to approach a specific problem**. We recommend using the word "think" to trigger extended thinking mode, which gives Claude additional computation time to evaluate alternatives more thoroughly. These specific phrases are mapped directly to increasing levels of thinking budget in the system: "think" < "think hard" < "think harder" < "ultrathink." Each level allocates progressively more thinking budget for Claude to use.
+1.  If the results of this step seem reasonable, you can have Claude create a document or a GitHub issue with its plan so that you can reset to this spot if the implementation (step 3) isn’t what you want.
 
-3.   **Ask Claude to implement its solution in code**. This is also a good place to ask it to explicitly verify the reasonableness of its solution as it implements pieces of the solution.
-4.   **Ask Claude to commit the result and create a pull request**. If relevant, this is also a good time to have Claude update any READMEs or changelogs with an explanation of what it just did.
+1.  **Ask Claude to implement its solution in code**. This is also a good place to ask it to explicitly verify the reasonableness of its solution as it implements pieces of the solution.
+1.  **Ask Claude to commit the result and create a pull request**. If relevant, this is also a good time to have Claude update any READMEs or changelogs with an explanation of what it just did.
 
 Steps #1-#2 are crucial—without them, Claude tends to jump straight to coding a solution. While sometimes that's what you want, asking Claude to research and plan first significantly improves performance for problems requiring deeper thinking upfront.
 
@@ -155,13 +158,13 @@ Steps #1-#2 are crucial—without them, Claude tends to jump straight to coding 
 
 This is an Anthropic-favorite workflow for changes that are easily verifiable with unit, integration, or end-to-end tests. Test-driven development (TDD) becomes even more powerful with agentic coding:
 
-1.   **Ask Claude to write tests based on expected input/output pairs**. Be explicit about the fact that you’re doing test-driven development so that it avoids creating mock implementations, even for functionality that doesn’t exist yet in the codebase.
-2.   **Tell Claude to run the tests and confirm they fail**. Explicitly telling it not to write any implementation code at this stage is often helpful.
-3.   **Ask Claude to commit the tests**when you’re satisfied with them.
-4.   **Ask Claude to write code that passes the tests**, instructing it not to modify the tests. Tell Claude to keep going until all tests pass. It will usually take a few iterations for Claude to write code, run the tests, adjust the code, and run the tests again.
-    1.   At this stage, it can help to ask it to verify with independent subagents that the implementation isn’t overfitting to the tests
+1.  **Ask Claude to write tests based on expected input/output pairs**. Be explicit about the fact that you’re doing test-driven development so that it avoids creating mock implementations, even for functionality that doesn’t exist yet in the codebase.
+2.  **Tell Claude to run the tests and confirm they fail**. Explicitly telling it not to write any implementation code at this stage is often helpful.
+3.  **Ask Claude to commit the tests**when you’re satisfied with them.
+4.  **Ask Claude to write code that passes the tests**, instructing it not to modify the tests. Tell Claude to keep going until all tests pass. It will usually take a few iterations for Claude to write code, run the tests, adjust the code, and run the tests again.
+5.  At this stage, it can help to ask it to verify with independent subagents that the implementation isn’t overfitting to the tests
 
-5.   **Ask Claude to commit the code** once you’re satisfied with the changes.
+6.  **Ask Claude to commit the code** once you’re satisfied with the changes.
 
 Claude performs best when it has a clear target to iterate against—a visual mock, a test case, or another kind of output. By providing expected outputs like tests, Claude can make changes, evaluate results, and incrementally improve until it succeeds.
 
@@ -169,10 +172,10 @@ Claude performs best when it has a clear target to iterate against—a visual mo
 
 Similar to the testing workflow, you can provide Claude with visual targets:
 
-1.   **Give Claude a way to take browser screenshots** (e.g., with the [Puppeteer MCP server](https://github.com/modelcontextprotocol/servers/tree/c19925b8f0f2815ad72b08d2368f0007c86eb8e6/src/puppeteer), an [iOS simulator MCP server](https://github.com/joshuayoes/ios-simulator-mcp), or manually copy / paste screenshots into Claude).
-2.   **Give Claude a visual mock** by copying / pasting or drag-dropping an image, or giving Claude the image file path.
-3.   **Ask Claude to implement the design** in code, take screenshots of the result, and iterate until its result matches the mock.
-4.   **Ask Claude to commit** when you're satisfied.
+1.  **Give Claude a way to take browser screenshots** (e.g., with the [Puppeteer MCP server](https://github.com/modelcontextprotocol/servers/tree/c19925b8f0f2815ad72b08d2368f0007c86eb8e6/src/puppeteer), an [iOS simulator MCP server](https://github.com/joshuayoes/ios-simulator-mcp), or manually copy / paste screenshots into Claude).
+2.  **Give Claude a visual mock** by copying / pasting or drag-dropping an image, or giving Claude the image file path.
+3.  **Ask Claude to implement the design** in code, take screenshots of the result, and iterate until its result matches the mock.
+4.  **Ask Claude to commit** when you're satisfied.
 
 Like humans, Claude's outputs tend to improve significantly with iteration. While the first version might be good, after 2-3 iterations it will typically look much better. Give Claude the tools to see its outputs for best results.
 
@@ -188,12 +191,12 @@ Letting Claude run arbitrary commands is risky and can result in data loss, syst
 
 When onboarding to a new codebase, use Claude Code for learning and exploration. You can ask Claude the same sorts of questions you would ask another engineer on the project when pair programming. Claude can agentically search the codebase to answer general questions like:
 
-*   How does logging work?
-*   How do I make a new API endpoint?
-*   What does `async move { ... }` do on line 134 of `foo.rs`?
-*   What edge cases does `CustomerOnboardingFlowImpl` handle?
-*   Why are we calling `foo()` instead of `bar()` on line 333?
-*   What’s the equivalent of line 334 of `baz.py` in Java?
+- How does logging work?
+- How do I make a new API endpoint?
+- What does `async move { ... }` do on line 134 of `foo.rs`?
+- What edge cases does `CustomerOnboardingFlowImpl` handle?
+- Why are we calling `foo()` instead of `bar()` on line 333?
+- What’s the equivalent of line 334 of `baz.py` in Java?
 
 At Anthropic, using Claude Code in this way has become our core onboarding workflow, significantly improving ramp-up time and reducing load on other engineers. No special prompting is required! Simply ask questions, and Claude will explore the code to find answers.
 
@@ -203,18 +206,18 @@ At Anthropic, using Claude Code in this way has become our core onboarding workf
 
 Claude can effectively handle many git operations. Many Anthropic engineers use Claude for 90%+ of our _git_ interactions:
 
-*   **Searching _git_ history** to answer questions like "What changes made it into v1.2.3?", "Who owns this particular feature?", or "Why was this API designed this way?" It helps to explicitly prompt Claude to look through git history to answer queries like these.
-*   **Writing commit messages**.Claude will look at your changes and recent history automatically to compose a message taking all the relevant context into account
-*   **Handling complex git operations** like reverting files, resolving rebase conflicts, and comparing and grafting patches
+- **Searching _git_ history** to answer questions like "What changes made it into v1.2.3?", "Who owns this particular feature?", or "Why was this API designed this way?" It helps to explicitly prompt Claude to look through git history to answer queries like these.
+- **Writing commit messages**.Claude will look at your changes and recent history automatically to compose a message taking all the relevant context into account
+- **Handling complex git operations** like reverting files, resolving rebase conflicts, and comparing and grafting patches
 
 ### g. Use Claude to interact with GitHub
 
 Claude Code can manage many GitHub interactions:
 
-*   **Creating pull requests**: Claude understands the shorthand "pr" and will generate appropriate commit messages based on the diff and surrounding context.
-*   **Implementing one-shot resolutions** for simple code review comments: just tell it to fix comments on your PR (optionally, give it more specific instructions) and push back to the PR branch when it's done.
-*   **Fixing failing builds** or linter warnings
-*   **Categorizing and triaging open issues** by asking Claude to loop over open GitHub issues
+- **Creating pull requests**: Claude understands the shorthand "pr" and will generate appropriate commit messages based on the diff and surrounding context.
+- **Implementing one-shot resolutions** for simple code review comments: just tell it to fix comments on your PR (optionally, give it more specific instructions) and push back to the PR branch when it's done.
+- **Fixing failing builds** or linter warnings
+- **Categorizing and triaging open issues** by asking Claude to loop over open GitHub issues
 
 This eliminates the need to remember `gh` command line syntax while automating routine tasks.
 
@@ -225,7 +228,8 @@ Researchers and data scientists at Anthropic use Claude Code to read and write J
 You can also ask Claude to clean up or make aesthetic improvements to your Jupyter notebook before you show it to colleagues. Specifically telling it to make the notebook or its data visualizations “aesthetically pleasing” tends to help remind it that it’s optimizing for a human viewing experience.
 
 4. Optimize your workflow
--------------------------
+
+---
 
 The suggestions below apply across all workflows:
 
@@ -235,11 +239,11 @@ Claude Code’s success rate improves significantly with more specific instructi
 
 For example:
 
-| Poor | Good |
-| --- | --- |
-| add tests for foo.py | write a new test case for foo.py, covering the edge case where the user is logged out. avoid mocks |
-| why does ExecutionFactory have such a weird api? | look through ExecutionFactory's git history and summarize how its api came to be |
-| add a calendar widget | look at how existing widgets are implemented on the home page to understand the patterns and specifically how code and interfaces are separated out. HotDogWidget.php is a good example to start with. then, follow the pattern to implement a new calendar widget that lets the user select a month and paginate forwards/backwards to pick a year. Build from scratch without libraries other than the ones already used in the rest of the codebase. |
+| Poor                                             | Good                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| add tests for foo.py                             | write a new test case for foo.py, covering the edge case where the user is logged out. avoid mocks                                                                                                                                                                                                                                                                                                                                                      |
+| why does ExecutionFactory have such a weird api? | look through ExecutionFactory's git history and summarize how its api came to be                                                                                                                                                                                                                                                                                                                                                                        |
+| add a calendar widget                            | look at how existing widgets are implemented on the home page to understand the patterns and specifically how code and interfaces are separated out. HotDogWidget.php is a good example to start with. then, follow the pattern to implement a new calendar widget that lets the user select a month and paginate forwards/backwards to pick a year. Build from scratch without libraries other than the ones already used in the rest of the codebase. |
 
 Claude can infer intent, but it can't read minds. Specificity leads to better alignment with expectations.
 
@@ -249,9 +253,9 @@ Claude can infer intent, but it can't read minds. Specificity leads to better al
 
 Claude excels with images and diagrams through several methods:
 
-*   **Paste screenshots**(pro tip: hit _cmd+ctrl+shift+4_ in macOS to screenshot to clipboard and _ctrl+v_ to paste. Note that this is not cmd+v like you would usually use to paste on mac and does not work remotely.)
-*   **Drag and drop** images directly into the prompt input
-*   **Provide file paths**for images
+- **Paste screenshots**(pro tip: hit _cmd+ctrl+shift+4_ in macOS to screenshot to clipboard and _ctrl+v_ to paste. Note that this is not cmd+v like you would usually use to paste on mac and does not work remotely.)
+- **Drag and drop** images directly into the prompt input
+- **Provide file paths**for images
 
 This is particularly useful when working with design mocks as reference points for UI development, and visual charts for analysis and debugging. If you are not adding visuals to context, it can still be helpful to be clear with Claude about how important it is for the result to be visually appealing.
 
@@ -273,10 +277,10 @@ While auto-accept mode (shift+tab to toggle) lets Claude work autonomously, you'
 
 These four tools help with course correction:
 
-*   **Ask Claude to make a plan** before coding. Explicitly tell it not to code until you’ve confirmed its plan looks good.
-*   **Press Escape to interrupt** Claude during any phase (thinking, tool calls, file edits), preserving context so you can redirect or expand instructions.
-*   **Double-tap Escape to jump back in history**, edit a previous prompt, and explore a different direction. You can edit the prompt and repeat until you get the result you're looking for.
-*   **Ask Claude to undo changes**, often in conjunction with option #2 to take a different approach.
+- **Ask Claude to make a plan** before coding. Explicitly tell it not to code until you’ve confirmed its plan looks good.
+- **Press Escape to interrupt** Claude during any phase (thinking, tool calls, file edits), preserving context so you can redirect or expand instructions.
+- **Double-tap Escape to jump back in history**, edit a previous prompt, and explore a different direction. You can edit the prompt and repeat until you get the result you're looking for.
+- **Ask Claude to undo changes**, often in conjunction with option #2 to take a different approach.
 
 Though Claude Code occasionally solves problems perfectly on the first attempt, using these correction tools generally produces better solutions faster.
 
@@ -290,22 +294,23 @@ For large tasks with multiple steps or requiring exhaustive solutions—like cod
 
 For example, to fix a large number of lint issues, you can do the following:
 
-1.   **Tell Claude to run the lint command** and write all resulting errors (with filenames and line numbers) to a Markdown checklist
-2.   **Instruct Claude to address each issue one by one**, fixing and verifying before checking it off and moving to the next
+1.  **Tell Claude to run the lint command** and write all resulting errors (with filenames and line numbers) to a Markdown checklist
+2.  **Instruct Claude to address each issue one by one**, fixing and verifying before checking it off and moving to the next
 
 ### h. Pass data into Claude
 
 Several methods exist for providing data to Claude:
 
-*   **Copy and paste** directly into your prompt (most common approach)
-*   **Pipe into Claude Code** (e.g., `cat foo.txt | claude`), particularly useful for logs, CSVs, and large data
-*   **Tell Claude to pull data** via bash commands, MCP tools, or custom slash commands
-*   **Ask Claude to read files** or fetch URLs (works for images too)
+- **Copy and paste** directly into your prompt (most common approach)
+- **Pipe into Claude Code** (e.g., `cat foo.txt | claude`), particularly useful for logs, CSVs, and large data
+- **Tell Claude to pull data** via bash commands, MCP tools, or custom slash commands
+- **Ask Claude to read files** or fetch URLs (works for images too)
 
 Most sessions involve a combination of these approaches. For example, you can pipe in a log file, then tell Claude to use a tool to pull in additional context to debug the logs.
 
 5. Use headless mode to automate your infra
--------------------------------------------
+
+---
 
 Claude Code includes [headless mode](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview#automate-ci-and-infra-workflows) for non-interactive contexts like CI, pre-commit hooks, build scripts, and automation. Use the `-p` flag with a prompt to enable headless mode, and `--output-format stream-json` for streaming JSON output.
 
@@ -320,7 +325,8 @@ Headless mode can power automations triggered by GitHub events, such as when a n
 Claude Code can provide [subjective code reviews](https://github.com/anthropics/claude-code/blob/main/.github/actions/claude-code-action/action.yml) beyond what traditional linting tools detect, identifying issues like typos, stale comments, misleading function or variable names, and more.
 
 6. Uplevel with multi-Claude workflows
---------------------------------------
+
+---
 
 Beyond standalone usage, some of the most powerful applications involve running multiple Claude instances in parallel:
 
@@ -328,11 +334,11 @@ Beyond standalone usage, some of the most powerful applications involve running 
 
 A simple but effective approach is to have one Claude write code while another reviews or tests it. Similar to working with multiple engineers, sometimes having separate context is beneficial:
 
-1.   Use Claude to write code
-2.   Run `/clear` or start a second Claude in another terminal
-3.   Have the second Claude review the first Claude's work
-4.   Start another Claude (or `/clear` again) to read both the code and review feedback
-5.   Have this Claude edit the code based on the feedback
+1.  Use Claude to write code
+2.  Run `/clear` or start a second Claude in another terminal
+3.  Have the second Claude review the first Claude's work
+4.  Start another Claude (or `/clear` again) to read both the code and review feedback
+5.  Have this Claude edit the code based on the feedback
 
 You can do something similar with tests: have one Claude write tests, then have another Claude write code to make the tests pass. You can even have your Claude instances communicate with each other by giving them separate working scratchpads and telling them which one to write to and which one to read from.
 
@@ -342,10 +348,10 @@ This separation often yields better results than having a single Claude handle e
 
 Rather than waiting for Claude to complete each step, something many engineers at Anthropic do is:
 
-1.   **Create 3-4 git checkouts** in separate folders
-2.   **Open each folder** in separate terminal tabs
-3.   **Start Claude in each folder**with different tasks
-4.   **Cycle through** to check progress and approve/deny permission requests
+1.  **Create 3-4 git checkouts** in separate folders
+2.  **Open each folder** in separate terminal tabs
+3.  **Start Claude in each folder**with different tasks
+4.  **Cycle through** to check progress and approve/deny permission requests
 
 ### c. Use git worktrees
 
@@ -353,17 +359,17 @@ This approach shines for multiple independent tasks, offering a lighter-weight a
 
 Using git worktrees enables you to run multiple Claude sessions simultaneously on different parts of your project, each focused on its own independent task. For instance, you might have one Claude refactoring your authentication system while another builds a completely unrelated data visualization component. Since the tasks don't overlap, each Claude can work at full speed without waiting for the other's changes or dealing with merge conflicts:
 
-1.   **Create worktrees**: `git worktree add ../project-feature-a feature-a`
-2.   **Launch Claude in each worktree**: `cd ../project-feature-a && claude`
-3.   **Create additional worktrees** as needed (repeat steps 1-2 in new terminal tabs)
+1.  **Create worktrees**: `git worktree add ../project-feature-a feature-a`
+2.  **Launch Claude in each worktree**: `cd ../project-feature-a && claude`
+3.  **Create additional worktrees** as needed (repeat steps 1-2 in new terminal tabs)
 
 Some tips:
 
-*   Use consistent naming conventions
-*   Maintain one terminal tab per worktree
-*   If you’re using iTerm2 on Mac, [set up notifications](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview#notification-setup) for when Claude needs attention
-*   Use separate IDE windows for different worktrees
-*   Clean up when finished: `git worktree remove ../project-feature-a`
+- Use consistent naming conventions
+- Maintain one terminal tab per worktree
+- If you’re using iTerm2 on Mac, [set up notifications](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview#notification-setup) for when Claude needs attention
+- Use separate IDE windows for different worktrees
+- Clean up when finished: `git worktree remove ../project-feature-a`
 
 ### d. Use headless mode with a custom harness
 
@@ -371,20 +377,19 @@ Some tips:
 
 1. **Fanning out** handles large migrations or analyses (e.g., analyzing sentiment in hundreds of logs or analyzing thousands of CSVs):
 
-1.   Have Claude write a script to generate a task list. For example, generate a list of 2k files that need to be migrated from framework A to framework B.
-2.   Loop through tasks, calling Claude programmatically for each and giving it a task and a set of tools it can use. For example: `claude -p “migrate foo.py from React to Vue. When you are done, you MUST return the string OK if you succeeded, or FAIL if the task failed.” --allowedTools Edit Bash(git commit:*)`
-3.   Run the script several times and refine your prompt to get the desired outcome.
+1. Have Claude write a script to generate a task list. For example, generate a list of 2k files that need to be migrated from framework A to framework B.
+1. Loop through tasks, calling Claude programmatically for each and giving it a task and a set of tools it can use. For example: `claude -p “migrate foo.py from React to Vue. When you are done, you MUST return the string OK if you succeeded, or FAIL if the task failed.” --allowedTools Edit Bash(git commit:*)`
+1. Run the script several times and refine your prompt to get the desired outcome.
 
-2. **Pipelining** integrates Claude into existing data/processing pipelines:
+1. **Pipelining** integrates Claude into existing data/processing pipelines:
 
-1.   Call `claude -p “<your prompt>” --json | your_command`, where `your_command` is the next step of your processing pipeline
-2.   That’s it! JSON output (optional) can help provide structure for easier automated processing.
+1. Call `claude -p “<your prompt>” --json | your_command`, where `your_command` is the next step of your processing pipeline
+1. That’s it! JSON output (optional) can help provide structure for easier automated processing.
 
 For both of these use cases, it can be helpful to use the `--verbose` flag for debugging the Claude invocation. We generally recommend turning verbose mode off in production for cleaner output.
 
 What are your tips and best practices for working with Claude Code? Tag @AnthropicAI so we can see what you're building!
 
-Acknowledgements
-----------------
+## Acknowledgements
 
 Written by Boris Cherny. This work draws upon best practices from across the broader Claude Code user community, whose creative approaches and workflows continue to inspire us. Special thanks also to Daisy Hollman, Ashwin Bhat, Cat Wu, Sid Bidasaria, Cal Rueb, Nodir Turakulov, Barry Zhang, Drew Hodun and many other Anthropic engineers whose valuable insights and practical experience with Claude Code helped shape these recommendations.

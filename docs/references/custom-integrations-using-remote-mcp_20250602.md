@@ -4,7 +4,8 @@ URL Source: https://support.anthropic.com/en/articles/11175166-about-custom-inte
 
 Markdown Content:
 ⚠️Security & Privacy with Custom Integrations (beta)
-----------------------------------------------------
+
+---
 
 Be aware that custom integrations allow you to connect Claude to services that have not been verified by Anthropic, and allow Claude to access and take action in these services. Consider the following to minimize security and privacy risks when using this feature:
 
@@ -12,22 +13,19 @@ In some circumstances, MCP server developers may change their tool’s behavior 
 
 For more guidance, review the **Security & Privacy Considerations** section below.
 
-What are custom integrations?
------------------------------
+## What are custom integrations?
 
 Custom integrations let you connect Claude directly to the tools and data sources that matter most to your workflows. This enables Claude to operate within your favorite software and draw insights from the complete context of your external tools.
 
 You can:
 
-What are remote MCP servers?
-----------------------------
+## What are remote MCP servers?
 
 MCP is an open standard, created by Anthropic, for AI applications to connect to tools and data.
 
 Previously, MCP servers primarily ran locally (i.e. on a user’s laptop). Now, developers can build and host remote MCP servers that communicate with AI apps over the internet. Remote MCP servers give models access to internet-hosted tools and data, transforming Claude into an informed teammate that can independently handle complex, multi-step projects tailored to your needs.
 
-Getting Started with Custom Integrations
-----------------------------------------
+## Getting Started with Custom Integrations
 
 ### Using Existing Integrations
 
@@ -51,8 +49,7 @@ You can remove or edit the configuration of your integration:
 
 You can enable Integrations via the Search and tools menu in the chat interface. For integrations that require authentication, click “Connect” to go through the authentication flow and grant permission for Claude to access the service. After connecting, use the same menu to enable or disable specific tools made available by the server.
 
-Security & Privacy Considerations
----------------------------------
+## Security & Privacy Considerations
 
 Custom integrations allow you to connect Claude to arbitrary services that have not been verified by Anthropic. When you connect Claude to external services, you're granting it the ability to access and potentially modify data within those services based on your permissions. It’s important to make sure you’re only connecting to remote MCP servers that you trust and that you’re aware of Claude’s interactions with connected integrations.
 
@@ -80,7 +77,7 @@ _Note:_[Advanced Research](https://www.anthropic.com/news/integrations) is not c
 
 When using Research with custom integrations:
 
-* * *
+---
 
 Related Articles
 

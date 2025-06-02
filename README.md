@@ -117,6 +117,7 @@ claude mcp remove limitless -s user
 #### Claude Desktop Configuration
 
 1. **Find your Claude Desktop config file**:
+
    - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
    - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
    - **Linux**: `~/.config/Claude/claude_desktop_config.json`
@@ -138,6 +139,7 @@ claude mcp remove limitless -s user
 ```
 
 3. **Replace the placeholders**:
+
    - `/path/to/limitless-ai-mcp-server` → Your actual installation path (e.g., `/Users/yourname/limitless-ai-mcp-server`)
    - `your-api-key-here` → Your Limitless API key from [limitless.ai/developers](https://limitless.ai/developers)
 
@@ -458,12 +460,14 @@ export LOG_LEVEL=DEBUG
 ### Claude Desktop Specific Issues
 
 1. **MCP server not showing up**
+
    - Ensure the config file is valid JSON (check with a JSON validator)
    - Verify the path to `dist/index.js` is absolute, not relative
    - Make sure you've run `npm run build` after cloning
    - Restart Claude Desktop completely
 
 2. **"Command failed" errors**
+
    - Check that Node.js 22+ is installed: `node --version`
    - Verify the server works locally: `LIMITLESS_API_KEY=your-key node dist/index.js`
    - Check Claude Desktop logs: Help → Show Logs
