@@ -57,7 +57,9 @@ async function main() {
   const promptHandlers = new PromptHandlers();
   const samplingHandlers = new SamplingHandlers(client);
 
-  // Create MCP server
+  // Create MCP server with discovery support
+  // The Server class automatically handles the initialize request
+  // and responds with server info and capabilities
   const server = new Server(
     {
       name: SERVER_INFO.name,
