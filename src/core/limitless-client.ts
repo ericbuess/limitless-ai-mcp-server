@@ -179,10 +179,14 @@ export class LimitlessClient {
     const searchLower = searchTerm.toLowerCase();
     const results = recentLogs.filter((log) => {
       const titleMatch = log.title?.toLowerCase().includes(searchLower);
-      const contentMatch = log.content?.toLowerCase().includes(searchLower);
       const markdownMatch = log.markdown?.toLowerCase().includes(searchLower);
+      
+      // Search in contents
+      const contentsMatch = log.contents?.some(content => 
+        content.content.toLowerCase().includes(searchLower)
+      );
 
-      return titleMatch || contentMatch || markdownMatch;
+      return titleMatch || markdownMatch || contentsMatch;
     });
 
     // Apply limit if specified
