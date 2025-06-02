@@ -1,266 +1,227 @@
-# Limitless AI MCP Server Enhancement Plan
+# Limitless AI MCP Server MVP Plan
 
-This document outlines the implementation plan for enhancing the Limitless AI MCP Server to fully leverage both the MCP protocol capabilities and the Limitless API features.
+This document outlines the implementation plan for creating an MVP that demonstrates all MCP protocol features with the Limitless API.
 
 ## Reference Documents
 - MCP Protocol Spec: `docs/references/llms-full_model-context-protocol_20250601.md`
 - Limitless API Docs: `docs/references/limitless-api-docs_20250601.md`
 
-## Implementation Phases
+## Overview
 
-### Phase 1: Core MCP Features (Priority: High)
+The Limitless API currently provides 2 endpoints:
+- `GET /v1/lifelogs` - List/search lifelogs with various filters
+- `GET /v1/lifelogs/:id` - Get a specific lifelog by ID
 
-#### 1.1 Implement MCP Resources Feature
-- [ ] Create `ResourceManager` class in `src/core/resource-manager.ts`
-- [ ] Implement resource URI scheme: `lifelog://{id}`
-- [ ] Add `resources/list` handler to expose available lifelogs
-- [ ] Implement `resources/read` for individual lifelog access
-- [ ] Add metadata support (created date, duration, speakers)
-- [ ] Create resource subscription mechanism for real-time updates
+Our MVP will implement all MCP protocol features to provide multiple ways to access and analyze this data.
 
-**Files to create/modify:**
-- `src/resources/handlers.ts`
-- `src/resources/definitions.ts`
-- `src/resources/schemas.ts`
-- Update `src/index.ts` to register resource handlers
+## Implementation Plan
 
-#### 1.2 Add MCP Prompts Feature
-- [ ] Create prompt templates directory `src/prompts/templates/`
-- [ ] Implement core prompts:
-  - [ ] Daily summary prompt
-  - [ ] Action items extraction prompt
-  - [ ] Topic search prompt
-  - [ ] Meeting notes generation prompt
-- [ ] Add `prompts/list` handler
-- [ ] Implement `prompts/get` with argument validation
-- [ ] Support dynamic argument injection
+### 1. Core MCP Features Implementation
 
-**Files to create/modify:**
-- `src/prompts/handlers.ts`
-- `src/prompts/definitions.ts`
-- `src/prompts/templates/*.ts`
+#### 1.1 Resources (NEW)
+Expose lifelogs as browseable resources that clients can discover and access.
 
-#### 1.3 Implement Progress Tracking
-- [ ] Add progress token support to existing tools
-- [ ] Create `ProgressManager` utility class
-- [ ] Implement progress reporting for:
-  - [ ] Bulk lifelog fetching
-  - [ ] Search operations
-  - [ ] Export operations
-- [ ] Add progress callbacks to client methods
-
-**Files to create/modify:**
-- `src/utils/progress.ts`
-- Update all tool handlers in `src/tools/handlers.ts`
-
-### Phase 2: Advanced Features (Priority: Medium)
-
-#### 2.1 Add Sampling Capabilities
-- [ ] Create `SamplingHandler` class
-- [ ] Implement sampling request builder
-- [ ] Add sampling support for:
-  - [ ] Auto-summarization
-  - [ ] Key insight extraction
-  - [ ] Meeting notes formatting
-- [ ] Create sampling templates
+- [ ] Implement `resources/list` handler to list available lifelogs
+- [ ] Implement `resources/read` handler for individual lifelog access
+- [ ] Create URI scheme: `lifelog://{date}/{id}` or `lifelog://{id}`
+- [ ] Add resource metadata (title, date, duration, speakers)
+- [ ] Support resource templates for dynamic listing
 
 **Files to create:**
-- `src/sampling/handler.ts`
-- `src/sampling/templates.ts`
+- `src/resources/handlers.ts` - Resource request handlers
+- `src/resources/manager.ts` - Resource management logic
 
-#### 2.2 Implement Notifications
-- [ ] Create `NotificationManager` class
-- [ ] Implement notification types:
-  - [ ] New lifelog available
-  - [ ] Search complete
-  - [ ] Export ready
-  - [ ] Error occurred
-- [ ] Add WebSocket/SSE support for real-time notifications
+#### 1.2 Prompts (NEW)
+Provide ready-to-use prompt templates for common lifelog analysis tasks.
+
+- [ ] Create prompt templates:
+  - [ ] `daily-summary` - Summarize lifelogs from a specific day
+  - [ ] `action-items` - Extract action items from lifelogs
+  - [ ] `key-topics` - Identify main topics discussed
+  - [ ] `meeting-notes` - Format lifelogs as meeting notes
+  - [ ] `search-insights` - Analyze search results
+- [ ] Implement `prompts/list` handler
+- [ ] Implement `prompts/get` handler with argument support
+- [ ] Support dynamic arguments (date, search terms, etc.)
 
 **Files to create:**
-- `src/notifications/manager.ts`
-- `src/notifications/types.ts`
+- `src/prompts/handlers.ts` - Prompt request handlers
+- `src/prompts/templates.ts` - Prompt template definitions
 
-#### 2.3 Enhanced Search Capabilities
-- [ ] Extend search with advanced filters:
-  - [ ] By speaker name
-  - [ ] By content type
-  - [ ] By date range with time
-  - [ ] By minimum duration
-- [ ] Add regex pattern support
-- [ ] Implement search result ranking
+#### 1.3 Tools (EXISTING - COMPLETE)
+Already implemented with 5 tools for searching and listing lifelogs.
+
+#### 1.4 Discovery (NEW)
+Implement capability discovery so clients know what's available.
+
+- [ ] Add server capabilities manifest
+- [ ] Implement version information
+- [ ] List supported features and limitations
+- [ ] Provide schema information for tools/resources/prompts
 
 **Files to modify:**
-- `src/tools/handlers.ts` (search handler)
-- `src/types/limitless.ts` (add new search options)
+- `src/index.ts` - Add capability discovery to server initialization
 
-### Phase 3: Data Management (Priority: Medium)
+#### 1.5 Sampling (NEW)
+Allow LLMs to process lifelog content for analysis.
 
-#### 3.1 Data Export Tools
-- [ ] Create export tool handlers:
-  - [ ] Export to Markdown
-  - [ ] Export to JSON/CSV
-  - [ ] Export to calendar format (.ics)
-  - [ ] Export to task management formats
-- [ ] Add bulk export capabilities
-- [ ] Implement export templates
-
-**Files to create:**
-- `src/tools/export-handlers.ts`
-- `src/utils/exporters/*.ts`
-
-#### 3.2 Implement Caching Layer
-- [ ] Create `CacheManager` class
-- [ ] Implement caching strategies:
-  - [ ] LRU cache for lifelogs
-  - [ ] Time-based cache for search results
-  - [ ] Persistent cache option
-- [ ] Add cache invalidation logic
-- [ ] Create cache configuration options
+- [ ] Implement `sampling/createMessage` handler
+- [ ] Support sampling requests for:
+  - [ ] Summarization of lifelog content
+  - [ ] Extraction of specific information
+  - [ ] Analysis of patterns or trends
+- [ ] Add sampling templates for common use cases
+- [ ] Include token usage estimation
 
 **Files to create:**
-- `src/core/cache-manager.ts`
-- `src/types/cache.ts`
+- `src/sampling/handlers.ts` - Sampling request handlers
+- `src/sampling/templates.ts` - Pre-built sampling configurations
 
-#### 3.3 Batch Operations
-- [ ] Add batch fetching by IDs
-- [ ] Implement parallel processing
-- [ ] Create batch operation queue
-- [ ] Add rate limiting per batch
+### 2. Performance & Reliability
 
-**Files to modify:**
-- `src/core/limitless-client.ts`
-- Create `src/utils/batch-processor.ts`
+#### 2.1 Caching System
+Optimize for persistent searching and retrieval patterns.
 
-### Phase 4: Analytics & Intelligence (Priority: Low)
-
-#### 4.1 Analytics Tools
-- [ ] Create analytics tool set:
-  - [ ] Time tracking analysis
-  - [ ] Topic frequency counter
-  - [ ] Speaker participation metrics
-  - [ ] Meeting patterns analyzer
-- [ ] Add visualization data generators
-- [ ] Implement trend detection
+- [ ] Implement in-memory LRU cache for lifelogs
+- [ ] Cache search results with TTL
+- [ ] Add cache warming for frequently accessed data
+- [ ] Implement cache invalidation strategies
+- [ ] Add cache hit/miss metrics
 
 **Files to create:**
-- `src/tools/analytics-handlers.ts`
-- `src/analytics/*.ts`
+- `src/core/cache.ts` - Cache implementation
+- `src/types/cache.ts` - Cache type definitions
 
-#### 4.2 Smart Summaries
-- [ ] Implement intelligent summarization
-- [ ] Add context-aware summary generation
-- [ ] Create summary templates
-- [ ] Support multiple summary formats
+#### 2.2 Request Optimization
+Enhance API efficiency.
 
-**Files to create:**
-- `src/utils/summarizer.ts`
-- `src/templates/summaries/*.ts`
-
-### Phase 5: Infrastructure (Priority: High)
-
-#### 5.1 Security Enhancements
-- [ ] Implement rate limiting middleware
-- [ ] Add request validation layer
-- [ ] Create audit logging system
-- [ ] Support API key scoping
-- [ ] Add input sanitization
-
-**Files to create:**
-- `src/middleware/rate-limiter.ts`
-- `src/middleware/validator.ts`
-- `src/utils/audit-logger.ts`
-
-#### 5.2 Performance Optimizations
-- [ ] Implement request batching
+- [ ] Implement request deduplication
+- [ ] Add parallel request handling where applicable
+- [ ] Optimize pagination with cursor management
+- [ ] Implement request batching for bulk operations
 - [ ] Add connection pooling
-- [ ] Use streaming for large responses
-- [ ] Optimize pagination
-- [ ] Add request deduplication
 
 **Files to modify:**
-- `src/core/limitless-client.ts`
-- Create `src/utils/stream-handler.ts`
+- `src/core/limitless-client.ts` - Add optimization features
 
-#### 5.3 Configuration System
-- [ ] Create configuration schema
-- [ ] Add environment-based config
-- [ ] Implement config validation
-- [ ] Support runtime config updates
-- [ ] Add configuration resources
+#### 2.3 Error Handling & Monitoring
+Ensure reliability.
 
-**Files to create:**
-- `src/config/schema.ts`
-- `src/config/manager.ts`
-
-### Phase 6: Developer Experience (Priority: Medium)
-
-#### 6.1 Testing Infrastructure
-- [ ] Add integration tests for all new features
-- [ ] Create test fixtures
-- [ ] Add performance benchmarks
-- [ ] Implement E2E test suite
-- [ ] Add load testing
+- [ ] Enhance retry logic with exponential backoff (already exists)
+- [ ] Add detailed error categorization
+- [ ] Implement health check endpoint
+- [ ] Add performance metrics collection
+- [ ] Create error recovery strategies
 
 **Files to create:**
-- `tests/integration/*.test.ts`
-- `tests/e2e/*.test.ts`
-- `tests/fixtures/*.ts`
+- `src/monitoring/metrics.ts` - Performance metrics
+- `src/monitoring/health.ts` - Health check implementation
 
-#### 6.2 Documentation
-- [ ] Update README with new features
-- [ ] Create API documentation
-- [ ] Add usage examples
-- [ ] Create troubleshooting guide
-- [ ] Add migration guide
+### 3. Documentation & Examples
 
-**Files to create/update:**
-- `docs/api.md`
-- `docs/examples/*.md`
-- `docs/troubleshooting.md`
+#### 3.1 Comprehensive README
+- [ ] Overview of MCP protocol implementation
+- [ ] Detailed explanation of each MCP feature:
+  - [ ] How Resources work with lifelogs
+  - [ ] Available Prompts and their use cases
+  - [ ] Tool capabilities and parameters
+  - [ ] Discovery mechanism
+  - [ ] Sampling functionality
+- [ ] Installation and configuration guide
+- [ ] API authentication setup
+- [ ] Performance optimization tips
 
-#### 6.3 Developer Tools
-- [ ] Add debug mode with verbose logging
-- [ ] Create development server
-- [ ] Add request/response interceptors
-- [ ] Implement mock mode
-- [ ] Create CLI tools
+#### 3.2 Example Usage
+Create example files demonstrating each MCP feature.
 
-**Files to create:**
-- `src/dev/server.ts`
-- `src/cli/*.ts`
+- [ ] `examples/using-tools.ts` - Tool usage examples
+- [ ] `examples/using-resources.ts` - Resource browsing examples
+- [ ] `examples/using-prompts.ts` - Prompt template examples
+- [ ] `examples/using-sampling.ts` - Content analysis examples
+- [ ] `examples/advanced-search.ts` - Complex search patterns
+- [ ] `examples/caching-strategies.ts` - Performance optimization
 
-## Implementation Order
+#### 3.3 Integration Guides
+- [ ] Guide for Claude Desktop integration
+- [ ] Guide for custom client integration
+- [ ] Best practices for efficient lifelog retrieval
+- [ ] Troubleshooting common issues
 
-1. **Week 1-2**: Phase 1.1-1.3 (Core MCP Features)
-2. **Week 3-4**: Phase 5.1-5.2 (Security & Performance)
-3. **Week 5-6**: Phase 2.1-2.3 (Advanced Features)
-4. **Week 7-8**: Phase 3.1-3.3 (Data Management)
-5. **Week 9-10**: Phase 4.1-4.2 (Analytics)
-6. **Week 11-12**: Phase 6.1-6.3 (Developer Experience)
+### 4. Testing
+
+#### 4.1 Unit Tests
+- [ ] Test all MCP handlers (resources, prompts, sampling)
+- [ ] Test cache functionality
+- [ ] Test error handling scenarios
+- [ ] Test request optimization logic
+
+#### 4.2 Integration Tests
+- [ ] Test full MCP protocol compliance
+- [ ] Test API integration with mock server
+- [ ] Test caching behavior
+- [ ] Test error recovery
+
+#### 4.3 Performance Tests
+- [ ] Benchmark response times
+- [ ] Test cache effectiveness
+- [ ] Measure memory usage
+- [ ] Test concurrent request handling
+
+## File Structure
+
+```
+src/
+├── core/
+│   ├── limitless-client.ts    # API client (existing, enhance)
+│   └── cache.ts               # Caching implementation (new)
+├── tools/                     # MCP Tools (existing)
+│   ├── definitions.ts
+│   ├── handlers.ts
+│   └── schemas.ts
+├── resources/                 # MCP Resources (new)
+│   ├── handlers.ts
+│   └── manager.ts
+├── prompts/                   # MCP Prompts (new)
+│   ├── handlers.ts
+│   └── templates.ts
+├── sampling/                  # MCP Sampling (new)
+│   ├── handlers.ts
+│   └── templates.ts
+├── monitoring/                # Health & Metrics (new)
+│   ├── health.ts
+│   └── metrics.ts
+├── types/                     # TypeScript types
+│   ├── limitless.ts          # API types (existing)
+│   ├── cache.ts              # Cache types (new)
+│   └── mcp.ts                # MCP-specific types (new)
+├── utils/                     # Utilities (existing)
+└── index.ts                   # Main server (enhance)
+```
+
+## Key Design Decisions
+
+1. **URI Scheme for Resources**: Use `lifelog://{date}/{id}` to enable browsing by date
+2. **Caching Strategy**: LRU in-memory cache with configurable TTL
+3. **Prompt Templates**: Focus on practical use cases for Pendant recordings
+4. **Sampling Integration**: Direct integration with LLM for content analysis
+5. **Performance First**: Optimize for search and retrieval patterns
 
 ## Success Criteria
 
-- [ ] All MCP protocol features implemented
-- [ ] 100% backward compatibility maintained
-- [ ] Performance benchmarks show <100ms response time
-- [ ] Test coverage >90%
-- [ ] Security audit passed
-- [ ] Documentation complete
-- [ ] Examples for all features
+- [ ] All 5 MCP features implemented and working
+- [ ] Response time < 100ms for cached requests
+- [ ] Clear documentation with examples for each feature
+- [ ] 100% test coverage for core functionality
+- [ ] Working examples for each MCP feature
+- [ ] Efficient handling of pagination and large result sets
 
 ## Next Steps
 
-1. Review and prioritize features based on user needs
-2. Set up development branches for each phase
-3. Create detailed technical specifications
-4. Begin implementation with Phase 1
-5. Regular testing and user feedback collection
-
-## Notes
-
-- Maintain backward compatibility throughout
-- Follow existing code patterns and style
-- Update CLAUDE.md with implementation details
-- Keep security as top priority
-- Focus on user experience
+1. Implement Resources feature first (most visual/demonstrable)
+2. Add Prompts for common use cases
+3. Implement Sampling for content analysis
+4. Add Discovery for capability introspection
+5. Optimize with caching and performance improvements
+6. Create comprehensive documentation and examples
+7. Test thoroughly with real Limitless API data
+EOF < /dev/null
