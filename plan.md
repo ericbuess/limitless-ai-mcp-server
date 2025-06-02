@@ -4,7 +4,7 @@ This document outlines the implementation plan for enhancing the Limitless AI MC
 
 ## Reference Documents
 - MCP Protocol Spec: `docs/references/llms-full_model-context-protocol_20250601.md`
-- Limitless API Docs: `docs/references/limitless-api-docs.md`
+- Limitless API Docs: `docs/references/limitless-api-docs_20250601.md`
 
 ## Implementation Phases
 
