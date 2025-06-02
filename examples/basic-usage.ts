@@ -16,9 +16,9 @@ async function main() {
     });
     
     recentLogs.forEach(log => {
-      console.log(`- ${log.title} (${log.date})`);
-      if (log.summary) {
-        console.log(`  Summary: ${log.summary.substring(0, 100)}...`);
+      console.log(`- ${log.title} (${new Date(log.startTime).toLocaleDateString()})`);
+      if (log.markdown) {
+        console.log(`  Preview: ${log.markdown.substring(0, 100)}...`);
       }
     });
 
@@ -32,7 +32,7 @@ async function main() {
 
     searchResults.forEach(log => {
       console.log(`- ${log.title}`);
-      console.log(`  Date: ${log.date}`);
+      console.log(`  Date: ${new Date(log.startTime).toLocaleDateString()}`);
       console.log(`  ID: ${log.id}`);
     });
 
@@ -45,10 +45,11 @@ async function main() {
 
     todaysLogs.forEach(log => {
       console.log(`- ${log.title}`);
-      if (log.headings && log.headings.length > 0) {
+      if (log.contents && log.contents.length > 0) {
         console.log('  Topics discussed:');
-        log.headings.slice(0, 3).forEach(heading => {
-          console.log(`    • ${heading}`);
+        const headings = log.contents.filter(c => c.type.startsWith('heading'));
+        headings.slice(0, 3).forEach(heading => {
+          console.log(`    • ${heading.content}`);
         });
       }
     });
