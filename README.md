@@ -116,10 +116,12 @@ claude mcp remove limitless -s user
 
 #### Claude Desktop Configuration
 
-Add to your Claude Desktop configuration file:
+1. **Find your Claude Desktop config file**:
+   - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+   - **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+2. **Open the file** (create it if it doesn't exist) and add:
 
 ```json
 {
@@ -135,7 +137,13 @@ Add to your Claude Desktop configuration file:
 }
 ```
 
-**Important**: Replace `/path/to/limitless-ai-mcp-server` with the actual path where you cloned/installed the project.
+3. **Replace the placeholders**:
+   - `/path/to/limitless-ai-mcp-server` → Your actual installation path (e.g., `/Users/yourname/limitless-ai-mcp-server`)
+   - `your-api-key-here` → Your Limitless API key from [limitless.ai/developers](https://limitless.ai/developers)
+
+4. **Restart Claude Desktop** for the changes to take effect
+
+5. **Verify it's working**: Type "Show me my recent recordings" in Claude
 
 #### Other MCP Clients
 
@@ -447,6 +455,24 @@ Enable debug logging for more information:
 export LOG_LEVEL=DEBUG
 ```
 
+### Claude Desktop Specific Issues
+
+1. **MCP server not showing up**
+   - Ensure the config file is valid JSON (check with a JSON validator)
+   - Verify the path to `dist/index.js` is absolute, not relative
+   - Make sure you've run `npm run build` after cloning
+   - Restart Claude Desktop completely
+
+2. **"Command failed" errors**
+   - Check that Node.js 22+ is installed: `node --version`
+   - Verify the server works locally: `LIMITLESS_API_KEY=your-key node dist/index.js`
+   - Check Claude Desktop logs: Help → Show Logs
+
+3. **No data returned**
+   - Confirm your API key is valid at [limitless.ai/developers](https://limitless.ai/developers)
+   - Ensure you have Pendant recordings (not app/extension data)
+   - Try a specific date when you know you had recordings
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -461,6 +487,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Issues**: [GitHub Issues](https://github.com/ericbuess/limitless-ai-mcp-server/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/ericbuess/limitless-ai-mcp-server/discussions)
+- **Author**: [Eric Buess](https://x.com/EricBuess)
 - **Email**: 
 
 ---
