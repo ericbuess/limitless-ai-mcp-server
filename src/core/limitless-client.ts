@@ -11,6 +11,7 @@ import { retry } from '../utils/retry';
 import { formatDate } from '../utils/date';
 import {
   lifelogCache,
+  lifelogArrayCache,
   searchCache,
   buildLifelogCacheKey,
   buildDateCacheKey,
@@ -73,7 +74,10 @@ export class LimitlessClient {
           });
 
           if (!res.ok) {
-            const errorData = await res.json().catch(() => ({ message: res.statusText })) as { message?: string; code?: string };
+            const errorData = (await res.json().catch(() => ({ message: res.statusText }))) as {
+              message?: string;
+              code?: string;
+            };
             throw new LimitlessAPIError(
               errorData.message || `HTTP ${res.status}`,
               res.status,
@@ -145,7 +149,7 @@ export class LimitlessClient {
 
     // Cache the result
     lifelogCache.set(cacheKey, response.data);
-    
+
     return response.data;
   }
 
@@ -155,7 +159,7 @@ export class LimitlessClient {
 
     // Check cache first
     const cacheKey = buildDateCacheKey(formattedDate, options);
-    const cached = lifelogCache.get(cacheKey);
+    const cached = lifelogArrayCache.get(cacheKey);
     if (cached) {
       logger.debug(`Lifelogs for ${formattedDate} retrieved from cache`);
       return cached;
@@ -165,10 +169,10 @@ export class LimitlessClient {
     params.append('date', formattedDate);
 
     const result = await this.fetchAllLifelogs('/lifelogs', params, options.limit);
-    
+
     // Cache the result
-    lifelogCache.set(cacheKey, result);
-    
+    lifelogArrayCache.set(cacheKey, result);
+
     return result;
   }
 
@@ -192,7 +196,7 @@ export class LimitlessClient {
 
     // Check cache first
     const cacheKey = buildRecentCacheKey(options);
-    const cached = lifelogCache.get(cacheKey);
+    const cached = lifelogArrayCache.get(cacheKey);
     if (cached) {
       logger.debug(`Recent lifelogs retrieved from cache`);
       return cached;
@@ -202,10 +206,10 @@ export class LimitlessClient {
     params.append('recent', 'true');
 
     const result = await this.fetchAllLifelogs('/lifelogs', params, limit);
-    
+
     // Cache the result
-    lifelogCache.set(cacheKey, result);
-    
+    lifelogArrayCache.set(cacheKey, result);
+
     return result;
   }
 
@@ -233,9 +237,9 @@ export class LimitlessClient {
     const results = recentLogs.filter((log) => {
       const titleMatch = log.title?.toLowerCase().includes(searchLower);
       const markdownMatch = log.markdown?.toLowerCase().includes(searchLower);
-      
+
       // Search in contents
-      const contentsMatch = log.contents?.some(content => 
+      const contentsMatch = log.contents?.some((content) =>
         content.content.toLowerCase().includes(searchLower)
       );
 
@@ -244,10 +248,10 @@ export class LimitlessClient {
 
     // Apply limit if specified
     const finalResults = listOptions.limit ? results.slice(0, listOptions.limit) : results;
-    
+
     // Cache the search results
     searchCache.set(cacheKey, finalResults);
-    
+
     return finalResults;
   }
 
@@ -309,4 +313,3 @@ export class LimitlessClient {
     return limit ? results.slice(0, limit) : results;
   }
 }
-

@@ -13,7 +13,7 @@ describe('ResourceManager', () => {
     mockClient = new LimitlessClient({
       apiKey: 'test-key',
     }) as jest.Mocked<LimitlessClient>;
-    
+
     resourceManager = new ResourceManager(mockClient);
   });
 

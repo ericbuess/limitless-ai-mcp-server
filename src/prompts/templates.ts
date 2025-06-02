@@ -117,9 +117,7 @@ Format the summary in a clear, concise manner that would be useful for daily rev
           content: {
             type: 'text',
             text: `Extract all action items from lifelogs ${
-              args.date === 'recent'
-                ? 'from recent recordings'
-                : `from ${args.date}`
+              args.date === 'recent' ? 'from recent recordings' : `from ${args.date}`
             }.
 
 Use the appropriate limitless tool to fetch the data, then:

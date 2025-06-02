@@ -1,6 +1,6 @@
 /**
  * Example: Using MCP Prompts
- * 
+ *
  * This example demonstrates how to use pre-built prompt templates
  * for common Limitless data analysis tasks.
  */
@@ -14,13 +14,16 @@ async function main() {
     command: 'node',
     args: ['../dist/index.js'],
   });
-  
-  const client = new Client({
-    name: 'example-prompts-client',
-    version: '1.0.0',
-  }, {
-    capabilities: {}
-  });
+
+  const client = new Client(
+    {
+      name: 'example-prompts-client',
+      version: '1.0.0',
+    },
+    {
+      capabilities: {},
+    }
+  );
 
   await client.connect(transport);
 
@@ -28,13 +31,15 @@ async function main() {
     // List all available prompts
     console.log('=== Available Prompts ===');
     const prompts = await client.listPrompts();
-    prompts.prompts.forEach(prompt => {
+    prompts.prompts.forEach((prompt) => {
       console.log(`\n${prompt.name}:`);
       console.log(`  ${prompt.description}`);
       if (prompt.arguments) {
         console.log('  Arguments:');
-        prompt.arguments.forEach(arg => {
-          console.log(`    - ${arg.name} (${arg.required ? 'required' : 'optional'}): ${arg.description}`);
+        prompt.arguments.forEach((arg) => {
+          console.log(
+            `    - ${arg.name} (${arg.required ? 'required' : 'optional'}): ${arg.description}`
+          );
         });
       }
     });
@@ -44,8 +49,8 @@ async function main() {
     const dailySummary = await client.getPrompt({
       name: 'daily-summary',
       arguments: {
-        date: '2024-01-15'
-      }
+        date: '2024-01-15',
+      },
     });
     console.log('Prompt generated:');
     console.log(dailySummary.messages[0].content);
@@ -55,8 +60,8 @@ async function main() {
     const actionItems = await client.getPrompt({
       name: 'action-items',
       arguments: {
-        dateRange: '2024-01-10 to 2024-01-15'
-      }
+        dateRange: '2024-01-10 to 2024-01-15',
+      },
     });
     console.log('Prompt generated:');
     console.log(actionItems.messages[0].content);
@@ -66,8 +71,8 @@ async function main() {
     const keyTopics = await client.getPrompt({
       name: 'key-topics',
       arguments: {
-        searchTerm: 'project planning'
-      }
+        searchTerm: 'project planning',
+      },
     });
     console.log('Prompt generated:');
     console.log(keyTopics.messages[0].content);
@@ -77,8 +82,8 @@ async function main() {
     const meetingNotes = await client.getPrompt({
       name: 'meeting-notes',
       arguments: {
-        date: '2024-01-15'
-      }
+        date: '2024-01-15',
+      },
     });
     console.log('Prompt generated:');
     console.log(meetingNotes.messages[0].content);
@@ -88,23 +93,23 @@ async function main() {
     const searchInsights = await client.getPrompt({
       name: 'search-insights',
       arguments: {
-        searchTerm: 'deadline'
-      }
+        searchTerm: 'deadline',
+      },
     });
     console.log('Prompt generated:');
     console.log(searchInsights.messages[0].content);
 
     // Advanced: Combine prompts for comprehensive analysis
     console.log('\n\n=== Advanced: Weekly Review ===');
-    
+
     // Get daily summaries for each day of the week
     const weekDays = ['2024-01-08', '2024-01-09', '2024-01-10', '2024-01-11', '2024-01-12'];
     console.log('Generating daily summaries for the week...');
-    
+
     for (const day of weekDays) {
       const summary = await client.getPrompt({
         name: 'daily-summary',
-        arguments: { date: day }
+        arguments: { date: day },
       });
       console.log(`\n${day}:`);
       console.log(summary.messages[0].content.substring(0, 200) + '...');
@@ -114,12 +119,11 @@ async function main() {
     const weeklyActions = await client.getPrompt({
       name: 'action-items',
       arguments: {
-        dateRange: '2024-01-08 to 2024-01-12'
-      }
+        dateRange: '2024-01-08 to 2024-01-12',
+      },
     });
     console.log('\n\nWeekly Action Items:');
     console.log(weeklyActions.messages[0].content);
-
   } catch (error) {
     console.error('Error:', error);
   } finally {

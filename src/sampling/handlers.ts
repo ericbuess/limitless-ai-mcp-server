@@ -1,7 +1,4 @@
-import {
-  CreateMessageRequest,
-  CreateMessageResult,
-} from '@modelcontextprotocol/sdk/types.js';
+import { CreateMessageRequest, CreateMessageResult } from '@modelcontextprotocol/sdk/types.js';
 import { LimitlessClient } from '../core/limitless-client';
 import { logger } from '../utils/logger';
 import { samplingTemplates, buildSamplingPrompt } from './templates';
@@ -17,8 +14,9 @@ export class SamplingHandlers {
    */
   async handleCreateMessage(request: CreateMessageRequest): Promise<CreateMessageResult> {
     try {
-      const { messages, modelPreferences, systemPrompt, temperature, maxTokens, metadata } = request.params;
-      
+      const { messages, modelPreferences, systemPrompt, temperature, maxTokens, metadata } =
+        request.params;
+
       logger.debug('Handling sampling request', {
         messageCount: messages.length,
         modelPreferences,
@@ -26,9 +24,7 @@ export class SamplingHandlers {
       });
 
       // Extract the user's request from messages
-      const lastUserMessage = messages
-        .filter(msg => msg.role === 'user')
-        .pop();
+      const lastUserMessage = messages.filter((msg) => msg.role === 'user').pop();
 
       if (!lastUserMessage) {
         throw new Error('No user message found in sampling request');
@@ -36,22 +32,24 @@ export class SamplingHandlers {
 
       // Extract text content from the message
       let textContent = '';
-      
-      if (typeof lastUserMessage.content === 'object' && 
-          lastUserMessage.content !== null && 
-          'type' in lastUserMessage.content && 
-          lastUserMessage.content.type === 'text' &&
-          'text' in lastUserMessage.content) {
+
+      if (
+        typeof lastUserMessage.content === 'object' &&
+        lastUserMessage.content !== null &&
+        'type' in lastUserMessage.content &&
+        lastUserMessage.content.type === 'text' &&
+        'text' in lastUserMessage.content
+      ) {
         textContent = String(lastUserMessage.content.text);
       }
-      
+
       if (!textContent) {
         throw new Error('No text content found in user message');
       }
-      
+
       // Check if this matches a template
       const templateMatch = this.matchTemplate(textContent);
-      
+
       if (templateMatch) {
         // Process with template
         return this.processWithTemplate(templateMatch.template, templateMatch.variables, {
@@ -74,10 +72,12 @@ export class SamplingHandlers {
     }
   }
 
-  private matchTemplate(text: string): { template: string; variables: Record<string, string> } | null {
+  private matchTemplate(
+    text: string
+  ): { template: string; variables: Record<string, string> } | null {
     // Simple pattern matching for demonstration
     // In a real implementation, this would be more sophisticated
-    
+
     if (text.toLowerCase().includes('summarize')) {
       // Extract content to summarize
       const contentMatch = text.match(/summarize[:\s]+(.+)/i);
@@ -95,7 +95,7 @@ export class SamplingHandlers {
       if (match) {
         return {
           template: 'extractInfo',
-          variables: { 
+          variables: {
             infoType: match[1],
             content: match[2],
           },
@@ -119,7 +119,11 @@ export class SamplingHandlers {
   private async processWithTemplate(
     templateName: string,
     variables: Record<string, string>,
-    _options: any
+    _options: {
+      temperature?: number;
+      maxTokens?: number;
+      modelPreferences?: unknown;
+    }
   ): Promise<CreateMessageResult> {
     const template = samplingTemplates[templateName];
     if (!template) {
@@ -152,7 +156,12 @@ export class SamplingHandlers {
 
   private async processGenericRequest(
     text: string,
-    options: any
+    options: {
+      systemPrompt?: string;
+      temperature?: number;
+      maxTokens?: number;
+      modelPreferences?: unknown;
+    }
   ): Promise<CreateMessageResult> {
     // Check if the request mentions lifelog URIs
     const uriMatch = text.match(/lifelog:\/\/[^\s]+/);

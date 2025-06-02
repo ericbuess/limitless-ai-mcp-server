@@ -64,10 +64,10 @@ describe('LRUCache', () => {
       cache.set('key1', 'value1');
       cache.set('key2', 'value2');
       cache.set('key3', 'value3');
-      
+
       // Access key1 to make it most recently used
       cache.get('key1');
-      
+
       cache.set('key4', 'value4'); // Should evict key2, not key1
 
       expect(cache.get('key1')).toBe('value1');
@@ -85,9 +85,12 @@ describe('LRUCache', () => {
       cache.set('key3', 'value3'); // Should evict key1
 
       expect(onEvict).toHaveBeenCalledTimes(1);
-      expect(onEvict).toHaveBeenCalledWith('key1', expect.objectContaining({
-        data: 'value1',
-      }));
+      expect(onEvict).toHaveBeenCalledWith(
+        'key1',
+        expect.objectContaining({
+          data: 'value1',
+        })
+      );
     });
   });
 
@@ -110,7 +113,7 @@ describe('LRUCache', () => {
 
     it('should not expire entries before TTL', () => {
       cache.set('key1', 'value1');
-      
+
       jest.advanceTimersByTime(999);
       expect(cache.get('key1')).toBe('value1');
     });
@@ -127,7 +130,7 @@ describe('LRUCache', () => {
   describe('statistics', () => {
     it('should track hits and misses', () => {
       cache.set('key1', 'value1');
-      
+
       cache.get('key1'); // Hit
       cache.get('key1'); // Hit
       cache.get('key2'); // Miss
@@ -149,24 +152,24 @@ describe('LRUCache', () => {
 
     it('should track size', () => {
       expect(cache.stats().size).toBe(0);
-      
+
       cache.set('key1', 'value1');
       expect(cache.stats().size).toBe(1);
-      
+
       cache.set('key2', 'value2');
       expect(cache.stats().size).toBe(2);
-      
+
       cache.delete('key1');
       expect(cache.stats().size).toBe(1);
     });
 
     it('should track hit count per entry', () => {
       cache.set('key1', 'value1');
-      
+
       cache.get('key1');
       cache.get('key1');
       cache.get('key1');
-      
+
       // Get entry directly to check hits
       const entry = (cache as any).cache.get('key1');
       expect(entry.hits).toBe(3);
@@ -189,7 +192,7 @@ describe('Cache key builders', () => {
   it('should build search cache key', async () => {
     const { buildSearchCacheKey } = await import('../../src/core/cache');
     expect(buildSearchCacheKey('test')).toBe('search:test:');
-    expect(buildSearchCacheKey('test', { limit: 5 })).toBe('search:test:{"limit":5}');
+    expect(buildSearchCacheKey('test', { searchTerm: 'test', limit: 5 })).toBe('search:test:{"searchTerm":"test","limit":5}');
   });
 
   it('should build recent cache key', async () => {

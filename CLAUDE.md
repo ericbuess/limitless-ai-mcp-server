@@ -71,6 +71,7 @@ limitless-ai-mcp-server/
 ## Key Commands
 
 ### Development Commands
+
 ```bash
 # Install dependencies
 npm install
@@ -101,6 +102,7 @@ npm run typecheck
 ```
 
 ### Git Commands
+
 ```bash
 # Current branch: dev
 git status
@@ -115,14 +117,17 @@ gh pr create --title "PR title" --body "description"
 ## Environment Variables
 
 Required:
+
 - `LIMITLESS_API_KEY` - API key from limitless.ai/developers (required)
 
 Optional:
+
 - `LIMITLESS_BASE_URL` - API base URL (default: https://api.limitless.ai/v1)
 - `LIMITLESS_TIMEOUT` - Request timeout in ms (default: 120000)
 - `LOG_LEVEL` - Logging level: DEBUG, INFO, WARN, ERROR (default: INFO)
 
 Cache Configuration:
+
 - `CACHE_MAX_SIZE` - Maximum items in lifelog cache (default: 100)
 - `CACHE_TTL` - Lifelog cache TTL in ms (default: 300000 / 5 minutes)
 - `SEARCH_CACHE_MAX_SIZE` - Maximum items in search cache (default: 50)
@@ -131,6 +136,7 @@ Cache Configuration:
 ## API Authentication
 
 The Limitless API uses `X-API-Key` header authentication (NOT Bearer tokens):
+
 ```typescript
 headers: {
   'X-API-Key': apiKey,
@@ -149,6 +155,7 @@ headers: {
 ## Testing the MCP Server
 
 ### With Claude Code CLI
+
 ```bash
 # Add the server
 claude mcp add limitless -s user -e LIMITLESS_API_KEY="your-key" -- node /path/to/dist/index.js
@@ -161,6 +168,7 @@ claude mcp list
 ```
 
 ### Direct Testing
+
 ```bash
 # Set API key and run
 LIMITLESS_API_KEY="your-key" node dist/index.js
@@ -169,6 +177,7 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 ## Important Implementation Details
 
 1. **API Response Structure**: The Limitless API returns data in a nested structure:
+
    ```json
    {
      "data": {
@@ -190,7 +199,7 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 1. **Authentication Errors**: Ensure using `X-API-Key` header, not `Authorization: Bearer`
 2. **No Data Found**: API only returns Pendant recordings, not app/extension data
 3. **Type Errors**: Run `npm run typecheck` before building
-4. **Build Failures**: Ensure Node.js 18+ is installed
+4. **Build Failures**: Ensure Node.js 22+ is installed
 
 ## Code Style Guidelines
 
@@ -226,6 +235,7 @@ See @PROJECT_STATUS.md for detailed metrics and current capabilities.
 ## Future Development
 
 See @ROADMAP.md for planned enhancements:
+
 - **Phase 2**: Local Vector Store & Voice-Activated Keywords
 - **Phase 3**: Additional features and integrations
 
@@ -242,28 +252,33 @@ See @ROADMAP.md for planned enhancements:
 ### Common Issues and Solutions
 
 1. **"Unauthorized" Error (401)**
+
    - **Cause**: Invalid or missing API key
    - **Solution**: Ensure `LIMITLESS_API_KEY` is set correctly
    - **Note**: API uses `X-API-Key` header, not Bearer token
 
 2. **No Data Returned**
+
    - **Cause**: API only returns Pendant recordings
    - **Solution**: Ensure you have Pendant recordings for the requested dates
    - **Note**: App/extension data is not accessible via API
 
 3. **Cache Not Working**
+
    - **Cause**: Cache disabled or misconfigured
    - **Solution**: Check cache environment variables are set correctly
    - **Debug**: Enable DEBUG logging to see cache hits/misses
 
 4. **Timeout Errors**
+
    - **Cause**: Large data requests or slow connection
    - **Solution**: Increase `LIMITLESS_TIMEOUT` (default: 120000ms)
    - **Alternative**: Use smaller `limit` values in requests
 
 5. **Build Failures**
+
    - **Cause**: Missing dependencies or wrong Node version
-   - **Solution**: Run `npm install` and ensure Node.js 18+ is installed
+   - **Solution**: Run `npm install` and ensure Node.js 22+ is installed
    - **Check**: Run `npm run typecheck` to identify type errors
 
 6. **MCP Client Connection Issues**
@@ -274,11 +289,13 @@ See @ROADMAP.md for planned enhancements:
 ### Debug Mode
 
 Enable debug logging for troubleshooting:
+
 ```bash
 export LOG_LEVEL=DEBUG
 ```
 
 This will show:
+
 - API request/response details
 - Cache hit/miss information
 - Tool execution traces
@@ -287,6 +304,7 @@ This will show:
 ## Reference Documentation Locations
 
 **Important**: Local reference docs are stored in `docs/references/`:
+
 - **MCP Protocol Specification**: `docs/references/llms-full_model-context-protocol_20250601.md`
 - **Limitless API Documentation**: `docs/references/limitless-api-docs_20250601.md`
 

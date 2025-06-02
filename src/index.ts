@@ -2,8 +2,8 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { 
-  CallToolRequestSchema, 
+import {
+  CallToolRequestSchema,
   ListToolsRequestSchema,
   ListResourcesRequestSchema,
   ListResourceTemplatesRequestSchema,
@@ -154,4 +154,3 @@ main().catch((error) => {
   logger.error('Failed to start server:', error);
   process.exit(1);
 });
-

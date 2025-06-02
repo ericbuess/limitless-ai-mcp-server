@@ -14,8 +14,8 @@ describe('PromptHandlers', () => {
       const result = await promptHandlers.handleListPrompts(request);
 
       expect(result.prompts).toHaveLength(5);
-      
-      const promptNames = result.prompts.map(p => p.name);
+
+      const promptNames = result.prompts.map((p) => p.name);
       expect(promptNames).toContain('daily-summary');
       expect(promptNames).toContain('action-items');
       expect(promptNames).toContain('key-topics');
@@ -23,7 +23,7 @@ describe('PromptHandlers', () => {
       expect(promptNames).toContain('search-insights');
 
       // Check structure of a prompt
-      const dailySummary = result.prompts.find(p => p.name === 'daily-summary');
+      const dailySummary = result.prompts.find((p) => p.name === 'daily-summary');
       expect(dailySummary).toMatchObject({
         name: 'daily-summary',
         description: 'Summarize all lifelogs from a specific day',

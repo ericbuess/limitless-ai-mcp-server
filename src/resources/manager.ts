@@ -35,7 +35,7 @@ export class ResourceManager {
 
     if (!uri || uri === 'lifelog://') {
       // Return templates when listing root
-      return ResourceManager.RESOURCE_TEMPLATES.map(template => ({
+      return ResourceManager.RESOURCE_TEMPLATES.map((template) => ({
         uri: template.uriTemplate,
         name: template.name,
         description: template.description,
@@ -81,16 +81,16 @@ export class ResourceManager {
     } else if (specificMatch) {
       // Return specific lifelog
       const [, date, id] = specificMatch;
-      
+
       // First get lifelogs for the date to find the specific one
       const lifelogs = await this.client.listLifelogsByDate(date);
-      const lifelog = lifelogs.find(log => log.id === id);
-      
+      const lifelog = lifelogs.find((log) => log.id === id);
+
       if (!lifelog) {
         logger.warn('Lifelog not found', { uri, date, id });
         return null;
       }
-      
+
       // Get full details
       return await this.client.getLifelogById(id);
     }
@@ -110,7 +110,7 @@ export class ResourceManager {
    * Convert lifelogs to resources
    */
   private lifelogsToResources(lifelogs: Lifelog[], datePrefix?: string): Resource[] {
-    return lifelogs.map(lifelog => {
+    return lifelogs.map((lifelog) => {
       const date = datePrefix || lifelog.startTime.split('T')[0];
       return {
         uri: `lifelog://${date}/${lifelog.id}`,
@@ -138,7 +138,7 @@ export class ResourceManager {
       /^lifelog:\/\/\d{4}-\d{2}-\d{2}$/,
       /^lifelog:\/\/\d{4}-\d{2}-\d{2}\/.+$/,
     ];
-    
-    return patterns.some(pattern => pattern.test(uri));
+
+    return patterns.some((pattern) => pattern.test(uri));
   }
 }
