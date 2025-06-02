@@ -9,6 +9,14 @@ import {
 import { logger } from '../utils/logger';
 import { retry } from '../utils/retry';
 import { formatDate } from '../utils/date';
+import {
+  lifelogCache,
+  searchCache,
+  buildLifelogCacheKey,
+  buildDateCacheKey,
+  buildSearchCacheKey,
+  buildRecentCacheKey,
+} from './cache';
 
 const DEFAULT_BASE_URL = 'https://api.limitless.ai/v1';
 const DEFAULT_TIMEOUT = 120000; // 120 seconds
@@ -110,6 +118,14 @@ export class LimitlessClient {
   ): Promise<Lifelog> {
     logger.debug(`Fetching lifelog with ID: ${id}`);
 
+    // Check cache first
+    const cacheKey = buildLifelogCacheKey(id);
+    const cached = lifelogCache.get(cacheKey);
+    if (cached) {
+      logger.debug(`Lifelog ${id} retrieved from cache`);
+      return cached;
+    }
+
     const params = new URLSearchParams();
     if (options.includeMarkdown !== undefined) {
       params.append('includeMarkdown', String(options.includeMarkdown));
@@ -127,6 +143,9 @@ export class LimitlessClient {
       throw new LimitlessAPIError(response.error.message, undefined, response.error.code);
     }
 
+    // Cache the result
+    lifelogCache.set(cacheKey, response.data);
+    
     return response.data;
   }
 
@@ -134,10 +153,23 @@ export class LimitlessClient {
     const formattedDate = formatDate(date);
     logger.debug(`Listing lifelogs for date: ${formattedDate}`);
 
+    // Check cache first
+    const cacheKey = buildDateCacheKey(formattedDate, options);
+    const cached = lifelogCache.get(cacheKey);
+    if (cached) {
+      logger.debug(`Lifelogs for ${formattedDate} retrieved from cache`);
+      return cached;
+    }
+
     const params = this.buildQueryParams(options);
     params.append('date', formattedDate);
 
-    return this.fetchAllLifelogs('/lifelogs', params, options.limit);
+    const result = await this.fetchAllLifelogs('/lifelogs', params, options.limit);
+    
+    // Cache the result
+    lifelogCache.set(cacheKey, result);
+    
+    return result;
   }
 
   async listLifelogsByRange(options: DateRangeOptions): Promise<Lifelog[]> {
@@ -158,15 +190,36 @@ export class LimitlessClient {
     const limit = options.limit || 10;
     logger.debug(`Listing ${limit} recent lifelogs`);
 
+    // Check cache first
+    const cacheKey = buildRecentCacheKey(options);
+    const cached = lifelogCache.get(cacheKey);
+    if (cached) {
+      logger.debug(`Recent lifelogs retrieved from cache`);
+      return cached;
+    }
+
     const params = this.buildQueryParams(options);
     params.append('recent', 'true');
 
-    return this.fetchAllLifelogs('/lifelogs', params, limit);
+    const result = await this.fetchAllLifelogs('/lifelogs', params, limit);
+    
+    // Cache the result
+    lifelogCache.set(cacheKey, result);
+    
+    return result;
   }
 
   async searchLifelogs(options: SearchOptions): Promise<Lifelog[]> {
     const { searchTerm, fetchLimit = 20, ...listOptions } = options;
     logger.debug(`Searching for "${searchTerm}" in recent ${fetchLimit} lifelogs`);
+
+    // Check search cache first
+    const cacheKey = buildSearchCacheKey(searchTerm, options);
+    const cached = searchCache.get(cacheKey);
+    if (cached) {
+      logger.debug(`Search results for "${searchTerm}" retrieved from cache`);
+      return cached;
+    }
 
     // First fetch recent lifelogs
     const recentLogs = await this.listRecentLifelogs({
@@ -190,7 +243,12 @@ export class LimitlessClient {
     });
 
     // Apply limit if specified
-    return listOptions.limit ? results.slice(0, listOptions.limit) : results;
+    const finalResults = listOptions.limit ? results.slice(0, listOptions.limit) : results;
+    
+    // Cache the search results
+    searchCache.set(cacheKey, finalResults);
+    
+    return finalResults;
   }
 
   private buildQueryParams(options: ListLifelogsOptions): URLSearchParams {
