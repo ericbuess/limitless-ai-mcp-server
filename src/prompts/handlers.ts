@@ -15,7 +15,7 @@ export class PromptHandlers {
     try {
       logger.debug('Handling list prompts request');
 
-      const prompts = Object.values(promptTemplates).map(template => ({
+      const prompts = Object.values(promptTemplates).map((template) => ({
         name: template.name,
         description: template.description,
         arguments: template.arguments,
@@ -43,8 +43,8 @@ export class PromptHandlers {
 
       // Validate required arguments
       const missingArgs = template.arguments
-        ?.filter(arg => arg.required && !args[arg.name])
-        .map(arg => arg.name);
+        ?.filter((arg) => arg.required && !args[arg.name])
+        .map((arg) => arg.name);
 
       if (missingArgs && missingArgs.length > 0) {
         throw new Error(`Missing required arguments: ${missingArgs.join(', ')}`);

@@ -13,7 +13,7 @@ describe('SamplingHandlers', () => {
     mockClient = new LimitlessClient({
       apiKey: 'test-key',
     }) as jest.Mocked<LimitlessClient>;
-    
+
     samplingHandlers = new SamplingHandlers(mockClient);
   });
 

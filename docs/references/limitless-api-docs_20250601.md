@@ -4,7 +4,8 @@ URL Source: https://www.limitless.ai/developers
 
 Markdown Content:
 Limitless Developer Platform
-----------------------------
+
+---
 
 Your data is yours to use. Build your own integrations with our API.
 
@@ -14,8 +15,7 @@ Note: The Developer API is currently in beta. Because the current endpoints only
 
 [Setup](https://www.limitless.ai/developers#setup)[Endpoints](https://www.limitless.ai/developers#endpoints)[Usage](https://www.limitless.ai/developers#usage)
 
-Setup
------
+## Setup
 
 ### 1. Access Developer settings
 
@@ -39,16 +39,13 @@ Now that you have an API key, you can use it to access the API. Here's an exampl
 
 There are many parameters you can use to customize your API request. For more information, see the[API documentation](https://www.limitless.ai/developers).
 
-Endpoints
----------
+## Endpoints
 
 While the Developer API is in beta, it only supports Pendant data. We plan to add more endpoints very soon.
 
-Usage
------
+## Usage
 
-Authentication
---------------
+## Authentication
 
 All API requests require authentication using an API key.
 
@@ -58,22 +55,21 @@ Include your API key in the`X-API-Key`header with each request:
 
 You can obtain an API key from the Developer settings in your Limitless account.
 
-Requests
---------
+## Requests
 
 #### Query Parameters
 
-| Parameter | Type | Description |
-| --- | --- | --- |
-| timezone | string | [IANA timezone specifier](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If missing, UTC is used.Optional. |
-| date | string (date) | Will return all entries beginning on a date in the given timezone (`YYYY-MM-DD`). If`start`or`end`are provided,`date`will be ignored. |
-| start | string (date-time) | Start datetime in modified[ISO-8601](https://en.wikipedia.org/wiki/ISO_8601)format (`YYYY-MM-DD`or`YYYY-MM-DD HH:mm:SS`). Timezones/offsets will be ignored; use the query parameter instead. |
-| end | string (date-time) | End datetime in modified[ISO-8601](https://en.wikipedia.org/wiki/ISO_8601)format (`YYYY-MM-DD`or`YYYY-MM-DD HH:mm:SS`). Timezones/offsets will be ignored; use the query parameter instead. |
-| cursor | string | Cursor for pagination to retrieve the next set of lifelogs. Optional. |
-| direction | string (enum) | Sort direction for lifelogs. Allowed values:`asc`,`desc`. Default:`desc` |
-| includeMarkdown | boolean | Whether to include markdown content in the response.Default:`true` |
-| includeHeadings | boolean | Whether to include headings in the response.Default:`true` |
-| limit | integer | Maximum number of lifelogs to return. (Max value is 10; use the cursor parameter for pagination).Default:`3` |
+| Parameter       | Type               | Description                                                                                                                                                                                   |
+| --------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| timezone        | string             | [IANA timezone specifier](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). If missing, UTC is used.Optional.                                                                    |
+| date            | string (date)      | Will return all entries beginning on a date in the given timezone (`YYYY-MM-DD`). If`start`or`end`are provided,`date`will be ignored.                                                         |
+| start           | string (date-time) | Start datetime in modified[ISO-8601](https://en.wikipedia.org/wiki/ISO_8601)format (`YYYY-MM-DD`or`YYYY-MM-DD HH:mm:SS`). Timezones/offsets will be ignored; use the query parameter instead. |
+| end             | string (date-time) | End datetime in modified[ISO-8601](https://en.wikipedia.org/wiki/ISO_8601)format (`YYYY-MM-DD`or`YYYY-MM-DD HH:mm:SS`). Timezones/offsets will be ignored; use the query parameter instead.   |
+| cursor          | string             | Cursor for pagination to retrieve the next set of lifelogs. Optional.                                                                                                                         |
+| direction       | string (enum)      | Sort direction for lifelogs. Allowed values:`asc`,`desc`. Default:`desc`                                                                                                                      |
+| includeMarkdown | boolean            | Whether to include markdown content in the response.Default:`true`                                                                                                                            |
+| includeHeadings | boolean            | Whether to include headings in the response.Default:`true`                                                                                                                                    |
+| limit           | integer            | Maximum number of lifelogs to return. (Max value is 10; use the cursor parameter for pagination).Default:`3`                                                                                  |
 
 #### Response
 
@@ -149,11 +145,11 @@ response = requests.get('https://api.limitless.ai/v1/lifelogs', params={
 
 #### Query Parameters
 
-| Parameter | Type | Description |
-| --- | --- | --- |
-| :id | string | The ID of the lifelog entry to retrieve, given in the URL. |
+| Parameter       | Type    | Description                                                        |
+| --------------- | ------- | ------------------------------------------------------------------ |
+| :id             | string  | The ID of the lifelog entry to retrieve, given in the URL.         |
 | includeMarkdown | boolean | Whether to include markdown content in the response.Default:`true` |
-| includeHeadings | boolean | Whether to include headings in the response.Default:`true` |
+| includeHeadings | boolean | Whether to include headings in the response.Default:`true`         |
 
 #### Response
 

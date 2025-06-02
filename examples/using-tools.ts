@@ -1,6 +1,6 @@
 /**
  * Example: Using MCP Tools
- * 
+ *
  * This example demonstrates how to use all 5 available MCP tools
  * to interact with your Limitless recordings.
  */
@@ -23,13 +23,16 @@ async function main() {
     command: 'node',
     args: ['../dist/index.js'],
   });
-  
-  const client = new Client({
-    name: 'example-tools-client',
-    version: '1.0.0',
-  }, {
-    capabilities: {}
-  });
+
+  const client = new Client(
+    {
+      name: 'example-tools-client',
+      version: '1.0.0',
+    },
+    {
+      capabilities: {},
+    }
+  );
 
   await client.connect(transport);
 
@@ -97,7 +100,7 @@ async function main() {
 
     // Advanced: Combining tools for analysis
     console.log('\n=== Advanced: Combining Tools ===');
-    
+
     // First, search for a topic
     const topicSearch = await client.callTool({
       name: 'limitless_search_lifelogs',
@@ -106,11 +109,10 @@ async function main() {
         fetch_limit: 20,
       },
     });
-    
+
     // Then get detailed info for the first result
     // (Parse the ID from the search results in a real implementation)
     console.log('Found recordings about project deadlines');
-
   } catch (error) {
     console.error('Error:', error);
   } finally {

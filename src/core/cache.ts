@@ -50,10 +50,10 @@ export class LRUCache<T> implements ICache<T> {
     this.cache.delete(key);
     entry.hits++;
     this.cache.set(key, entry);
-    
+
     this._stats.hits++;
     logger.debug('Cache hit', { key, hits: entry.hits });
-    
+
     return entry.data;
   }
 
@@ -83,12 +83,12 @@ export class LRUCache<T> implements ICache<T> {
   has(key: string): boolean {
     const entry = this.cache.get(key);
     if (!entry) return false;
-    
+
     if (this.isExpired(entry)) {
       this.delete(key);
       return false;
     }
-    
+
     return true;
   }
 
@@ -127,18 +127,23 @@ export class LRUCache<T> implements ICache<T> {
       this.cache.delete(firstKey);
       this._stats.evictions++;
       this._stats.size--;
-      
+
       if (entry) {
         this.options.onEvict(firstKey, entry);
       }
-      
+
       logger.debug('Cache entry evicted', { key: firstKey });
     }
   }
 }
 
 // Global cache instances
-export const lifelogCache = new LRUCache<Lifelog | Lifelog[]>({
+export const lifelogCache = new LRUCache<Lifelog>({
+  maxSize: parseInt(process.env.CACHE_MAX_SIZE || '100'),
+  ttl: parseInt(process.env.CACHE_TTL || String(5 * 60 * 1000)), // 5 minutes
+});
+
+export const lifelogArrayCache = new LRUCache<Lifelog[]>({
   maxSize: parseInt(process.env.CACHE_MAX_SIZE || '100'),
   ttl: parseInt(process.env.CACHE_TTL || String(5 * 60 * 1000)), // 5 minutes
 });

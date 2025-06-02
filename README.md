@@ -11,6 +11,7 @@ An advanced Model Context Protocol (MCP) server that enables AI assistants to in
 ## 🌟 Features
 
 ### Core Capabilities
+
 - **Full Limitless API Integration**: Access all your Pendant recordings programmatically
 - **Advanced Search**: Search through your recordings with keyword matching
 - **Flexible Querying**: List recordings by date, date range, or get recent recordings
@@ -20,6 +21,7 @@ An advanced Model Context Protocol (MCP) server that enables AI assistants to in
 - **Type Safety**: Full TypeScript support with comprehensive type definitions
 
 ### MCP Protocol Implementation
+
 - **🔧 Tools**: 5 specialized tools for searching and retrieving recordings
 - **📁 Resources**: Browse recordings as structured resources with URI navigation
 - **📝 Prompts**: Pre-built templates for common analysis tasks
@@ -28,7 +30,7 @@ An advanced Model Context Protocol (MCP) server that enables AI assistants to in
 
 ## 📋 Requirements
 
-- **Node.js 18+** 
+- **Node.js 22+**
 - **Limitless Pendant** (Required - API only returns Pendant recordings)
 - **Limitless API Key** (Get from [limitless.ai/developers](https://limitless.ai/developers))
 - **MCP-compatible client** (Claude Desktop, Windsurf, Cursor, etc.)
@@ -36,11 +38,13 @@ An advanced Model Context Protocol (MCP) server that enables AI assistants to in
 ## 🚀 Installation
 
 ### Option 1: Install from npm (Coming Soon)
+
 ```bash
 npm install -g limitless-ai-mcp-server
 ```
 
 ### Option 2: Install from Source
+
 ```bash
 # Clone the repository
 git clone https://github.com/ericbuess/limitless-ai-mcp-server.git
@@ -106,17 +110,21 @@ Refer to your client's documentation for MCP server configuration.
 ## 🛠️ Available Tools
 
 ### 1. `limitless_get_lifelog_by_id`
+
 Retrieves a single recording by its unique ID.
 
 **Parameters:**
+
 - `lifelog_id` (required): The unique identifier
 - `includeMarkdown`: Include markdown content (default: true)
 - `includeHeadings`: Include headings (default: true)
 
 ### 2. `limitless_list_lifelogs_by_date`
+
 Lists all recordings for a specific date.
 
 **Parameters:**
+
 - `date` (required): Date in YYYY-MM-DD format
 - `limit`: Maximum results (max: 100)
 - `direction`: Sort order ('asc' or 'desc')
@@ -125,9 +133,11 @@ Lists all recordings for a specific date.
 - `includeHeadings`: Include headings
 
 ### 3. `limitless_list_lifelogs_by_range`
+
 Lists recordings within a date/time range.
 
 **Parameters:**
+
 - `start` (required): Start date/time
 - `end` (required): End date/time
 - `limit`: Maximum results
@@ -137,18 +147,22 @@ Lists recordings within a date/time range.
 - `includeHeadings`: Include headings
 
 ### 4. `limitless_list_recent_lifelogs`
+
 Lists the most recent recordings.
 
 **Parameters:**
+
 - `limit`: Number of recordings (default: 10, max: 100)
 - `timezone`: IANA timezone
 - `includeMarkdown`: Include markdown content
 - `includeHeadings`: Include headings
 
 ### 5. `limitless_search_lifelogs`
+
 Searches for keywords in recent recordings.
 
 **Parameters:**
+
 - `search_term` (required): Text to search for
 - `fetch_limit`: How many recent logs to search (default: 20, max: 100)
 - `limit`: Maximum results to return
@@ -160,14 +174,17 @@ Searches for keywords in recent recordings.
 This server implements all five core MCP protocol features to provide multiple ways to access and analyze your Limitless data:
 
 ### 📁 Resources
+
 Browse and access your lifelogs as structured resources. Resources provide a file-system-like interface to your recordings.
 
 **Available URIs:**
+
 - `lifelog://recent` - Browse recent recordings
 - `lifelog://2024-01-15` - Browse recordings from a specific date
 - `lifelog://2024-01-15/abc123` - Access a specific recording
 
 **Usage in Claude:**
+
 ```
 "Browse my recent recordings"
 "Show me resources from January 15th"
@@ -175,25 +192,24 @@ Browse and access your lifelogs as structured resources. Resources provide a fil
 ```
 
 ### 📝 Prompts
+
 Pre-built prompt templates for common analysis tasks. Each prompt can be customized with arguments.
 
 **Available Prompts:**
+
 1. **daily-summary** - Summarize all recordings from a specific day
    - Arguments: `date` (required)
-   
 2. **action-items** - Extract action items from recordings
    - Arguments: `date` or `dateRange` (optional)
-   
 3. **key-topics** - Identify main topics discussed
    - Arguments: `date` or `searchTerm` (optional)
-   
 4. **meeting-notes** - Format recordings as structured meeting notes
    - Arguments: `date` (required)
-   
 5. **search-insights** - Analyze patterns in search results
    - Arguments: `searchTerm` (required)
 
 **Usage in Claude:**
+
 ```
 "Use the daily-summary prompt for yesterday"
 "Extract action items from this week"
@@ -201,9 +217,11 @@ Pre-built prompt templates for common analysis tasks. Each prompt can be customi
 ```
 
 ### 🔍 Sampling
+
 Enable AI-powered content analysis of your recordings. The sampling feature allows the AI to process and analyze lifelog content directly.
 
 **Capabilities:**
+
 - Summarize long recordings
 - Extract specific information
 - Identify patterns and trends
@@ -211,6 +229,7 @@ Enable AI-powered content analysis of your recordings. The sampling feature allo
 - Analyze sentiment and tone
 
 **Usage in Claude:**
+
 ```
 "Analyze the tone of my meetings this week"
 "Summarize the key decisions from yesterday's recordings"
@@ -218,9 +237,11 @@ Enable AI-powered content analysis of your recordings. The sampling feature allo
 ```
 
 ### 🔎 Discovery
+
 Automatically exposes server capabilities to MCP clients. This allows Claude and other tools to understand what features are available.
 
 **Exposed Information:**
+
 - Server name and version
 - Available tools, resources, and prompts
 - Supported features and limitations
@@ -231,6 +252,7 @@ Automatically exposes server capabilities to MCP clients. This allows Claude and
 The server includes an intelligent caching system to optimize performance:
 
 **Cache Features:**
+
 - LRU (Least Recently Used) eviction strategy
 - Configurable TTL (Time To Live)
 - Separate caches for lifelogs and search results
@@ -238,6 +260,7 @@ The server includes an intelligent caching system to optimize performance:
 - Cache statistics tracking
 
 **Configuration (via environment variables):**
+
 - `CACHE_MAX_SIZE` - Maximum cached items (default: 100)
 - `CACHE_TTL` - Cache lifetime in ms (default: 300000 / 5 minutes)
 - `SEARCH_CACHE_MAX_SIZE` - Search cache size (default: 50)
@@ -355,6 +378,7 @@ Contributions are welcome! Please follow these steps:
 5. Open a Pull Request
 
 Please ensure:
+
 - All tests pass
 - Code follows the existing style (run `npm run lint`)
 - Add tests for new features
@@ -365,11 +389,13 @@ Please ensure:
 ### Common Issues
 
 1. **"No lifelogs found"**
+
    - Ensure you have recordings from your Limitless Pendant
    - Check that your API key is valid
    - Verify the date range you're querying
 
 2. **Timeout errors**
+
    - Increase timeout: `export LIMITLESS_TIMEOUT=300000`
    - Reduce the number of results requested
    - Check your internet connection

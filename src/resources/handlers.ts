@@ -18,13 +18,14 @@ export class ResourceHandlers {
    */
   async handleListResources(request: ListResourcesRequest): Promise<ListResourcesResult> {
     try {
-      const baseUri = typeof request.params?.baseUri === 'string' ? request.params.baseUri : undefined;
+      const baseUri =
+        typeof request.params?.baseUri === 'string' ? request.params.baseUri : undefined;
       logger.debug('Handling list resources request', { baseUri });
 
       const resources = await this.resourceManager.listResources(baseUri);
 
       return {
-        resources: resources.map(resource => ({
+        resources: resources.map((resource) => ({
           uri: resource.uri,
           name: resource.name,
           description: resource.description,
@@ -49,7 +50,7 @@ export class ResourceHandlers {
       const templates = this.resourceManager.getTemplates();
 
       return {
-        resourceTemplates: templates.map(template => ({
+        resourceTemplates: templates.map((template) => ({
           uriTemplate: template.uriTemplate,
           name: template.name,
           description: template.description,

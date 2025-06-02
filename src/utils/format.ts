@@ -29,24 +29,26 @@ function formatSingleLifelog(log: Lifelog, options: FormatOptions): string {
   // Basic info
   parts.push(`ID: ${log.id}`);
   parts.push(`Title: ${log.title || 'Untitled'}`);
-  
+
   if (log.startTime) {
     parts.push(`Start Time: ${formatDateTime(log.startTime)}`);
   }
-  
+
   if (log.endTime) {
     parts.push(`End Time: ${formatDateTime(log.endTime)}`);
-    
+
     // Calculate duration if we have both times
     if (log.startTime) {
-      const duration = Math.floor((new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / 1000);
+      const duration = Math.floor(
+        (new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / 1000
+      );
       parts.push(`Duration: ${formatDuration(duration)}`);
     }
   }
 
   // Contents/Headings
   if (options.includeHeadings && log.contents && log.contents.length > 0) {
-    const headings = log.contents.filter(c => c.type === 'heading1' || c.type === 'heading2');
+    const headings = log.contents.filter((c) => c.type === 'heading1' || c.type === 'heading2');
     if (headings.length > 0) {
       parts.push(`\nHeadings:`);
       headings.forEach((heading, index) => {
@@ -61,7 +63,7 @@ function formatSingleLifelog(log: Lifelog, options: FormatOptions): string {
   } else if (log.contents && log.contents.length > 0) {
     // Format contents as text
     parts.push(`\nContent:`);
-    log.contents.forEach(content => {
+    log.contents.forEach((content) => {
       if (content.type === 'heading1') {
         parts.push(`\n# ${content.content}`);
       } else if (content.type === 'heading2') {
