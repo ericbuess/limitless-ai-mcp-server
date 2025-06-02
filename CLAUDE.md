@@ -202,6 +202,16 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 - Write tests for new functionality
 - Keep functions focused and single-purpose
 
+## Current Status
+
+- **Version**: 1.0.0
+- **Phase**: MVP Complete ✅
+- **Tests**: 53 passing
+- **Features**: All 5 MCP protocol features implemented
+- **Performance**: Cache provides infinite speedup on hits
+
+See `PROJECT_STATUS.md` for detailed metrics and current capabilities.
+
 ## Release Process
 
 1. Ensure all tests pass: `npm test`
@@ -212,14 +222,11 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 6. Create a pull request from dev to main
 7. After merge, tag the release
 
-## Future Enhancements
+## Future Development
 
-- [ ] Add more comprehensive test coverage
-- [ ] Implement caching for frequently accessed data
-- [ ] Add support for batch operations
-- [ ] Create a CLI tool for standalone usage
-- [ ] Add webhook support for real-time updates
-- [ ] Implement data export features
+See `ROADMAP.md` for planned enhancements:
+- **Phase 2**: Local Vector Store & Voice-Activated Keywords
+- **Phase 3**: Additional features and integrations
 
 ## Security Considerations
 
