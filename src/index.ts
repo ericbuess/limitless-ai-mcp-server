@@ -2,10 +2,18 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { 
+  CallToolRequestSchema, 
+  ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
+  ReadResourceRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 import { LimitlessClient } from './core/limitless-client';
 import { ToolHandlers } from './tools/handlers';
 import { toolDefinitions } from './tools/definitions';
+import { ResourceManager } from './resources/manager';
+import { ResourceHandlers } from './resources/handlers';
 import { logger } from './utils/logger';
 
 // Server metadata
@@ -39,6 +47,8 @@ async function main() {
   });
 
   const toolHandlers = new ToolHandlers(client);
+  const resourceManager = new ResourceManager(client);
+  const resourceHandlers = new ResourceHandlers(resourceManager);
 
   // Create MCP server
   const server = new Server(
@@ -49,6 +59,10 @@ async function main() {
     {
       capabilities: {
         tools: {},
+        resources: {
+          subscribe: false,
+          listChanged: false,
+        },
       },
     }
   );
@@ -64,6 +78,22 @@ async function main() {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     logger.debug(`Tool call received: ${request.params.name}`);
     return toolHandlers.handleToolCall(request);
+  });
+
+  // Register resource handlers
+  server.setRequestHandler(ListResourcesRequestSchema, async (request) => {
+    logger.debug('Listing resources');
+    return resourceHandlers.handleListResources(request);
+  });
+
+  server.setRequestHandler(ListResourceTemplatesRequestSchema, async (request) => {
+    logger.debug('Listing resource templates');
+    return resourceHandlers.handleListResourceTemplates(request);
+  });
+
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    logger.debug(`Reading resource: ${request.params.uri}`);
+    return resourceHandlers.handleReadResource(request);
   });
 
   // Error handling

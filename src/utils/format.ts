@@ -29,38 +29,47 @@ function formatSingleLifelog(log: Lifelog, options: FormatOptions): string {
   // Basic info
   parts.push(`ID: ${log.id}`);
   parts.push(`Title: ${log.title || 'Untitled'}`);
-  parts.push(`Date: ${log.date}`);
-
-  if (log.createdAt) {
-    parts.push(`Created: ${formatDateTime(log.createdAt)}`);
+  
+  if (log.startTime) {
+    parts.push(`Start Time: ${formatDateTime(log.startTime)}`);
+  }
+  
+  if (log.endTime) {
+    parts.push(`End Time: ${formatDateTime(log.endTime)}`);
+    
+    // Calculate duration if we have both times
+    if (log.startTime) {
+      const duration = Math.floor((new Date(log.endTime).getTime() - new Date(log.startTime).getTime()) / 1000);
+      parts.push(`Duration: ${formatDuration(duration)}`);
+    }
   }
 
-  if (log.duration) {
-    parts.push(`Duration: ${formatDuration(log.duration)}`);
-  }
-
-  if (log.tags && log.tags.length > 0) {
-    parts.push(`Tags: ${log.tags.join(', ')}`);
-  }
-
-  // Summary
-  if (log.summary) {
-    parts.push(`\nSummary:\n${log.summary}`);
-  }
-
-  // Headings
-  if (options.includeHeadings && log.headings && log.headings.length > 0) {
-    parts.push(`\nHeadings:`);
-    log.headings.forEach((heading, index) => {
-      parts.push(`  ${index + 1}. ${heading}`);
-    });
+  // Contents/Headings
+  if (options.includeHeadings && log.contents && log.contents.length > 0) {
+    const headings = log.contents.filter(c => c.type === 'heading1' || c.type === 'heading2');
+    if (headings.length > 0) {
+      parts.push(`\nHeadings:`);
+      headings.forEach((heading, index) => {
+        parts.push(`  ${index + 1}. ${heading.content}`);
+      });
+    }
   }
 
   // Content/Markdown
   if (options.includeMarkdown && log.markdown) {
     parts.push(`\nContent:\n${log.markdown}`);
-  } else if (log.content) {
-    parts.push(`\nContent:\n${log.content}`);
+  } else if (log.contents && log.contents.length > 0) {
+    // Format contents as text
+    parts.push(`\nContent:`);
+    log.contents.forEach(content => {
+      if (content.type === 'heading1') {
+        parts.push(`\n# ${content.content}`);
+      } else if (content.type === 'heading2') {
+        parts.push(`\n## ${content.content}`);
+      } else if (content.type === 'blockquote') {
+        parts.push(`> ${content.content}`);
+      }
+    });
   }
 
   return parts.join('\n');
