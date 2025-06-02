@@ -193,6 +193,12 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 - Sanitize error messages to avoid leaking sensitive info
 - Keep dependencies updated for security patches
 
+## Reference Documentation Locations
+
+**Important**: Local reference docs are stored in `docs/references/`:
+- **MCP Protocol Specification**: `docs/references/llms-full_model-context-protocol_20250601.md`
+- **Limitless API Documentation**: `docs/references/limitless-api-docs.md`
+
 ## Useful Links
 
 - [Limitless API Docs](https://www.limitless.ai/developers)
