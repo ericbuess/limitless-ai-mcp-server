@@ -4,7 +4,7 @@ import { Lifelog } from '../types/limitless';
 import { logger } from '../utils/logger';
 
 export class ResourceManager {
-  private static readonly RESOURCE_TEMPLATES: ResourceTemplate[] = [
+  static readonly RESOURCE_TEMPLATES: ResourceTemplate[] = [
     {
       uriTemplate: 'lifelog://recent',
       name: 'Recent Lifelogs',

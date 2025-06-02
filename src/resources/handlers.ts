@@ -47,14 +47,9 @@ export class ResourceHandlers {
     try {
       logger.debug('Handling list resource templates request');
 
-      const templates = this.resourceManager.getTemplates();
-
       return {
-        resourceTemplates: templates.map((template) => ({
-          uriTemplate: template.uriTemplate,
-          name: template.name,
-          description: template.description,
-          mimeType: template.mimeType,
+        resourceTemplates: ResourceManager.RESOURCE_TEMPLATES.map(template => ({
+          ...template,
         })),
       };
     } catch (error) {
