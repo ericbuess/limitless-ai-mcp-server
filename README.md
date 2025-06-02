@@ -36,6 +36,22 @@ An advanced Model Context Protocol (MCP) server that enables AI assistants to in
 - **Limitless API Key** (Get from [limitless.ai/developers](https://limitless.ai/developers))
 - **MCP-compatible client** (Claude Desktop, Windsurf, Cursor, etc.)
 
+## 🏃 Quick Start
+
+1. **Get your API key** from [limitless.ai/developers](https://limitless.ai/developers)
+2. **Clone and build**:
+   ```bash
+   git clone https://github.com/ericbuess/limitless-ai-mcp-server.git
+   cd limitless-ai-mcp-server
+   npm install
+   npm run build
+   ```
+3. **Configure Claude Code**:
+   ```bash
+   claude mcp add limitless -s user -e LIMITLESS_API_KEY="your-key" -- node $(pwd)/dist/index.js
+   ```
+4. **Start chatting**: "Show me my recordings from today"
+
 ## 🚀 Installation
 
 ### Option 1: Install from npm (Coming Soon)
@@ -83,6 +99,21 @@ export SEARCH_CACHE_TTL=180000  # Search cache lifetime (3 minutes)
 
 ### 2. Configure your MCP client
 
+#### Claude Code CLI
+
+If you're using Claude Code (Anthropic's official CLI), run:
+
+```bash
+# Add the server (replace path with your actual installation path)
+claude mcp add limitless -s user -e LIMITLESS_API_KEY="your-api-key-here" -- node /path/to/limitless-ai-mcp-server/dist/index.js
+
+# Verify it's running
+claude mcp list
+
+# Remove if needed
+claude mcp remove limitless -s user
+```
+
 #### Claude Desktop Configuration
 
 Add to your Claude Desktop configuration file:
@@ -103,6 +134,8 @@ Add to your Claude Desktop configuration file:
   }
 }
 ```
+
+**Important**: Replace `/path/to/limitless-ai-mcp-server` with the actual path where you cloned/installed the project.
 
 #### Other MCP Clients
 
