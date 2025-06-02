@@ -5,10 +5,20 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
+  ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
+  CreateMessageRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { LimitlessClient } from './core/limitless-client';
 import { ToolHandlers } from './tools/handlers';
 import { toolDefinitions } from './tools/definitions';
+import { ResourceManager } from './resources/manager';
+import { ResourceHandlers } from './resources/handlers';
+import { PromptHandlers } from './prompts/handlers';
+import { SamplingHandlers } from './sampling/handlers';
 import { logger } from './utils/logger';
 
 // Server metadata
@@ -42,8 +52,14 @@ async function main() {
   });
 
   const toolHandlers = new ToolHandlers(client);
+  const resourceManager = new ResourceManager(client);
+  const resourceHandlers = new ResourceHandlers(resourceManager);
+  const promptHandlers = new PromptHandlers();
+  const samplingHandlers = new SamplingHandlers(client);
 
-  // Create MCP server
+  // Create MCP server with discovery support
+  // The Server class automatically handles the initialize request
+  // and responds with server info and capabilities
   const server = new Server(
     {
       name: SERVER_INFO.name,
@@ -52,6 +68,14 @@ async function main() {
     {
       capabilities: {
         tools: {},
+        resources: {
+          subscribe: false,
+          listChanged: false,
+        },
+        prompts: {
+          listChanged: false,
+        },
+        sampling: {},
       },
     }
   );
@@ -66,7 +90,40 @@ async function main() {
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     logger.debug(`Tool call received: ${request.params.name}`);
-    return toolHandlers.handleToolCall(request.params);
+    return toolHandlers.handleToolCall(request);
+  });
+
+  // Register resource handlers
+  server.setRequestHandler(ListResourcesRequestSchema, async (request) => {
+    logger.debug('Listing resources');
+    return resourceHandlers.handleListResources(request);
+  });
+
+  server.setRequestHandler(ListResourceTemplatesRequestSchema, async (request) => {
+    logger.debug('Listing resource templates');
+    return resourceHandlers.handleListResourceTemplates(request);
+  });
+
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    logger.debug(`Reading resource: ${request.params.uri}`);
+    return resourceHandlers.handleReadResource(request);
+  });
+
+  // Register prompt handlers
+  server.setRequestHandler(ListPromptsRequestSchema, async (request) => {
+    logger.debug('Listing prompts');
+    return promptHandlers.handleListPrompts(request);
+  });
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    logger.debug(`Getting prompt: ${request.params.name}`);
+    return promptHandlers.handleGetPrompt(request);
+  });
+
+  // Register sampling handler
+  server.setRequestHandler(CreateMessageRequestSchema, async (request) => {
+    logger.debug('Handling sampling request');
+    return samplingHandlers.handleCreateMessage(request);
   });
 
   // Error handling
@@ -87,7 +144,7 @@ async function main() {
   // Start server
   const transport = new StdioServerTransport();
   logger.info(`Starting ${SERVER_INFO.name} v${SERVER_INFO.version}`);
-  
+
   await server.connect(transport);
   logger.info('Server connected and ready');
 }

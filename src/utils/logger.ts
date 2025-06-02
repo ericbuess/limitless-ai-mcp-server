@@ -26,35 +26,34 @@ export class Logger {
     return level >= this.level;
   }
 
-  private formatMessage(level: string, message: string, ...args: any[]): string {
+  private formatMessage(level: string, message: string, ...args: unknown[]): string {
     const timestamp = new Date().toISOString();
     const formattedArgs = args.length > 0 ? ' ' + JSON.stringify(args) : '';
     return `[${timestamp}] [${this.prefix}] [${level}] ${message}${formattedArgs}`;
   }
 
-  debug(message: string, ...args: any[]): void {
+  debug(message: string, ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.DEBUG)) {
       console.debug(this.formatMessage('DEBUG', message, ...args));
     }
   }
 
-  info(message: string, ...args: any[]): void {
+  info(message: string, ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.INFO)) {
       console.info(this.formatMessage('INFO', message, ...args));
     }
   }
 
-  warn(message: string, ...args: any[]): void {
+  warn(message: string, ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.WARN)) {
       console.warn(this.formatMessage('WARN', message, ...args));
     }
   }
 
-  error(message: string, error?: Error | unknown, ...args: any[]): void {
+  error(message: string, error?: Error | unknown, ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.ERROR)) {
-      const errorDetails = error instanceof Error 
-        ? { message: error.message, stack: error.stack }
-        : error;
+      const errorDetails =
+        error instanceof Error ? { message: error.message, stack: error.stack } : error;
       console.error(this.formatMessage('ERROR', message, errorDetails, ...args));
     }
   }

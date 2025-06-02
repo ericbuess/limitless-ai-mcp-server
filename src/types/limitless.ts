@@ -1,15 +1,22 @@
+export interface LifelogContent {
+  type: 'heading1' | 'heading2' | 'blockquote';
+  content: string;
+  startTime: string;
+  endTime: string;
+  startOffsetMs: number;
+  endOffsetMs: number;
+  children: LifelogContent[];
+  speakerName?: string;
+  speakerIdentifier?: 'user' | null;
+}
+
 export interface Lifelog {
   id: string;
   title: string;
-  date: string;
-  summary?: string;
-  content?: string;
   markdown?: string;
-  headings?: string[];
-  createdAt: string;
-  updatedAt?: string;
-  tags?: string[];
-  duration?: number;
+  startTime: string;
+  endTime: string;
+  contents?: LifelogContent[];
 }
 
 export interface ListLifelogsOptions {

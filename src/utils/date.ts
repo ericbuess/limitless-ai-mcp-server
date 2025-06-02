@@ -1,6 +1,6 @@
 export function formatDate(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  
+
   if (isNaN(d.getTime())) {
     throw new Error(`Invalid date: ${date}`);
   }
@@ -10,7 +10,7 @@ export function formatDate(date: string | Date): string {
 
 export function parseDate(dateStr: string): Date {
   const date = new Date(dateStr);
-  
+
   if (isNaN(date.getTime())) {
     throw new Error(`Invalid date string: ${dateStr}`);
   }
@@ -20,7 +20,7 @@ export function parseDate(dateStr: string): Date {
 
 export function formatDateTime(date: string | Date): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  
+
   if (isNaN(d.getTime())) {
     throw new Error(`Invalid date: ${date}`);
   }
@@ -43,7 +43,7 @@ export function isValidDateTimeFormat(dateTimeStr: string): boolean {
   // Check YYYY-MM-DD HH:mm:SS format
   const dateTimeRegex = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
   const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
-  
+
   if (!dateTimeRegex.test(dateTimeStr) && !isoRegex.test(dateTimeStr)) {
     return false;
   }

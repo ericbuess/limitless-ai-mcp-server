@@ -14,11 +14,11 @@ async function main() {
       limit: 5,
       includeMarkdown: true,
     });
-    
-    recentLogs.forEach(log => {
-      console.log(`- ${log.title} (${log.date})`);
-      if (log.summary) {
-        console.log(`  Summary: ${log.summary.substring(0, 100)}...`);
+
+    recentLogs.forEach((log) => {
+      console.log(`- ${log.title} (${new Date(log.startTime).toLocaleDateString()})`);
+      if (log.markdown) {
+        console.log(`  Preview: ${log.markdown.substring(0, 100)}...`);
       }
     });
 
@@ -30,31 +30,32 @@ async function main() {
       limit: 3,
     });
 
-    searchResults.forEach(log => {
+    searchResults.forEach((log) => {
       console.log(`- ${log.title}`);
-      console.log(`  Date: ${log.date}`);
+      console.log(`  Date: ${new Date(log.startTime).toLocaleDateString()}`);
       console.log(`  ID: ${log.id}`);
     });
 
     // Example 3: Get recordings for a specific date
-    console.log('\n=== Today\'s Recordings ===');
+    console.log("\n=== Today's Recordings ===");
     const today = new Date().toISOString().split('T')[0];
     const todaysLogs = await client.listLifelogsByDate(today, {
       includeHeadings: true,
     });
 
-    todaysLogs.forEach(log => {
+    todaysLogs.forEach((log) => {
       console.log(`- ${log.title}`);
-      if (log.headings && log.headings.length > 0) {
+      if (log.contents && log.contents.length > 0) {
         console.log('  Topics discussed:');
-        log.headings.slice(0, 3).forEach(heading => {
-          console.log(`    • ${heading}`);
+        const headings = log.contents.filter((c) => c.type.startsWith('heading'));
+        headings.slice(0, 3).forEach((heading) => {
+          console.log(`    • ${heading.content}`);
         });
       }
     });
 
     // Example 4: Get recordings within a date range
-    console.log('\n=== This Week\'s Recordings ===');
+    console.log("\n=== This Week's Recordings ===");
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 7);
@@ -67,7 +68,6 @@ async function main() {
     });
 
     console.log(`Found ${weekLogs.length} recordings this week`);
-
   } catch (error) {
     console.error('Error:', error);
   }

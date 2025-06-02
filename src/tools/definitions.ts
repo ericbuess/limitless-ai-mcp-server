@@ -20,7 +20,8 @@ export const toolDefinitions: Tool[] = [
   },
   {
     name: 'limitless_list_lifelogs_by_date',
-    description: 'Lists logs/recordings for a specific date. Best for getting raw log data which you can then analyze for summaries, action items, topics, etc.',
+    description:
+      'Lists logs/recordings for a specific date. Best for getting raw log data which you can then analyze for summaries, action items, topics, etc.',
     inputSchema: {
       type: 'object',
       properties: listLifelogsByDateSchema.shape,
@@ -30,7 +31,8 @@ export const toolDefinitions: Tool[] = [
   },
   {
     name: 'limitless_list_lifelogs_by_range',
-    description: 'Lists logs/recordings within a date/time range. Best for getting raw log data which you can then analyze for summaries, action items, topics, etc.',
+    description:
+      'Lists logs/recordings within a date/time range. Best for getting raw log data which you can then analyze for summaries, action items, topics, etc.',
     inputSchema: {
       type: 'object',
       properties: listLifelogsByRangeSchema.shape,
@@ -40,7 +42,8 @@ export const toolDefinitions: Tool[] = [
   },
   {
     name: 'limitless_list_recent_lifelogs',
-    description: 'Lists the most recent logs/recordings (sorted newest first). Best for getting raw log data which you can then analyze for summaries, action items, topics, etc.',
+    description:
+      'Lists the most recent logs/recordings (sorted newest first). Best for getting raw log data which you can then analyze for summaries, action items, topics, etc.',
     inputSchema: {
       type: 'object',
       properties: listRecentLifelogsSchema.shape,
@@ -49,7 +52,8 @@ export const toolDefinitions: Tool[] = [
   },
   {
     name: 'limitless_search_lifelogs',
-    description: 'Performs a simple text search for specific keywords/phrases within the title and content of *recent* logs/Pendant recordings. Use ONLY for keywords, NOT for concepts like \'action items\' or \'summaries\'. Searches only recent logs (limited scope).',
+    description:
+      "Performs a simple text search for specific keywords/phrases within the title and content of *recent* logs/Pendant recordings. Use ONLY for keywords, NOT for concepts like 'action items' or 'summaries'. Searches only recent logs (limited scope).",
     inputSchema: {
       type: 'object',
       properties: searchLifelogsSchema.shape,
