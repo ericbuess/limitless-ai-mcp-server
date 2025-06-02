@@ -205,9 +205,18 @@ npm run format
 limitless-ai-mcp-server/
 ├── src/
 │   ├── core/           # Core business logic
+│   │   └── limitless-client.ts
 │   ├── tools/          # MCP tool definitions and handlers
+│   │   ├── definitions.ts
+│   │   ├── handlers.ts
+│   │   └── schemas.ts
 │   ├── types/          # TypeScript type definitions
+│   │   └── limitless.ts
 │   ├── utils/          # Utility functions
+│   │   ├── date.ts
+│   │   ├── format.ts
+│   │   ├── logger.ts
+│   │   └── retry.ts
 │   └── index.ts        # Main server entry point
 ├── tests/              # Test files
 ├── examples/           # Usage examples
