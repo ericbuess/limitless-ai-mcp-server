@@ -22,7 +22,7 @@ describe('Retry Extended Tests', () => {
   it('should use linear backoff strategy', async () => {
     let attempts = 0;
     const startTimes: number[] = [];
-    
+
     const fn = jest.fn().mockImplementation(() => {
       startTimes.push(Date.now());
       attempts++;
@@ -41,12 +41,12 @@ describe('Retry Extended Tests', () => {
 
     expect(result).toBe('success');
     expect(fn).toHaveBeenCalledTimes(3);
-    
+
     // Check delays increase linearly
     if (startTimes.length >= 3) {
       const delay1 = startTimes[1] - startTimes[0];
       const delay2 = startTimes[2] - startTimes[1];
-      
+
       // Should be approximately 50ms and 100ms
       expect(delay1).toBeGreaterThan(40);
       expect(delay1).toBeLessThan(70);

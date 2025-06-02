@@ -6,7 +6,7 @@ describe('Tool Definitions', () => {
   });
 
   it('should have correct tool names', () => {
-    const toolNames = toolDefinitions.map(tool => tool.name);
+    const toolNames = toolDefinitions.map((tool) => tool.name);
     expect(toolNames).toEqual([
       'limitless_get_lifelog_by_id',
       'limitless_list_lifelogs_by_date',
@@ -106,8 +106,8 @@ describe('Tool Definitions', () => {
         'limitless_list_recent_lifelogs',
         'limitless_search_lifelogs',
       ];
-      
-      toolDefinitions.forEach(tool => {
+
+      toolDefinitions.forEach((tool) => {
         if (toolsWithIncludeOptions.includes(tool.name)) {
           const props = tool.inputSchema.properties as any;
           expect(props).toHaveProperty('includeMarkdown');
@@ -122,8 +122,8 @@ describe('Tool Definitions', () => {
         'limitless_list_lifelogs_by_range',
         'limitless_search_lifelogs',
       ];
-      
-      toolDefinitions.forEach(tool => {
+
+      toolDefinitions.forEach((tool) => {
         if (toolsWithDirection.includes(tool.name)) {
           const props = tool.inputSchema.properties as any;
           expect(props).toHaveProperty('direction');
@@ -138,8 +138,8 @@ describe('Tool Definitions', () => {
         'limitless_list_recent_lifelogs',
         'limitless_search_lifelogs',
       ];
-      
-      toolDefinitions.forEach(tool => {
+
+      toolDefinitions.forEach((tool) => {
         if (toolsWithLimit.includes(tool.name)) {
           const props = tool.inputSchema.properties as any;
           expect(props).toHaveProperty('limit');

@@ -91,9 +91,10 @@ describe('LimitlessClient', () => {
 
     it('should handle timeout', async () => {
       (global.fetch as jest.Mock).mockImplementationOnce(
-        () => new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('The operation was aborted')), 100);
-        })
+        () =>
+          new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('The operation was aborted')), 100);
+          })
       );
 
       await expect(client['makeRequest']('/lifelogs')).rejects.toThrow();
@@ -195,8 +196,18 @@ describe('LimitlessClient', () => {
 
   describe('listRecentLifelogs', () => {
     const mockLifelogs = [
-      { id: '1', title: 'Log 1', startTime: '2024-01-15T10:00:00Z', endTime: '2024-01-15T11:00:00Z' },
-      { id: '2', title: 'Log 2', startTime: '2024-01-15T12:00:00Z', endTime: '2024-01-15T13:00:00Z' },
+      {
+        id: '1',
+        title: 'Log 1',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T11:00:00Z',
+      },
+      {
+        id: '2',
+        title: 'Log 2',
+        startTime: '2024-01-15T12:00:00Z',
+        endTime: '2024-01-15T13:00:00Z',
+      },
     ];
 
     it('should fetch recent lifelogs', async () => {
@@ -232,16 +243,16 @@ describe('LimitlessClient', () => {
       (global.fetch as jest.Mock)
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ 
+          json: async () => ({
             data: { lifelogs: [mockLifelogs[0]] },
-            pagination: { nextCursor: 'cursor1', hasMore: true }
+            pagination: { nextCursor: 'cursor1', hasMore: true },
           }),
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ 
+          json: async () => ({
             data: { lifelogs: [mockLifelogs[1]] },
-            pagination: { hasMore: false }
+            pagination: { hasMore: false },
           }),
         });
 
@@ -264,7 +275,12 @@ describe('LimitlessClient', () => {
 
   describe('listLifelogsByDate', () => {
     const mockLifelogs = [
-      { id: '1', title: 'Log 1', startTime: '2024-01-15T10:00:00Z', endTime: '2024-01-15T11:00:00Z' },
+      {
+        id: '1',
+        title: 'Log 1',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T11:00:00Z',
+      },
     ];
 
     it('should fetch lifelogs by date', async () => {
@@ -323,8 +339,18 @@ describe('LimitlessClient', () => {
 
   describe('listLifelogsByRange', () => {
     const mockLifelogs = [
-      { id: '1', title: 'Log 1', startTime: '2024-01-10T10:00:00Z', endTime: '2024-01-10T11:00:00Z' },
-      { id: '2', title: 'Log 2', startTime: '2024-01-15T10:00:00Z', endTime: '2024-01-15T11:00:00Z' },
+      {
+        id: '1',
+        title: 'Log 1',
+        startTime: '2024-01-10T10:00:00Z',
+        endTime: '2024-01-10T11:00:00Z',
+      },
+      {
+        id: '2',
+        title: 'Log 2',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T11:00:00Z',
+      },
     ];
 
     it('should fetch lifelogs by date range', async () => {
@@ -371,8 +397,20 @@ describe('LimitlessClient', () => {
 
   describe('searchLifelogs', () => {
     const mockLifelogs = [
-      { id: '1', title: 'Meeting about project', startTime: '2024-01-15T10:00:00Z', endTime: '2024-01-15T11:00:00Z', markdown: 'Discussed project timeline' },
-      { id: '2', title: 'Project review', startTime: '2024-01-15T14:00:00Z', endTime: '2024-01-15T15:00:00Z', markdown: 'Reviewed project status' },
+      {
+        id: '1',
+        title: 'Meeting about project',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T11:00:00Z',
+        markdown: 'Discussed project timeline',
+      },
+      {
+        id: '2',
+        title: 'Project review',
+        startTime: '2024-01-15T14:00:00Z',
+        endTime: '2024-01-15T15:00:00Z',
+        markdown: 'Reviewed project status',
+      },
     ];
 
     it('should search lifelogs', async () => {
@@ -402,7 +440,7 @@ describe('LimitlessClient', () => {
         json: async () => ({ data: { lifelogs: mockLifelogs } }),
       });
 
-      const result = await client.searchLifelogs({ 
+      const result = await client.searchLifelogs({
         searchTerm: 'timeline',
         includeMarkdown: true,
       });
@@ -419,7 +457,15 @@ describe('LimitlessClient', () => {
           startTime: '2024-01-15T10:00:00Z',
           endTime: '2024-01-15T11:00:00Z',
           contents: [
-            { type: 'text', content: 'Discussion about budget planning', startTime: '', endTime: '', startOffsetMs: 0, endOffsetMs: 0, children: [] },
+            {
+              type: 'text',
+              content: 'Discussion about budget planning',
+              startTime: '',
+              endTime: '',
+              startOffsetMs: 0,
+              endOffsetMs: 0,
+              children: [],
+            },
           ],
         },
         {
@@ -428,7 +474,15 @@ describe('LimitlessClient', () => {
           startTime: '2024-01-15T14:00:00Z',
           endTime: '2024-01-15T15:00:00Z',
           contents: [
-            { type: 'text', content: 'Code review session', startTime: '', endTime: '', startOffsetMs: 0, endOffsetMs: 0, children: [] },
+            {
+              type: 'text',
+              content: 'Code review session',
+              startTime: '',
+              endTime: '',
+              startOffsetMs: 0,
+              endOffsetMs: 0,
+              children: [],
+            },
           ],
         },
       ];
@@ -438,7 +492,7 @@ describe('LimitlessClient', () => {
         json: async () => ({ data: { lifelogs: logsWithContents } }),
       });
 
-      const result = await client.searchLifelogs({ 
+      const result = await client.searchLifelogs({
         searchTerm: 'budget',
         includeMarkdown: true,
       });
@@ -461,7 +515,7 @@ describe('LimitlessClient', () => {
         json: async () => ({ data: { lifelogs: manyLogs.slice(0, 20) } }),
       });
 
-      const result = await client.searchLifelogs({ 
+      const result = await client.searchLifelogs({
         searchTerm: 'search',
         fetchLimit: 20,
         limit: 5,
@@ -493,7 +547,9 @@ describe('LimitlessClient', () => {
     it('should handle malformed JSON response', async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
-        json: async () => { throw new Error('Invalid JSON'); },
+        json: async () => {
+          throw new Error('Invalid JSON');
+        },
         text: async () => 'Invalid response',
       });
 
@@ -590,7 +646,7 @@ describe('LimitlessClient', () => {
 describe('LimitlessAPIError', () => {
   it('should create error with status and details', () => {
     const error = new LimitlessAPIError('Not Found', 404, 'NOT_FOUND', 'Resource not found');
-    
+
     expect(error).toBeInstanceOf(Error);
     expect(error.statusCode).toBe(404);
     expect(error.code).toBe('NOT_FOUND');
