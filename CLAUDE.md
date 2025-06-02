@@ -204,13 +204,14 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 
 ## Current Status
 
-- **Version**: 1.0.0
-- **Phase**: MVP Complete ✅
+- **Version**: 0.0.1
+- **Phase**: Early Release / Beta 🚧
 - **Tests**: 53 passing
 - **Features**: All 5 MCP protocol features implemented
 - **Performance**: Cache provides infinite speedup on hits
+- **Testing**: Tools tested, other features need real-world validation
 
-See `PROJECT_STATUS.md` for detailed metrics and current capabilities.
+See @PROJECT_STATUS.md for detailed metrics and current capabilities.
 
 ## Release Process
 
@@ -224,7 +225,7 @@ See `PROJECT_STATUS.md` for detailed metrics and current capabilities.
 
 ## Future Development
 
-See `ROADMAP.md` for planned enhancements:
+See @ROADMAP.md for planned enhancements:
 - **Phase 2**: Local Vector Store & Voice-Activated Keywords
 - **Phase 3**: Additional features and integrations
 

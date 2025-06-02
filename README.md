@@ -1,6 +1,12 @@
 # Limitless AI MCP Server
 
+[![Version](https://img.shields.io/badge/version-0.0.1-blue.svg)](https://github.com/ericbuess/limitless-ai-mcp-server)
+[![Status](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/ericbuess/limitless-ai-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 An advanced Model Context Protocol (MCP) server that enables AI assistants to interact with Limitless AI Pendant recordings. This server provides a seamless bridge between your AI tools and Limitless API, allowing you to extract insights, search through recordings, and analyze your Pendant data.
+
+> ⚠️ **Beta Release**: This is an early release (v0.0.1). While core features are implemented and tested, we need community feedback to validate all functionality. Please [report any issues](https://github.com/ericbuess/limitless-ai-mcp-server/issues)!
 
 ## 🌟 Features
 

@@ -1,9 +1,11 @@
 # Project Status - Limitless AI MCP Server
 
 ## Current Version
-**Version:** 1.0.0  
-**Status:** MVP Complete ✅  
+**Version:** 0.0.1  
+**Status:** Early Release / Beta 🚧  
 **Last Updated:** 2025-06-02
+
+⚠️ **Note**: This is an early release. While core features are implemented and tests pass, real-world usage testing is needed. Please report issues!
 
 ## Completed Features
 
