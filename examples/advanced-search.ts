@@ -87,7 +87,7 @@ async function main() {
     // Get last 4 Mondays
     for (let i = 0; i < 4; i++) {
       const monday = new Date(today);
-      monday.setDate(today.getDate() - today.getDay() + 1 - (i * 7));
+      monday.setDate(today.getDate() - ((today.getDay() + 6) % 7) - (i * 7));
       mondays.push(monday.toISOString().split('T')[0]);
     }
     
