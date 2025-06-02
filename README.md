@@ -488,7 +488,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Issues**: [GitHub Issues](https://github.com/ericbuess/limitless-ai-mcp-server/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/ericbuess/limitless-ai-mcp-server/discussions)
 - **Author**: [Eric Buess](https://x.com/EricBuess)
-- **Email**: 
 
 ---
 
