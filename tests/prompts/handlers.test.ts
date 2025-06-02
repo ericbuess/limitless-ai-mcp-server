@@ -159,5 +159,22 @@ describe('PromptHandlers', () => {
 
       expect(result.messages[0].content.text).toContain('timezone: America/New_York');
     });
+
+    it('should get key-topics prompt', async () => {
+      const request: GetPromptRequest = {
+        method: 'prompts/get',
+        params: {
+          name: 'key-topics',
+          arguments: {
+            date: '2024-01-15',
+          },
+        },
+      };
+
+      const result = await promptHandlers.handleGetPrompt(request);
+
+      expect(result.messages[0].content.text).toContain('main topics');
+      expect(result.messages[0].content.text).toContain('2024-01-15');
+    });
   });
 });

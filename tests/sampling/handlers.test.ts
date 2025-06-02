@@ -196,6 +196,69 @@ describe('SamplingHandlers', () => {
       );
     });
 
+
+
+
+
+    it('should handle resource fetch errors', async () => {
+      mockClient.listRecentLifelogs.mockRejectedValueOnce(new Error('API error'));
+
+      const request: CreateMessageRequest = {
+        method: 'sampling/createMessage',
+        params: {
+          messages: [
+            {
+              role: 'user',
+              content: {
+                type: 'text',
+                text: 'Analyze lifelog://recent',
+              },
+            },
+          ],
+          maxTokens: 1000,
+        },
+      };
+
+      const result = await samplingHandlers.handleCreateMessage(request);
+      
+      expect(result.content.text).toContain('Error fetching lifelog data');
+    });
+
+    it('should handle processGenericRequest with lifelog URI', async () => {
+      mockClient.listRecentLifelogs.mockResolvedValueOnce([
+        { 
+          id: '1', 
+          title: 'Recent Log',
+          startTime: '2024-01-15T10:00:00Z',
+          endTime: '2024-01-15T11:00:00Z',
+        },
+      ]);
+
+      const request: CreateMessageRequest = {
+        method: 'sampling/createMessage',
+        params: {
+          messages: [
+            {
+              role: 'user',
+              content: {
+                type: 'text',
+                text: 'Analyze lifelog://recent for patterns',
+              },
+            },
+          ],
+          maxTokens: 500,
+          temperature: 0.9,
+        },
+      };
+
+      const result = await samplingHandlers.handleCreateMessage(request);
+      
+      expect(mockClient.listRecentLifelogs).toHaveBeenCalled();
+      expect(result.content.text).toContain('temperature=0.9');
+      expect(result.content.text).toContain('maxTokens=500');
+    });
+
+
     it('should handle model preferences and options', async () => {
       const request: CreateMessageRequest = {
         method: 'sampling/createMessage',
