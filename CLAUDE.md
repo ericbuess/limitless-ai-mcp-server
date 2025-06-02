@@ -197,7 +197,7 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 
 **Important**: Local reference docs are stored in `docs/references/`:
 - **MCP Protocol Specification**: `docs/references/llms-full_model-context-protocol_20250601.md`
-- **Limitless API Documentation**: `docs/references/limitless-api-docs.md`
+- **Limitless API Documentation**: `docs/references/limitless-api-docs_20250601.md`
 
 ## Useful Links
 
