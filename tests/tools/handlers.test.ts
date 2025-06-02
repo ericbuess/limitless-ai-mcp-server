@@ -52,8 +52,18 @@ describe('ToolHandlers', () => {
 
     it('should handle limitless_list_lifelogs_by_date', async () => {
       const mockLifelogs = [
-        { id: '1', title: 'Log 1', startTime: '2024-01-15T10:00:00Z', endTime: '2024-01-15T11:00:00Z' },
-        { id: '2', title: 'Log 2', startTime: '2024-01-15T14:00:00Z', endTime: '2024-01-15T15:00:00Z' },
+        {
+          id: '1',
+          title: 'Log 1',
+          startTime: '2024-01-15T10:00:00Z',
+          endTime: '2024-01-15T11:00:00Z',
+        },
+        {
+          id: '2',
+          title: 'Log 2',
+          startTime: '2024-01-15T14:00:00Z',
+          endTime: '2024-01-15T15:00:00Z',
+        },
       ];
 
       mockClient.listLifelogsByDate.mockResolvedValueOnce(mockLifelogs);
@@ -89,7 +99,12 @@ describe('ToolHandlers', () => {
 
     it('should handle limitless_list_lifelogs_by_range', async () => {
       const mockLifelogs = [
-        { id: '1', title: 'Log 1', startTime: '2024-01-10T10:00:00Z', endTime: '2024-01-10T11:00:00Z' },
+        {
+          id: '1',
+          title: 'Log 1',
+          startTime: '2024-01-10T10:00:00Z',
+          endTime: '2024-01-10T11:00:00Z',
+        },
       ];
 
       mockClient.listLifelogsByRange.mockResolvedValueOnce(mockLifelogs);
@@ -123,7 +138,12 @@ describe('ToolHandlers', () => {
 
     it('should handle limitless_list_recent_lifelogs', async () => {
       const mockLifelogs = [
-        { id: '1', title: 'Recent Log', startTime: '2024-01-15T10:00:00Z', endTime: '2024-01-15T11:00:00Z' },
+        {
+          id: '1',
+          title: 'Recent Log',
+          startTime: '2024-01-15T10:00:00Z',
+          endTime: '2024-01-15T11:00:00Z',
+        },
       ];
 
       mockClient.listRecentLifelogs.mockResolvedValueOnce(mockLifelogs);
@@ -152,10 +172,10 @@ describe('ToolHandlers', () => {
 
     it('should handle limitless_search_lifelogs', async () => {
       const mockLifelogs = [
-        { 
-          id: '1', 
-          title: 'Meeting about project', 
-          startTime: '2024-01-15T10:00:00Z', 
+        {
+          id: '1',
+          title: 'Meeting about project',
+          startTime: '2024-01-15T10:00:00Z',
           endTime: '2024-01-15T11:00:00Z',
           markdown: 'Discussed project timeline',
         },
@@ -303,11 +323,11 @@ describe('ToolHandlers', () => {
 
     it('should handle date parsing edge cases', async () => {
       const mockLifelogs = [
-        { 
-          id: '1', 
-          title: 'Log with datetime', 
-          startTime: '2024-01-15T14:30:00Z', 
-          endTime: '2024-01-15T15:30:00Z' 
+        {
+          id: '1',
+          title: 'Log with datetime',
+          startTime: '2024-01-15T14:30:00Z',
+          endTime: '2024-01-15T15:30:00Z',
         },
       ];
 

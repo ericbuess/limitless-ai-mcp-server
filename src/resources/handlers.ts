@@ -48,7 +48,7 @@ export class ResourceHandlers {
       logger.debug('Handling list resource templates request');
 
       return {
-        resourceTemplates: ResourceManager.RESOURCE_TEMPLATES.map(template => ({
+        resourceTemplates: ResourceManager.RESOURCE_TEMPLATES.map((template) => ({
           ...template,
         })),
       };

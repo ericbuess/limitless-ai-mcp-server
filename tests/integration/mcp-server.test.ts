@@ -32,7 +32,7 @@ describe('MCP Server Integration Tests', () => {
   beforeEach(async () => {
     // Create mocked Limitless client
     limitlessClient = new LimitlessClient({ apiKey: 'test-key' }) as jest.Mocked<LimitlessClient>;
-    
+
     // Create server with all handlers
     const toolHandlers = new ToolHandlers(limitlessClient);
     const resourceManager = new ResourceManager(limitlessClient);
@@ -66,7 +66,7 @@ describe('MCP Server Integration Tests', () => {
       tools: toolDefinitions,
     }));
 
-    server.setRequestHandler(CallToolRequestSchema, async (request) => 
+    server.setRequestHandler(CallToolRequestSchema, async (request) =>
       toolHandlers.handleToolCall(request)
     );
 
@@ -96,10 +96,10 @@ describe('MCP Server Integration Tests', () => {
 
     // Create transports
     [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    
+
     // Connect server and client
     await server.connect(serverTransport);
-    
+
     client = new Client(
       {
         name: 'test-client',
@@ -109,7 +109,7 @@ describe('MCP Server Integration Tests', () => {
         capabilities: {},
       }
     );
-    
+
     await client.connect(clientTransport);
   });
 
@@ -124,7 +124,7 @@ describe('MCP Server Integration Tests', () => {
       // After connection, the client has server info
       const serverCapabilities = client.getServerCapabilities();
       const serverInfo = client.getServerVersion();
-      
+
       expect(serverInfo?.name).toBe('limitless-ai-mcp-server');
       expect(serverInfo?.version).toBe('1.0.0');
       expect(serverCapabilities).toMatchObject({
@@ -146,7 +146,7 @@ describe('MCP Server Integration Tests', () => {
       const response = await client.listTools();
 
       expect(response.tools).toHaveLength(5);
-      expect(response.tools.map(t => t.name)).toEqual([
+      expect(response.tools.map((t) => t.name)).toEqual([
         'limitless_get_lifelog_by_id',
         'limitless_list_lifelogs_by_date',
         'limitless_list_lifelogs_by_range',
@@ -186,9 +186,7 @@ describe('MCP Server Integration Tests', () => {
     });
 
     it('should handle tool errors gracefully', async () => {
-      limitlessClient.getLifelogById.mockRejectedValueOnce(
-        new Error('API Error: Unauthorized')
-      );
+      limitlessClient.getLifelogById.mockRejectedValueOnce(new Error('API Error: Unauthorized'));
 
       const response = await client.callTool({
         name: 'limitless_get_lifelog_by_id',
@@ -205,7 +203,7 @@ describe('MCP Server Integration Tests', () => {
         name: 'invalid_tool_name',
         arguments: {},
       });
-      
+
       expect((response as any).isError).toBe(true);
       expect((response as any).content[0].text).toContain('Unknown tool');
     });
@@ -268,9 +266,7 @@ describe('MCP Server Integration Tests', () => {
     });
 
     it('should handle invalid resource URI', async () => {
-      await expect(
-        client.readResource({ uri: 'invalid://uri' })
-      ).rejects.toThrow();
+      await expect(client.readResource({ uri: 'invalid://uri' })).rejects.toThrow();
     });
   });
 
@@ -279,7 +275,7 @@ describe('MCP Server Integration Tests', () => {
       const response = await client.listPrompts();
 
       expect(response.prompts).toHaveLength(5);
-      expect(response.prompts.map(p => p.name)).toEqual([
+      expect(response.prompts.map((p) => p.name)).toEqual([
         'daily-summary',
         'action-items',
         'key-topics',
@@ -346,7 +342,7 @@ describe('MCP Server Integration Tests', () => {
     });
 
     it.skip('should handle summarization sampling request', async () => {
-      const response = await client.request(
+      const response = (await client.request(
         {
           method: 'sampling/createMessage',
           params: {
@@ -363,7 +359,7 @@ describe('MCP Server Integration Tests', () => {
           },
         },
         CreateMessageRequestSchema
-      ) as any;
+      )) as any;
 
       expect(response.role).toBe('assistant');
       expect((response.content as any).type).toBe('text');
@@ -372,7 +368,7 @@ describe('MCP Server Integration Tests', () => {
     });
 
     it.skip('should handle action items extraction', async () => {
-      const response = await client.request(
+      const response = (await client.request(
         {
           method: 'sampling/createMessage',
           params: {
@@ -389,13 +385,13 @@ describe('MCP Server Integration Tests', () => {
           },
         },
         CreateMessageRequestSchema
-      ) as any;
+      )) as any;
 
       expect((response.content as any).text).toContain('Action Items');
     });
 
     it.skip('should handle search analysis request', async () => {
-      const response = await client.request(
+      const response = (await client.request(
         {
           method: 'sampling/createMessage',
           params: {
@@ -411,9 +407,12 @@ describe('MCP Server Integration Tests', () => {
           },
         },
         CreateMessageRequestSchema
-      ) as any;
+      )) as any;
 
-      expect(limitlessClient.searchLifelogs).toHaveBeenCalledWith('project timeline', expect.any(Object));
+      expect(limitlessClient.searchLifelogs).toHaveBeenCalledWith(
+        'project timeline',
+        expect.any(Object)
+      );
       expect((response.content as any).text).toContain('Search Analysis');
     });
 
@@ -434,9 +433,7 @@ describe('MCP Server Integration Tests', () => {
 
   describe('Error Handling', () => {
     it('should handle network timeouts', async () => {
-      limitlessClient.listRecentLifelogs.mockRejectedValueOnce(
-        new Error('Request timeout')
-      );
+      limitlessClient.listRecentLifelogs.mockRejectedValueOnce(new Error('Request timeout'));
 
       const response = await client.callTool({
         name: 'limitless_list_recent_lifelogs',
@@ -485,19 +482,19 @@ describe('MCP Server Integration Tests', () => {
 
   describe('Concurrent Request Handling', () => {
     it('should handle multiple concurrent tool calls', async () => {
-      const mockLifelog1 = { 
-        id: 'log-1', 
+      const mockLifelog1 = {
+        id: 'log-1',
         title: 'Meeting 1',
         startTime: '2024-01-15T10:00:00Z',
         endTime: '2024-01-15T11:00:00Z',
       };
-      const mockLifelog2 = { 
-        id: 'log-2', 
+      const mockLifelog2 = {
+        id: 'log-2',
         title: 'Meeting 2',
         startTime: '2024-01-15T14:00:00Z',
         endTime: '2024-01-15T15:00:00Z',
       };
-      
+
       limitlessClient.getLifelogById
         .mockResolvedValueOnce(mockLifelog1)
         .mockResolvedValueOnce(mockLifelog2);
@@ -520,8 +517,8 @@ describe('MCP Server Integration Tests', () => {
 
     it('should handle concurrent requests across different features', async () => {
       limitlessClient.listRecentLifelogs.mockResolvedValue([
-        { 
-          id: 'log-1', 
+        {
+          id: 'log-1',
           title: 'Recent Log',
           startTime: '2024-01-15T10:00:00Z',
           endTime: '2024-01-15T11:00:00Z',

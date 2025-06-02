@@ -1,6 +1,12 @@
 // Simple tests for utilities to increase coverage
 
-import { formatDate, parseDate, formatDateTime, isValidDateFormat, isValidDateTimeFormat } from '../../src/utils/date';
+import {
+  formatDate,
+  parseDate,
+  formatDateTime,
+  isValidDateFormat,
+  isValidDateTimeFormat,
+} from '../../src/utils/date';
 import { formatLifelogResponse } from '../../src/utils/format';
 import { logger, LogLevel, Logger } from '../../src/utils/logger';
 import { Lifelog } from '../../src/types/limitless';
@@ -123,57 +129,63 @@ describe('Format Utils', () => {
     });
 
     it('should format with heading2 content type', () => {
-      const logsWithHeading2: Lifelog[] = [{
-        id: 'test-1',
-        title: 'Test',
-        startTime: '2024-01-15T10:00:00Z',
-        endTime: '2024-01-15T11:00:00Z',
-        contents: [
-          {
-            type: 'heading2',
-            content: 'Sub Topic',
-            startTime: '2024-01-15T10:00:00Z',
-            endTime: '2024-01-15T10:30:00Z',
-            startOffsetMs: 0,
-            endOffsetMs: 1800000,
-            children: [],
-          },
-        ],
-      }];
+      const logsWithHeading2: Lifelog[] = [
+        {
+          id: 'test-1',
+          title: 'Test',
+          startTime: '2024-01-15T10:00:00Z',
+          endTime: '2024-01-15T11:00:00Z',
+          contents: [
+            {
+              type: 'heading2',
+              content: 'Sub Topic',
+              startTime: '2024-01-15T10:00:00Z',
+              endTime: '2024-01-15T10:30:00Z',
+              startOffsetMs: 0,
+              endOffsetMs: 1800000,
+              children: [],
+            },
+          ],
+        },
+      ];
       const result = formatLifelogResponse(logsWithHeading2, { includeMarkdown: false });
       expect(result).toContain('## Sub Topic');
     });
 
     it('should format with blockquote content type', () => {
-      const logsWithBlockquote: Lifelog[] = [{
-        id: 'test-1',
-        title: 'Test',
-        startTime: '2024-01-15T10:00:00Z',
-        endTime: '2024-01-15T11:00:00Z',
-        contents: [
-          {
-            type: 'blockquote',
-            content: 'Important quote',
-            startTime: '2024-01-15T10:00:00Z',
-            endTime: '2024-01-15T10:30:00Z',
-            startOffsetMs: 0,
-            endOffsetMs: 1800000,
-            children: [],
-          },
-        ],
-      }];
+      const logsWithBlockquote: Lifelog[] = [
+        {
+          id: 'test-1',
+          title: 'Test',
+          startTime: '2024-01-15T10:00:00Z',
+          endTime: '2024-01-15T11:00:00Z',
+          contents: [
+            {
+              type: 'blockquote',
+              content: 'Important quote',
+              startTime: '2024-01-15T10:00:00Z',
+              endTime: '2024-01-15T10:30:00Z',
+              startOffsetMs: 0,
+              endOffsetMs: 1800000,
+              children: [],
+            },
+          ],
+        },
+      ];
       const result = formatLifelogResponse(logsWithBlockquote, { includeMarkdown: false });
       expect(result).toContain('> Important quote');
     });
 
     it('should handle invalid date in formatDateTime', () => {
       // This tests the catch block in formatDateTime within format.ts
-      const logsWithInvalidDate: Lifelog[] = [{
-        id: 'test-1',
-        title: 'Test',
-        startTime: 'invalid-date',
-        endTime: '2024-01-15T11:00:00Z',
-      }];
+      const logsWithInvalidDate: Lifelog[] = [
+        {
+          id: 'test-1',
+          title: 'Test',
+          startTime: 'invalid-date',
+          endTime: '2024-01-15T11:00:00Z',
+        },
+      ];
       const result = formatLifelogResponse(logsWithInvalidDate, {});
       expect(result).toContain('Invalid Date'); // formatDateTime returns "Invalid Date" from toLocaleString
     });
@@ -201,14 +213,14 @@ describe('Logger', () => {
   it('should log at INFO level by default', () => {
     logger.info('Info message');
     logger.debug('Debug message');
-    
+
     expect(consoleInfoSpy).toHaveBeenCalled();
     expect(consoleDebugSpy).not.toHaveBeenCalled();
   });
 
   it('should format messages correctly', () => {
     logger.info('Test message', { data: 'value' });
-    
+
     const output = consoleInfoSpy.mock.calls[0][0];
     expect(output).toContain('[INFO]');
     expect(output).toContain('Test message');
@@ -218,7 +230,7 @@ describe('Logger', () => {
   it('should handle error logging', () => {
     const error = new Error('Test error');
     logger.error('Operation failed', error);
-    
+
     const output = consoleErrorSpy.mock.calls[0][0];
     expect(output).toContain('[ERROR]');
     expect(output).toContain('Operation failed');
@@ -228,12 +240,11 @@ describe('Logger', () => {
   it('should respect LOG_LEVEL env var', () => {
     process.env.LOG_LEVEL = 'WARN';
     const warnLogger = new Logger('test', LogLevel.INFO);
-    
+
     warnLogger.info('Info message');
     warnLogger.warn('Warn message');
-    
+
     expect(consoleInfoSpy).not.toHaveBeenCalled();
     expect(consoleWarnSpy).toHaveBeenCalled();
   });
-
 });

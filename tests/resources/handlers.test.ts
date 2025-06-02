@@ -1,9 +1,9 @@
 import { ResourceHandlers } from '../../src/resources/handlers';
 import { ResourceManager } from '../../src/resources/manager';
-import { 
-  ListResourcesRequest, 
+import {
+  ListResourcesRequest,
   ListResourceTemplatesRequest,
-  ReadResourceRequest 
+  ReadResourceRequest,
 } from '@modelcontextprotocol/sdk/types.js';
 
 // Mock the ResourceManager
@@ -19,7 +19,7 @@ describe('ResourceHandlers', () => {
       readResource: jest.fn(),
       isValidUri: jest.fn(),
     };
-    
+
     // Add static method mock
     (ResourceManager as any).RESOURCE_TEMPLATES = [
       {
@@ -35,7 +35,7 @@ describe('ResourceHandlers', () => {
         mimeType: 'application/json',
       },
     ];
-    
+
     resourceHandlers = new ResourceHandlers(mockManager);
     jest.clearAllMocks();
   });
@@ -122,14 +122,12 @@ describe('ResourceHandlers', () => {
         params: {},
       };
 
-      await expect(resourceHandlers.handleListResources(request))
-        .rejects.toThrow('Manager error');
+      await expect(resourceHandlers.handleListResources(request)).rejects.toThrow('Manager error');
     });
   });
 
   describe('handleListResourceTemplates', () => {
     it('should list resource templates', async () => {
-
       const request: ListResourceTemplatesRequest = {
         method: 'resources/templates/list',
         params: {},
@@ -153,12 +151,12 @@ describe('ResourceHandlers', () => {
       expect(result.resourceTemplates).toBeDefined();
       expect(result.resourceTemplates.length).toBeGreaterThan(0);
     });
-    
+
     it('should handle error when templates are missing', async () => {
       // Temporarily remove templates
       const originalTemplates = (ResourceManager as any).RESOURCE_TEMPLATES;
       (ResourceManager as any).RESOURCE_TEMPLATES = undefined;
-      
+
       const request: ListResourceTemplatesRequest = {
         method: 'resources/templates/list',
         params: {},
@@ -166,7 +164,7 @@ describe('ResourceHandlers', () => {
 
       // Should throw error when templates are undefined
       await expect(resourceHandlers.handleListResourceTemplates(request)).rejects.toThrow();
-      
+
       // Restore templates
       (ResourceManager as any).RESOURCE_TEMPLATES = originalTemplates;
     });
@@ -265,8 +263,9 @@ describe('ResourceHandlers', () => {
         },
       };
 
-      await expect(resourceHandlers.handleReadResource(request))
-        .rejects.toThrow('Resource not found');
+      await expect(resourceHandlers.handleReadResource(request)).rejects.toThrow(
+        'Resource not found'
+      );
     });
 
     it('should handle invalid URI', async () => {
@@ -279,8 +278,9 @@ describe('ResourceHandlers', () => {
         },
       };
 
-      await expect(resourceHandlers.handleReadResource(request))
-        .rejects.toThrow('Invalid resource URI: invalid://uri');
+      await expect(resourceHandlers.handleReadResource(request)).rejects.toThrow(
+        'Invalid resource URI: invalid://uri'
+      );
     });
   });
 
@@ -326,7 +326,6 @@ describe('ResourceHandlers', () => {
     });
 
     it('should handle template-based resource creation', async () => {
-
       const templateRequest: ListResourceTemplatesRequest = {
         method: 'resources/templates/list',
         params: {},
@@ -356,9 +355,9 @@ describe('ResourceHandlers', () => {
   describe('handleSubscribeResource', () => {
     it('should log info about not implemented feature', async () => {
       const logSpy = jest.spyOn(console, 'info').mockImplementation();
-      
+
       await resourceHandlers.handleSubscribeResource({ test: 'data' });
-      
+
       expect(logSpy).toHaveBeenCalled();
       logSpy.mockRestore();
     });
@@ -367,9 +366,9 @@ describe('ResourceHandlers', () => {
   describe('handleUnsubscribeResource', () => {
     it('should log info about not implemented feature', async () => {
       const logSpy = jest.spyOn(console, 'info').mockImplementation();
-      
+
       await resourceHandlers.handleUnsubscribeResource({ test: 'data' });
-      
+
       expect(logSpy).toHaveBeenCalled();
       logSpy.mockRestore();
     });
