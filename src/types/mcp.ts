@@ -40,7 +40,7 @@ export interface PromptTemplate {
 export interface GetPromptResult {
   description?: string;
   messages: Array<{
-    role: 'user' | 'assistant' | 'system';
+    role: 'user' | 'assistant';
     content: {
       type: 'text' | 'image' | 'resource';
       text?: string;

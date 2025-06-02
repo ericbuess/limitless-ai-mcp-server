@@ -8,12 +8,15 @@ import {
   ListResourcesRequestSchema,
   ListResourceTemplatesRequestSchema,
   ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { LimitlessClient } from './core/limitless-client';
 import { ToolHandlers } from './tools/handlers';
 import { toolDefinitions } from './tools/definitions';
 import { ResourceManager } from './resources/manager';
 import { ResourceHandlers } from './resources/handlers';
+import { PromptHandlers } from './prompts/handlers';
 import { logger } from './utils/logger';
 
 // Server metadata
@@ -49,6 +52,7 @@ async function main() {
   const toolHandlers = new ToolHandlers(client);
   const resourceManager = new ResourceManager(client);
   const resourceHandlers = new ResourceHandlers(resourceManager);
+  const promptHandlers = new PromptHandlers();
 
   // Create MCP server
   const server = new Server(
@@ -61,6 +65,9 @@ async function main() {
         tools: {},
         resources: {
           subscribe: false,
+          listChanged: false,
+        },
+        prompts: {
           listChanged: false,
         },
       },
@@ -94,6 +101,17 @@ async function main() {
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     logger.debug(`Reading resource: ${request.params.uri}`);
     return resourceHandlers.handleReadResource(request);
+  });
+
+  // Register prompt handlers
+  server.setRequestHandler(ListPromptsRequestSchema, async (request) => {
+    logger.debug('Listing prompts');
+    return promptHandlers.handleListPrompts(request);
+  });
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    logger.debug(`Getting prompt: ${request.params.name}`);
+    return promptHandlers.handleGetPrompt(request);
   });
 
   // Error handling
