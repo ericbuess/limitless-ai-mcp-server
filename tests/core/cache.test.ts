@@ -192,7 +192,9 @@ describe('Cache key builders', () => {
   it('should build search cache key', async () => {
     const { buildSearchCacheKey } = await import('../../src/core/cache');
     expect(buildSearchCacheKey('test')).toBe('search:test:');
-    expect(buildSearchCacheKey('test', { searchTerm: 'test', limit: 5 })).toBe('search:test:{"searchTerm":"test","limit":5}');
+    expect(buildSearchCacheKey('test', { searchTerm: 'test', limit: 5 })).toBe(
+      'search:test:{"searchTerm":"test","limit":5}'
+    );
   });
 
   it('should build recent cache key', async () => {
