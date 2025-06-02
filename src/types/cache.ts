@@ -7,7 +7,7 @@ export interface CacheEntry<T> {
 export interface CacheOptions {
   maxSize: number;
   ttl: number; // Time to live in milliseconds
-  onEvict?: (key: string, value: CacheEntry<any>) => void;
+  onEvict?: (key: string, value: CacheEntry<unknown>) => void;
 }
 
 export interface CacheStats {

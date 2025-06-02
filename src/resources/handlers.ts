@@ -105,7 +105,7 @@ export class ResourceHandlers {
   /**
    * Handle resource subscription (if needed in future)
    */
-  async handleSubscribeResource(request: any): Promise<void> {
+  async handleSubscribeResource(request: unknown): Promise<void> {
     // Placeholder for future implementation
     logger.info('Resource subscription not yet implemented', request);
   }
@@ -113,7 +113,7 @@ export class ResourceHandlers {
   /**
    * Handle resource unsubscription (if needed in future)
    */
-  async handleUnsubscribeResource(request: any): Promise<void> {
+  async handleUnsubscribeResource(request: unknown): Promise<void> {
     // Placeholder for future implementation
     logger.info('Resource unsubscription not yet implemented', request);
   }

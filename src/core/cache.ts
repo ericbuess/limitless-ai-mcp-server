@@ -1,4 +1,5 @@
 import { CacheEntry, CacheOptions, CacheStats, ICache } from '../types/cache';
+import { Lifelog, ListLifelogsOptions, SearchOptions } from '../types/limitless';
 import { logger } from '../utils/logger';
 
 export class LRUCache<T> implements ICache<T> {
@@ -137,12 +138,12 @@ export class LRUCache<T> implements ICache<T> {
 }
 
 // Global cache instances
-export const lifelogCache = new LRUCache<any>({
+export const lifelogCache = new LRUCache<Lifelog | Lifelog[]>({
   maxSize: parseInt(process.env.CACHE_MAX_SIZE || '100'),
   ttl: parseInt(process.env.CACHE_TTL || String(5 * 60 * 1000)), // 5 minutes
 });
 
-export const searchCache = new LRUCache<any>({
+export const searchCache = new LRUCache<Lifelog[]>({
   maxSize: parseInt(process.env.SEARCH_CACHE_MAX_SIZE || '50'),
   ttl: parseInt(process.env.SEARCH_CACHE_TTL || String(3 * 60 * 1000)), // 3 minutes
 });
@@ -152,17 +153,17 @@ export function buildLifelogCacheKey(id: string): string {
   return `lifelog:${id}`;
 }
 
-export function buildDateCacheKey(date: string, options?: any): string {
+export function buildDateCacheKey(date: string, options?: ListLifelogsOptions): string {
   const optStr = options ? JSON.stringify(options) : '';
   return `date:${date}:${optStr}`;
 }
 
-export function buildSearchCacheKey(searchTerm: string, options?: any): string {
+export function buildSearchCacheKey(searchTerm: string, options?: SearchOptions): string {
   const optStr = options ? JSON.stringify(options) : '';
   return `search:${searchTerm}:${optStr}`;
 }
 
-export function buildRecentCacheKey(options?: any): string {
+export function buildRecentCacheKey(options?: ListLifelogsOptions): string {
   const optStr = options ? JSON.stringify(options) : '';
   return `recent:${optStr}`;
 }

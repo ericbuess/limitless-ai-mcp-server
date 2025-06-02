@@ -28,7 +28,7 @@ export class LimitlessAPIError extends Error {
     message: string,
     public statusCode?: number,
     public code?: string,
-    public details?: any
+    public details?: unknown
   ) {
     super(message);
     this.name = 'LimitlessAPIError';
@@ -73,7 +73,7 @@ export class LimitlessClient {
           });
 
           if (!res.ok) {
-            const errorData = (await res.json().catch(() => ({ message: res.statusText }))) as any;
+            const errorData = await res.json().catch(() => ({ message: res.statusText })) as { message?: string; code?: string };
             throw new LimitlessAPIError(
               errorData.message || `HTTP ${res.status}`,
               res.status,
@@ -294,7 +294,7 @@ export class LimitlessClient {
       if (Array.isArray(response.data)) {
         results.push(...response.data);
       } else if (response.data && 'lifelogs' in response.data) {
-        results.push(...(response.data as any).lifelogs);
+        results.push(...(response.data as { lifelogs: Lifelog[] }).lifelogs);
       } else {
         throw new Error('Unexpected API response format');
       }
