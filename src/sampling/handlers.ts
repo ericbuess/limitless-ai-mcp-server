@@ -189,7 +189,7 @@ export class SamplingHandlers {
         return formatLifelogResponse(logs, { includeMarkdown: true, includeHeadings: true });
       }
 
-      const idMatch = uri.match(/lifelog:\/\/[^\/]+\/(.+)/);
+      const idMatch = uri.match(/lifelog:\/\/[^/]+\/(.+)/);
       if (idMatch) {
         const log = await this.client.getLifelogById(idMatch[1]);
         return formatLifelogResponse([log], { includeMarkdown: true, includeHeadings: true });
