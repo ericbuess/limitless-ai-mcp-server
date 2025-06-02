@@ -1,6 +1,6 @@
 # Limitless AI MCP Server - Claude Development Guide
 
-This document contains important information for Claude and other AI assistants working on this project.
+> 🤖 **Purpose**: This document provides essential information for Claude and other AI assistants to effectively work on this project. It includes project structure, development commands, implementation details, and troubleshooting guidance.
 
 ## Project Overview
 
@@ -213,14 +213,12 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 
 ## Current Status
 
-- **Version**: 0.0.1
-- **Phase**: Early Release / Beta 🚧
+- **Version**: 0.0.1 (Released)
 - **Tests**: 53 passing
-- **Features**: All 5 MCP protocol features implemented
-- **Performance**: Cache provides infinite speedup on hits
-- **Testing**: Tools tested, other features need real-world validation
+- **Node.js**: 22+ required
+- **All 5 MCP features implemented**
 
-See @PROJECT_STATUS.md for detailed metrics and current capabilities.
+See @PROJECT_STATUS.md for detailed metrics and @ROADMAP.md for future plans.
 
 ## Release Process
 

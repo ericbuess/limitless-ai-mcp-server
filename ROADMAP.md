@@ -1,6 +1,6 @@
 # Limitless AI MCP Server Roadmap
 
-This document outlines the development roadmap for the Limitless AI MCP Server, including completed features and future enhancements.
+> 🚀 **Purpose**: This document outlines the development roadmap, tracking completed milestones and planning future enhancements. It serves as the project's strategic planning guide.
 
 ## Reference Documents
 

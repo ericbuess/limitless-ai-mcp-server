@@ -1,5 +1,7 @@
 # Project Status - Limitless AI MCP Server
 
+> 📊 **Purpose**: This document tracks the current release status, performance metrics, and known limitations of the project.
+
 ## Current Version
 
 **Version:** 0.0.1  
@@ -95,10 +97,10 @@ Based on real API testing (2025-06-02):
 
 ## Dependencies
 
-- Node.js 18+ (required)
+- Node.js 22+ (required)
 - TypeScript 5.8.3
-- @modelcontextprotocol/sdk 1.0.4
-- Zod 3.24.1
+- @modelcontextprotocol/sdk 1.12.1
+- Zod 3.25.48
 
 ## Next Milestone
 
@@ -117,13 +119,15 @@ Based on real API testing (2025-06-02):
 ## API Compatibility
 
 - **Limitless API Version**: v1
-- **MCP Protocol Version**: 1.0.4
+- **MCP Protocol Version**: 1.12.1
 - **Tested With**: Claude Desktop, Windsurf, Cursor
 
 ## Recent Changes
 
+- 2025-06-02: Released v0.0.1 beta
 - 2025-06-02: Added comprehensive documentation
 - 2025-06-02: Implemented caching system
 - 2025-06-02: Created 6 example files
 - 2025-06-02: Fixed authentication (X-API-Key header)
 - 2025-06-02: Implemented all MCP features
+- 2025-06-02: Updated all dependencies to latest versions
