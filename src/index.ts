@@ -2,10 +2,7 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { LimitlessClient } from './core/limitless-client';
 import { ToolHandlers } from './tools/handlers';
 import { toolDefinitions } from './tools/definitions';
@@ -87,7 +84,7 @@ async function main() {
   // Start server
   const transport = new StdioServerTransport();
   logger.info(`Starting ${SERVER_INFO.name} v${SERVER_INFO.version}`);
-  
+
   await server.connect(transport);
   logger.info('Server connected and ready');
 }
@@ -97,3 +94,4 @@ main().catch((error) => {
   logger.error('Failed to start server:', error);
   process.exit(1);
 });
+

@@ -11,16 +11,14 @@ export function formatLifelogResponse(
   searchTerm?: string
 ): string {
   if (lifelogs.length === 0) {
-    return searchTerm 
-      ? `No lifelogs found matching "${searchTerm}"`
-      : 'No lifelogs found';
+    return searchTerm ? `No lifelogs found matching "${searchTerm}"` : 'No lifelogs found';
   }
 
   const header = searchTerm
     ? `Found ${lifelogs.length} lifelog${lifelogs.length === 1 ? '' : 's'} matching "${searchTerm}":\n\n`
     : `Found ${lifelogs.length} lifelog${lifelogs.length === 1 ? '' : 's'}:\n\n`;
 
-  const formattedLogs = lifelogs.map(log => formatSingleLifelog(log, options)).join('\n---\n\n');
+  const formattedLogs = lifelogs.map((log) => formatSingleLifelog(log, options)).join('\n---\n\n');
 
   return header + formattedLogs;
 }
