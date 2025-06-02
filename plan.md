@@ -167,6 +167,84 @@ Create example files demonstrating each MCP feature.
 - [ ] Measure memory usage
 - [ ] Test concurrent request handling
 
+## Phase 2 Enhancements (Post-MVP)
+
+### 5. Local Vector Store for Semantic Search
+
+Enable offline access and fast semantic search through local vector embeddings.
+
+#### 5.1 Vector Store Implementation
+- [ ] Set up vector database (ChromaDB, Weaviate, or FAISS)
+- [ ] Implement embedding generation for lifelog content
+- [ ] Create daily sync mechanism to download new lifelogs
+- [ ] Build hybrid search (check local first, fallback to API)
+- [ ] Add semantic similarity search capabilities
+- [ ] Implement offline mode support
+
+#### 5.2 Search Enhancement
+- [ ] Add natural language query understanding
+- [ ] Implement relevance ranking based on embeddings
+- [ ] Support complex semantic queries ("meetings about project X")
+- [ ] Add query expansion for better recall
+- [ ] Create search analytics
+
+**Files to create:**
+- `src/vector-store/manager.ts` - Vector store management
+- `src/vector-store/embeddings.ts` - Embedding generation
+- `src/vector-store/sync.ts` - Daily sync service
+- `src/vector-store/search.ts` - Semantic search implementation
+
+### 6. Voice-Activated Keyword Monitoring System
+
+Transform the Pendant into a voice-command system by monitoring for keywords and triggering actions.
+
+#### 6.1 Monitoring Service
+- [ ] Create background service polling recent lifelogs (30-60s intervals)
+- [ ] Implement efficient delta checking (only new content)
+- [ ] Add configurable polling intervals
+- [ ] Create monitoring dashboard/status
+- [ ] Implement pause/resume functionality
+
+#### 6.2 Keyword Detection System
+- [ ] Define keyword configuration schema
+- [ ] Implement exact match detection ("Hey Limitless")
+- [ ] Add pattern matching ("Action item: *", "Remind me to *")
+- [ ] Support context-aware keywords ("urgent", "important")
+- [ ] Create keyword validation and testing tools
+
+#### 6.3 Action Registry & Execution
+- [ ] Create action mapping system (keyword → action)
+- [ ] Implement action types:
+  - [ ] Create task/reminder
+  - [ ] Send notification
+  - [ ] Trigger webhook
+  - [ ] Execute MCP tool
+  - [ ] Calendar integration
+- [ ] Add action confirmation/logging
+- [ ] Support custom action plugins
+
+#### 6.4 Notification System
+- [ ] Real-time alerts when keywords detected
+- [ ] Action execution confirmations
+- [ ] Error/failure notifications
+- [ ] Daily summary of triggered actions
+- [ ] Integration with notification services
+
+**Example Use Cases:**
+- "Hey Limitless, remind me to call John tomorrow" → Creates reminder
+- "Action item: review the budget proposal" → Adds to task list
+- "Note to self: great idea about..." → Saves to notes
+- "Urgent: need to fix the..." → High-priority notification
+- "Schedule meeting with Sarah next week" → Calendar event
+
+**Files to create:**
+- `src/monitoring/keyword-monitor.ts` - Main monitoring service
+- `src/monitoring/keyword-detector.ts` - Keyword detection logic
+- `src/monitoring/action-registry.ts` - Action mapping and execution
+- `src/monitoring/notification-service.ts` - Alert system
+- `src/types/monitoring.ts` - Type definitions
+- `config/keywords.json` - Default keyword configurations
+
 ## File Structure
 
 ```
@@ -187,13 +265,23 @@ src/
 ├── sampling/                  # MCP Sampling (new)
 │   ├── handlers.ts
 │   └── templates.ts
-├── monitoring/                # Health & Metrics (new)
+├── monitoring/                # Health & Metrics + Phase 2 (new)
 │   ├── health.ts
-│   └── metrics.ts
+│   ├── metrics.ts
+│   ├── keyword-monitor.ts     # Phase 2
+│   ├── keyword-detector.ts    # Phase 2
+│   ├── action-registry.ts     # Phase 2
+│   └── notification-service.ts # Phase 2
+├── vector-store/              # Phase 2 (new)
+│   ├── manager.ts
+│   ├── embeddings.ts
+│   ├── sync.ts
+│   └── search.ts
 ├── types/                     # TypeScript types
 │   ├── limitless.ts          # API types (existing)
 │   ├── cache.ts              # Cache types (new)
-│   └── mcp.ts                # MCP-specific types (new)
+│   ├── mcp.ts                # MCP-specific types (new)
+│   └── monitoring.ts         # Phase 2 types (new)
 ├── utils/                     # Utilities (existing)
 └── index.ts                   # Main server (enhance)
 ```
