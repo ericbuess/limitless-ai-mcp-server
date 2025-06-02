@@ -66,7 +66,7 @@ async function main() {
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     logger.debug(`Tool call received: ${request.params.name}`);
-    return toolHandlers.handleToolCall(request.params);
+    return toolHandlers.handleToolCall(request);
   });
 
   // Error handling

@@ -14,7 +14,7 @@ export class ToolHandlers {
   constructor(private client: LimitlessClient) {}
 
   async handleToolCall(request: CallToolRequest): Promise<CallToolResult> {
-    const { name, arguments: args } = request;
+    const { name, arguments: args } = request.params;
     logger.debug(`Handling tool call: ${name}`, args);
 
     try {
