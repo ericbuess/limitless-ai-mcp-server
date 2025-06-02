@@ -7,10 +7,7 @@ export interface RetryOptions {
   onRetry?: (error: unknown, attempt: number) => void;
 }
 
-export async function retry<T>(
-  fn: () => Promise<T>,
-  options: RetryOptions
-): Promise<T> {
+export async function retry<T>(fn: () => Promise<T>, options: RetryOptions): Promise<T> {
   const {
     attempts,
     delay,
@@ -62,5 +59,5 @@ function calculateDelay(
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

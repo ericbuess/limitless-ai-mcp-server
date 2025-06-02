@@ -4,7 +4,7 @@ import {
   DateRangeOptions,
   SearchOptions,
   LimitlessAPIResponse,
-  LimitlessClientConfig
+  LimitlessClientConfig,
 } from '../types/limitless';
 import { logger } from '../utils/logger';
 import { retry } from '../utils/retry';
@@ -46,10 +46,7 @@ export class LimitlessClient {
     this.retryDelay = config.retryDelay || DEFAULT_RETRY_DELAY;
   }
 
-  private async makeRequest<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+  private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
@@ -68,7 +65,7 @@ export class LimitlessClient {
           });
 
           if (!res.ok) {
-            const errorData = await res.json().catch(() => ({ message: res.statusText })) as any;
+            const errorData = (await res.json().catch(() => ({ message: res.statusText }))) as any;
             throw new LimitlessAPIError(
               errorData.message || `HTTP ${res.status}`,
               res.status,
@@ -88,7 +85,7 @@ export class LimitlessClient {
               return error.statusCode ? error.statusCode >= 500 || error.statusCode === 429 : false;
             }
             return true; // Retry on network errors
-          }
+          },
         }
       );
 
@@ -112,7 +109,7 @@ export class LimitlessClient {
     options: Pick<ListLifelogsOptions, 'includeMarkdown' | 'includeHeadings'> = {}
   ): Promise<Lifelog> {
     logger.debug(`Fetching lifelog with ID: ${id}`);
-    
+
     const params = new URLSearchParams();
     if (options.includeMarkdown !== undefined) {
       params.append('includeMarkdown', String(options.includeMarkdown));
@@ -125,7 +122,7 @@ export class LimitlessClient {
     const endpoint = `/lifelogs/${id}${queryString ? `?${queryString}` : ''}`;
 
     const response = await this.makeRequest<LimitlessAPIResponse<Lifelog>>(endpoint);
-    
+
     if (response.error) {
       throw new LimitlessAPIError(response.error.message, undefined, response.error.code);
     }
@@ -133,10 +130,7 @@ export class LimitlessClient {
     return response.data;
   }
 
-  async listLifelogsByDate(
-    date: string,
-    options: ListLifelogsOptions = {}
-  ): Promise<Lifelog[]> {
+  async listLifelogsByDate(date: string, options: ListLifelogsOptions = {}): Promise<Lifelog[]> {
     const formattedDate = formatDate(date);
     logger.debug(`Listing lifelogs for date: ${formattedDate}`);
 
@@ -150,7 +144,7 @@ export class LimitlessClient {
     const { start, end, ...listOptions } = options;
     const formattedStart = formatDate(start);
     const formattedEnd = formatDate(end);
-    
+
     logger.debug(`Listing lifelogs from ${formattedStart} to ${formattedEnd}`);
 
     const params = this.buildQueryParams(listOptions);
@@ -175,19 +169,19 @@ export class LimitlessClient {
     logger.debug(`Searching for "${searchTerm}" in recent ${fetchLimit} lifelogs`);
 
     // First fetch recent lifelogs
-    const recentLogs = await this.listRecentLifelogs({ 
-      ...listOptions, 
+    const recentLogs = await this.listRecentLifelogs({
+      ...listOptions,
       limit: fetchLimit,
-      includeMarkdown: true 
+      includeMarkdown: true,
     });
 
     // Search within the fetched logs
     const searchLower = searchTerm.toLowerCase();
-    const results = recentLogs.filter(log => {
+    const results = recentLogs.filter((log) => {
       const titleMatch = log.title?.toLowerCase().includes(searchLower);
       const contentMatch = log.content?.toLowerCase().includes(searchLower);
       const markdownMatch = log.markdown?.toLowerCase().includes(searchLower);
-      
+
       return titleMatch || contentMatch || markdownMatch;
     });
 
@@ -197,7 +191,7 @@ export class LimitlessClient {
 
   private buildQueryParams(options: ListLifelogsOptions): URLSearchParams {
     const params = new URLSearchParams();
-    
+
     if (options.timezone) params.append('timezone', options.timezone);
     if (options.direction) params.append('direction', options.direction);
     if (options.includeMarkdown !== undefined) {
@@ -229,7 +223,7 @@ export class LimitlessClient {
       const fullEndpoint = `${endpoint}${queryString ? `?${queryString}` : ''}`;
 
       const response = await this.makeRequest<LimitlessAPIResponse<Lifelog[]>>(fullEndpoint);
-      
+
       if (response.error) {
         throw new LimitlessAPIError(response.error.message, undefined, response.error.code);
       }
@@ -253,3 +247,4 @@ export class LimitlessClient {
     return limit ? results.slice(0, limit) : results;
   }
 }
+

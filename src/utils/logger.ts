@@ -52,9 +52,8 @@ export class Logger {
 
   error(message: string, error?: Error | unknown, ...args: any[]): void {
     if (this.shouldLog(LogLevel.ERROR)) {
-      const errorDetails = error instanceof Error 
-        ? { message: error.message, stack: error.stack }
-        : error;
+      const errorDetails =
+        error instanceof Error ? { message: error.message, stack: error.stack } : error;
       console.error(this.formatMessage('ERROR', message, errorDetails, ...args));
     }
   }

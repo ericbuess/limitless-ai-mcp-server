@@ -34,7 +34,7 @@ export class ToolHandlers {
       }
     } catch (error) {
       logger.error(`Tool call failed: ${name}`, error);
-      
+
       return {
         content: [
           {
@@ -49,7 +49,7 @@ export class ToolHandlers {
 
   private async getLifelogById(args: unknown): Promise<CallToolResult> {
     const params = getLifelogByIdSchema.parse(args);
-    
+
     const lifelog = await this.client.getLifelogById(params.lifelog_id, {
       includeMarkdown: params.includeMarkdown,
       includeHeadings: params.includeHeadings,
@@ -67,7 +67,7 @@ export class ToolHandlers {
 
   private async listLifelogsByDate(args: unknown): Promise<CallToolResult> {
     const params = listLifelogsByDateSchema.parse(args);
-    
+
     const lifelogs = await this.client.listLifelogsByDate(params.date, {
       limit: params.limit,
       direction: params.direction,
@@ -88,7 +88,7 @@ export class ToolHandlers {
 
   private async listLifelogsByRange(args: unknown): Promise<CallToolResult> {
     const params = listLifelogsByRangeSchema.parse(args);
-    
+
     const lifelogs = await this.client.listLifelogsByRange({
       start: params.start,
       end: params.end,
@@ -111,7 +111,7 @@ export class ToolHandlers {
 
   private async listRecentLifelogs(args: unknown): Promise<CallToolResult> {
     const params = listRecentLifelogsSchema.parse(args);
-    
+
     const lifelogs = await this.client.listRecentLifelogs({
       limit: params.limit,
       timezone: params.timezone,
@@ -131,7 +131,7 @@ export class ToolHandlers {
 
   private async searchLifelogs(args: unknown): Promise<CallToolResult> {
     const params = searchLifelogsSchema.parse(args);
-    
+
     const lifelogs = await this.client.searchLifelogs({
       searchTerm: params.search_term,
       fetchLimit: params.fetch_limit,
@@ -152,3 +152,4 @@ export class ToolHandlers {
     };
   }
 }
+
