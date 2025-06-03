@@ -200,19 +200,22 @@ Enable fast, accurate search through Claude CLI orchestration with local vector 
 
 - [ ] Design search orchestrator prompts
 - [ ] Implement Claude CLI wrapper class using Node.js child_process:
+
   ```typescript
   // Execute with JSON output
-  const { stdout } = await execAsync(
-    `claude -p "${prompt}" --output-format json --max-turns 3`
-  );
-  
+  const { stdout } = await execAsync(`claude -p "${prompt}" --output-format json --max-turns 3`);
+
   // Stream responses
   const child = spawn('claude', [
-    '-p', prompt,
-    '--output-format', 'stream-json',
-    '--allowedTools', 'Read,Bash(rg:*)'
+    '-p',
+    prompt,
+    '--output-format',
+    'stream-json',
+    '--allowedTools',
+    'Read,Bash(rg:*)',
   ]);
   ```
+
 - [ ] Create headless execution pipeline with error handling
 - [ ] Add streaming result support via spawn and stdout parsing
 - [ ] Build fallback strategies for offline/slow responses
