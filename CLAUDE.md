@@ -225,6 +225,7 @@ See @PROJECT_STATUS.md for detailed metrics and @ROADMAP.md for future plans.
 **Important**: Follow the detailed checklist in PUBLISH_CHECKLIST.md for npm publishing.
 
 Quick overview:
+
 1. Ensure all tests pass: `npm test`
 2. Run linting: `npm run lint`
 3. Build the project: `npm run build`
@@ -338,13 +339,10 @@ import { promisify } from 'util';
 const execAsync = promisify(exec);
 
 async function runClaudeAnalysis(prompt: string) {
-  const { stdout } = await execAsync(
-    `claude -p "${prompt}" --output-format json --max-turns 3`,
-    { 
-      timeout: 120000, // 2 minute timeout
-      maxBuffer: 10 * 1024 * 1024 // 10MB buffer
-    }
-  );
+  const { stdout } = await execAsync(`claude -p "${prompt}" --output-format json --max-turns 3`, {
+    timeout: 120000, // 2 minute timeout
+    maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+  });
   return JSON.parse(stdout);
 }
 
@@ -353,11 +351,14 @@ import { spawn } from 'child_process';
 
 function streamClaudeSearch(prompt: string) {
   const child = spawn('claude', [
-    '-p', prompt,
-    '--output-format', 'stream-json',
-    '--allowedTools', 'Read,Bash(rg:*)'
+    '-p',
+    prompt,
+    '--output-format',
+    'stream-json',
+    '--allowedTools',
+    'Read,Bash(rg:*)',
   ]);
-  
+
   child.stdout.on('data', (chunk) => {
     const message = JSON.parse(chunk.toString());
     // Process each message as it arrives
@@ -366,6 +367,7 @@ function streamClaudeSearch(prompt: string) {
 ```
 
 **Command Flags Used:**
+
 - `-p "prompt"` - Headless mode with prompt
 - `--output-format json` - Structured output for parsing
 - `--output-format stream-json` - Real-time streaming
@@ -373,6 +375,7 @@ function streamClaudeSearch(prompt: string) {
 - `--allowedTools` - Pre-approve safe tools
 
 **Important Notes:**
+
 - No need to specify model, temperature, or tokens (uses user's Claude settings)
 - Requires active Claude Max subscription for optimal performance
 - All processing uses the user's allocated Claude.ai tokens
@@ -382,6 +385,7 @@ function streamClaudeSearch(prompt: string) {
 ### Search Architecture
 
 Phase 2 introduces Claude-orchestrated search with:
+
 1. **Fast Path**: Direct queries (<100ms) for simple searches
 2. **Claude Path**: Intelligent routing (2-3s) for complex queries
 3. **Hybrid Mode**: Combines vector search (ChromaDB) with full-text search
@@ -393,8 +397,8 @@ When implementing search features, use sub-agents to preserve context:
 ```typescript
 // Good: Use Task tool for research (only summary enters context)
 await Task({
-  description: "Research vector databases",
-  prompt: "Compare vector databases for TypeScript..."
+  description: 'Research vector databases',
+  prompt: 'Compare vector databases for TypeScript...',
 });
 
 // Avoid: Direct searches that fill up context
@@ -406,6 +410,7 @@ await Task({
 The system is designed to handle tens of thousands of days of lifelogs:
 
 **Storage Structure**:
+
 ```
 /data/
   /lifelogs/YYYY/MM/DD/    # Date-based hierarchy
@@ -416,11 +421,13 @@ The system is designed to handle tens of thousands of days of lifelogs:
 ```
 
 **Performance at Scale**:
+
 - 10K days: ~100MB memory (very fast)
 - 100K days: ~1GB memory (still performant)
 - 1M+ days: Implement sharding by year
 
 **Vector DB Portability**:
+
 - Abstract interface allows easy swapping between ChromaDB, Qdrant, etc.
 - Raw embeddings stored separately from vector DB
 - Original markdown files always preserved

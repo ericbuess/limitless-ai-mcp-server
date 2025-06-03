@@ -107,23 +107,27 @@ Based on real API testing (2025-06-02):
 **Phase 2: Claude-Orchestrated Intelligent Search** (See ROADMAP.md)
 
 ### Planned Architecture:
+
 - **ChromaDB** for local vector store with automatic embeddings
 - **Claude CLI** integration for intelligent query routing
 - **Hybrid Search** combining semantic (vector) and exact (ripgrep) methods
 - **Performance Target**: <100ms for simple queries, 2-3s for complex
 
 ### Key Dependencies:
+
 - Claude Code CLI (required for orchestration)
 - ChromaDB (selected for TypeScript support and local embeddings)
 - Ripgrep (for fast text search)
 
 ### Expected Benefits:
+
 - 90% of queries return in <100ms after warm-up
 - Semantic search finds conceptually related content
 - Claude handles complex analytical queries
 - System learns and improves over time
 
 ### Scalability Design:
+
 - Handles 10K-100K days efficiently in memory
 - Date-based file hierarchy for easy management
 - Abstract vector store interface for future migrations
