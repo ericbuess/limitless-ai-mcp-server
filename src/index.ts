@@ -24,7 +24,7 @@ import { logger } from './utils/logger';
 // Server metadata
 const SERVER_INFO = {
   name: 'limitless-ai-mcp-server',
-  version: '1.0.0',
+  version: '0.0.1',
   description: 'MCP server for integrating Limitless AI Pendant recordings with AI assistants',
 };
 
