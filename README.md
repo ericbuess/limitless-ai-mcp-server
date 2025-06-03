@@ -54,7 +54,7 @@ An advanced Model Context Protocol (MCP) server that enables AI assistants to in
 
 ## 🚀 Installation
 
-### Option 1: Install from npm (Coming Soon)
+### Option 1: Install from npm
 
 ```bash
 npm install -g limitless-ai-mcp-server
