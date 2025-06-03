@@ -83,8 +83,8 @@
 1. **Create git tag**:
 
    ```bash
-   git tag v0.0.2
-   git push origin v0.0.2
+   git tag v0.0.3
+   git push origin v0.0.3
    ```
 
 2. **Update README** if needed to reflect new version
