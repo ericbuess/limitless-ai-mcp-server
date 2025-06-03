@@ -213,7 +213,7 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 
 ## Current Status
 
-- **Version**: 0.0.1 (Released)
+- **Version**: 0.0.2 (Ready for release)
 - **Tests**: 53 passing
 - **Node.js**: 22+ required
 - **All 5 MCP features implemented**
@@ -222,13 +222,19 @@ See @PROJECT_STATUS.md for detailed metrics and @ROADMAP.md for future plans.
 
 ## Release Process
 
+**Important**: Follow the detailed checklist in PUBLISH_CHECKLIST.md for npm publishing.
+
+Quick overview:
 1. Ensure all tests pass: `npm test`
 2. Run linting: `npm run lint`
 3. Build the project: `npm run build`
-4. Update version in package.json
-5. Commit changes
-6. Create a pull request from dev to main
-7. After merge, tag the release
+4. Verify dist/ directory exists and dist/index.js is executable
+5. Update version in package.json
+6. Commit changes
+7. Create a pull request from dev to main
+8. After merge, publish to npm and tag the release
+
+See PUBLISH_CHECKLIST.md for the complete pre-publish verification steps and troubleshooting.
 
 ## Future Development
 

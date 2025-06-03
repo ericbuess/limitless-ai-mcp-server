@@ -1,0 +1,35 @@
+# Test files
+tests/
+coverage/
+*.test.ts
+*.test.js
+jest.config.js
+codecov.yml
+
+# Source files (only ship compiled)
+src/
+*.ts
+!*.d.ts
+
+# Development files
+.github/
+.vscode/
+.eslintrc*
+.prettierrc*
+.husky/
+eslint.config.mjs
+
+# Documentation source
+docs/references/
+
+# Examples (optional - you might want to include these)
+# examples/
+
+# Build artifacts
+tsconfig.json
+tsconfig.tsbuildinfo
+
+# Misc
+.env*
+.DS_Store
+*.log
