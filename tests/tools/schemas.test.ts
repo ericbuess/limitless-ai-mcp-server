@@ -94,6 +94,27 @@ describe('Tool Schemas', () => {
       const invalidResult = listLifelogsByDateSchema.safeParse(invalidInput);
       expect(invalidResult.success).toBe(false);
     });
+
+    it('should coerce string values to proper types', () => {
+      const input = {
+        date: '2024-01-15',
+        limit: '50' as any, // String that should be coerced to number
+        includeMarkdown: 'true' as any, // String that should be coerced to boolean
+        includeHeadings: 'false' as any, // Note: z.coerce.boolean() treats 'false' string as truthy
+      };
+
+      const result = listLifelogsByDateSchema.safeParse(input);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.limit).toBe(50);
+        expect(typeof result.data.limit).toBe('number');
+        expect(result.data.includeMarkdown).toBe(true);
+        expect(typeof result.data.includeMarkdown).toBe('boolean');
+        // z.coerce.boolean() converts any non-empty string to true, including 'false'
+        expect(result.data.includeHeadings).toBe(true);
+        expect(typeof result.data.includeHeadings).toBe('boolean');
+      }
+    });
   });
 
   describe('listLifelogsByRangeSchema', () => {
@@ -150,6 +171,26 @@ describe('Tool Schemas', () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data).toEqual(input);
+      }
+    });
+
+    it('should coerce string values to proper types', () => {
+      const input = {
+        limit: '5' as any, // String that should be coerced to number
+        includeMarkdown: 'true' as any, // String that should be coerced to boolean
+        includeHeadings: 'false' as any, // Note: z.coerce.boolean() treats 'false' string as truthy
+      };
+
+      const result = listRecentLifelogsSchema.safeParse(input);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.limit).toBe(5);
+        expect(typeof result.data.limit).toBe('number');
+        expect(result.data.includeMarkdown).toBe(true);
+        expect(typeof result.data.includeMarkdown).toBe('boolean');
+        // z.coerce.boolean() converts any non-empty string to true, including 'false'
+        expect(result.data.includeHeadings).toBe(true);
+        expect(typeof result.data.includeHeadings).toBe('boolean');
       }
     });
   });
