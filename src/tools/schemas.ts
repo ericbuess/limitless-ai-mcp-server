@@ -2,12 +2,18 @@ import { z } from 'zod';
 
 // Common schemas
 const includeOptionsSchema = z.object({
-  includeMarkdown: z.boolean().default(true).describe('Include markdown content in the response.'),
-  includeHeadings: z.boolean().default(true).describe('Include headings content in the response.'),
+  includeMarkdown: z.coerce
+    .boolean()
+    .default(true)
+    .describe('Include markdown content in the response.'),
+  includeHeadings: z.coerce
+    .boolean()
+    .default(true)
+    .describe('Include headings content in the response.'),
 });
 
 const paginationOptionsSchema = z.object({
-  limit: z
+  limit: z.coerce
     .number()
     .int()
     .positive()
@@ -53,7 +59,7 @@ export const listLifelogsByRangeSchema = z
 
 export const listRecentLifelogsSchema = z
   .object({
-    limit: z
+    limit: z.coerce
       .number()
       .int()
       .positive()
@@ -70,7 +76,7 @@ export const listRecentLifelogsSchema = z
 export const searchLifelogsSchema = z
   .object({
     search_term: z.string().describe('The text to search for within lifelog titles and content.'),
-    fetch_limit: z
+    fetch_limit: z.coerce
       .number()
       .int()
       .positive()

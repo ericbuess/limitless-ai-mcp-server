@@ -354,23 +354,43 @@ describe('ResourceHandlers', () => {
 
   describe('handleSubscribeResource', () => {
     it('should log info about not implemented feature', async () => {
-      const logSpy = jest.spyOn(console, 'info').mockImplementation();
+      const writtenOutput: string[] = [];
+      const stderrSpy = jest
+        .spyOn(process.stderr, 'write')
+        .mockImplementation((data: string | Uint8Array) => {
+          if (typeof data === 'string') {
+            writtenOutput.push(data);
+          }
+          return true;
+        });
 
       await resourceHandlers.handleSubscribeResource({ test: 'data' });
 
-      expect(logSpy).toHaveBeenCalled();
-      logSpy.mockRestore();
+      expect(writtenOutput.length).toBeGreaterThan(0);
+      expect(writtenOutput[0]).toContain('[INFO]');
+      expect(writtenOutput[0]).toContain('Resource subscription not yet implemented');
+      stderrSpy.mockRestore();
     });
   });
 
   describe('handleUnsubscribeResource', () => {
     it('should log info about not implemented feature', async () => {
-      const logSpy = jest.spyOn(console, 'info').mockImplementation();
+      const writtenOutput: string[] = [];
+      const stderrSpy = jest
+        .spyOn(process.stderr, 'write')
+        .mockImplementation((data: string | Uint8Array) => {
+          if (typeof data === 'string') {
+            writtenOutput.push(data);
+          }
+          return true;
+        });
 
       await resourceHandlers.handleUnsubscribeResource({ test: 'data' });
 
-      expect(logSpy).toHaveBeenCalled();
-      logSpy.mockRestore();
+      expect(writtenOutput.length).toBeGreaterThan(0);
+      expect(writtenOutput[0]).toContain('[INFO]');
+      expect(writtenOutput[0]).toContain('Resource unsubscription not yet implemented');
+      stderrSpy.mockRestore();
     });
   });
 });

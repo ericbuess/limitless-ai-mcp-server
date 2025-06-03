@@ -193,16 +193,16 @@ describe('Format Utils', () => {
 });
 
 describe('Logger', () => {
-  let consoleDebugSpy: jest.SpyInstance;
-  let consoleInfoSpy: jest.SpyInstance;
-  let consoleWarnSpy: jest.SpyInstance;
-  let consoleErrorSpy: jest.SpyInstance;
+  let writtenOutput: string[] = [];
 
   beforeEach(() => {
-    consoleDebugSpy = jest.spyOn(console, 'debug').mockImplementation();
-    consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation();
-    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    writtenOutput = [];
+    jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
+      if (typeof data === 'string') {
+        writtenOutput.push(data);
+      }
+      return true;
+    });
     delete process.env.LOG_LEVEL;
   });
 
@@ -214,14 +214,16 @@ describe('Logger', () => {
     logger.info('Info message');
     logger.debug('Debug message');
 
-    expect(consoleInfoSpy).toHaveBeenCalled();
-    expect(consoleDebugSpy).not.toHaveBeenCalled();
+    expect(writtenOutput).toHaveLength(1);
+    expect(writtenOutput[0]).toContain('[INFO]');
+    expect(writtenOutput[0]).toContain('Info message');
   });
 
   it('should format messages correctly', () => {
     logger.info('Test message', { data: 'value' });
 
-    const output = consoleInfoSpy.mock.calls[0][0];
+    expect(writtenOutput).toHaveLength(1);
+    const output = writtenOutput[0];
     expect(output).toContain('[INFO]');
     expect(output).toContain('Test message');
     expect(output).toContain('"data":"value"');
@@ -231,7 +233,8 @@ describe('Logger', () => {
     const error = new Error('Test error');
     logger.error('Operation failed', error);
 
-    const output = consoleErrorSpy.mock.calls[0][0];
+    expect(writtenOutput).toHaveLength(1);
+    const output = writtenOutput[0];
     expect(output).toContain('[ERROR]');
     expect(output).toContain('Operation failed');
     expect(output).toContain('Test error');
@@ -244,7 +247,8 @@ describe('Logger', () => {
     warnLogger.info('Info message');
     warnLogger.warn('Warn message');
 
-    expect(consoleInfoSpy).not.toHaveBeenCalled();
-    expect(consoleWarnSpy).toHaveBeenCalled();
+    expect(writtenOutput).toHaveLength(1);
+    expect(writtenOutput[0]).toContain('[WARN]');
+    expect(writtenOutput[0]).toContain('Warn message');
   });
 });
