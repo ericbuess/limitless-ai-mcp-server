@@ -355,12 +355,14 @@ describe('ResourceHandlers', () => {
   describe('handleSubscribeResource', () => {
     it('should log info about not implemented feature', async () => {
       const writtenOutput: string[] = [];
-      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
-        if (typeof data === 'string') {
-          writtenOutput.push(data);
-        }
-        return true;
-      });
+      const stderrSpy = jest
+        .spyOn(process.stderr, 'write')
+        .mockImplementation((data: string | Uint8Array) => {
+          if (typeof data === 'string') {
+            writtenOutput.push(data);
+          }
+          return true;
+        });
 
       await resourceHandlers.handleSubscribeResource({ test: 'data' });
 
@@ -374,12 +376,14 @@ describe('ResourceHandlers', () => {
   describe('handleUnsubscribeResource', () => {
     it('should log info about not implemented feature', async () => {
       const writtenOutput: string[] = [];
-      const stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
-        if (typeof data === 'string') {
-          writtenOutput.push(data);
-        }
-        return true;
-      });
+      const stderrSpy = jest
+        .spyOn(process.stderr, 'write')
+        .mockImplementation((data: string | Uint8Array) => {
+          if (typeof data === 'string') {
+            writtenOutput.push(data);
+          }
+          return true;
+        });
 
       await resourceHandlers.handleUnsubscribeResource({ test: 'data' });
 
