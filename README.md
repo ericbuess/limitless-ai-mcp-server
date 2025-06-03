@@ -104,17 +104,20 @@ export SEARCH_CACHE_TTL=180000  # Search cache lifetime (3 minutes)
 If you're using Claude Code (Anthropic's official CLI), run:
 
 ```bash
-# Option 1: Using globally installed package (recommended)
+# Option 1: Using the command directly (recommended)
 npm install -g limitless-ai-mcp-server
-claude mcp add limitless -s user -e LIMITLESS_API_KEY="your-api-key-here" -- npx limitless-ai-mcp-server
+claude mcp add limitless -s user -e LIMITLESS_API_KEY="your-api-key-here" -- limitless-ai-mcp-server
 
-# Option 2: Using direct node path (if npx doesn't work)
-# Find the installation path first:
+# Option 2: Using node with the full path (most reliable with nvm)
+npm install -g limitless-ai-mcp-server
+# Find where npm installed it:
 npm list -g limitless-ai-mcp-server
-# Then use the path (example for nvm users):
+# Then use the direct path (adjust the node version as needed):
 claude mcp add limitless -s user -e LIMITLESS_API_KEY="your-api-key-here" -- node ~/.nvm/versions/node/v22.0.0/lib/node_modules/limitless-ai-mcp-server/dist/index.js
 
 # Option 3: Using local installation
+cd /path/to/limitless-ai-mcp-server
+npm install && npm run build
 claude mcp add limitless -s user -e LIMITLESS_API_KEY="your-api-key-here" -- node /path/to/limitless-ai-mcp-server/dist/index.js
 
 # Verify it's running
@@ -486,6 +489,33 @@ export LOG_LEVEL=DEBUG
    - Confirm your API key is valid at [limitless.ai/developers](https://limitless.ai/developers)
    - Ensure you have Pendant recordings (not app/extension data)
    - Try a specific date when you know you had recordings
+
+### Claude Code CLI Specific Issues
+
+1. **"MCP Server Status: failed" with npx**
+
+   This is a known issue where `npx` doesn't reliably find globally installed packages when using nvm.
+
+   **Solution**: Use the direct command or full path instead:
+
+   ```bash
+   # Instead of: -- npx limitless-ai-mcp-server
+   # Use: -- limitless-ai-mcp-server
+   # Or: -- node ~/.nvm/versions/node/vXX.X.X/lib/node_modules/limitless-ai-mcp-server/dist/index.js
+   ```
+
+2. **Finding the correct path with nvm**
+
+   ```bash
+   # First, check which Node version you're using:
+   node --version
+
+   # Then find where the package is installed:
+   npm list -g limitless-ai-mcp-server
+
+   # The path will be something like:
+   # ~/.nvm/versions/node/v22.0.0/lib/node_modules/limitless-ai-mcp-server
+   ```
 
 ## 📄 License
 
