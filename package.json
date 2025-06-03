@@ -24,7 +24,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "limitless-ai-mcp-server": "dist/index.js"
+    "limitless-ai-mcp-server": "./dist/index.js"
   },
   "files": [
     "dist/",
@@ -46,7 +46,8 @@
     "clean": "rm -rf dist coverage",
     "prepare": "husky install",
     "prepublishOnly": "npm run clean && npm run lint && npm run test",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "postinstall": "chmod +x dist/index.js 2>/dev/null || true"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

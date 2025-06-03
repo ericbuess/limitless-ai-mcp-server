@@ -104,7 +104,17 @@ export SEARCH_CACHE_TTL=180000  # Search cache lifetime (3 minutes)
 If you're using Claude Code (Anthropic's official CLI), run:
 
 ```bash
-# Add the server (replace path with your actual installation path)
+# Option 1: Using globally installed package (recommended)
+npm install -g limitless-ai-mcp-server
+claude mcp add limitless -s user -e LIMITLESS_API_KEY="your-api-key-here" -- npx limitless-ai-mcp-server
+
+# Option 2: Using direct node path (if npx doesn't work)
+# Find the installation path first:
+npm list -g limitless-ai-mcp-server
+# Then use the path (example for nvm users):
+claude mcp add limitless -s user -e LIMITLESS_API_KEY="your-api-key-here" -- node ~/.nvm/versions/node/v22.0.0/lib/node_modules/limitless-ai-mcp-server/dist/index.js
+
+# Option 3: Using local installation
 claude mcp add limitless -s user -e LIMITLESS_API_KEY="your-api-key-here" -- node /path/to/limitless-ai-mcp-server/dist/index.js
 
 # Verify it's running
