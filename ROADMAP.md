@@ -149,33 +149,110 @@ Created 6 example files demonstrating each MCP feature.
 
 ## Phase 2 Enhancements (Post-MVP)
 
-### 5. Local Vector Store for Semantic Search
+### 5. Claude-Orchestrated Intelligent Search System
 
-Enable offline access and fast semantic search through local vector embeddings.
+Enable fast, accurate search through Claude CLI orchestration with local vector store and hybrid search strategies.
 
-#### 5.1 Vector Store Implementation
+#### 5.1 Intelligent Query Router
 
-- [ ] Set up vector database (ChromaDB, Weaviate, or FAISS)
-- [ ] Implement embedding generation for lifelog content
-- [ ] Create daily sync mechanism to download new lifelogs
-- [ ] Build hybrid search (check local first, fallback to API)
-- [ ] Add semantic similarity search capabilities
-- [ ] Implement offline mode support
+- [ ] Create smart query classification system (<5ms response)
+- [ ] Implement pattern-based fast paths for simple queries
+- [ ] Build learning cache for query strategies
+- [ ] Add Claude CLI integration for complex queries
+- [ ] Support fallback modes for speed optimization
 
-#### 5.2 Search Enhancement
+#### 5.2 Vector Store Implementation (ChromaDB)
 
-- [ ] Add natural language query understanding
-- [ ] Implement relevance ranking based on embeddings
-- [ ] Support complex semantic queries ("meetings about project X")
-- [ ] Add query expansion for better recall
-- [ ] Create search analytics
+- [ ] Set up ChromaDB with local embeddings (chromadb-default-embed)
+- [ ] Configure in-memory store with optional persistence
+- [ ] Implement automatic embedding generation for new content
+- [ ] Create incremental sync mechanism (poll every 60s)
+- [ ] Add metadata filtering (date, duration, keywords)
+- [ ] Build hybrid search combining vector + full-text
+- [ ] Design abstract VectorStore interface for future DB swapping
+- [ ] Implement sharding strategy for 100K+ documents (by year/month)
+- [ ] Create separate embedding storage for portability
+
+#### 5.3 Search Tool Integration
+
+- [ ] Create executable tools for Claude CLI:
+  - `tools/vector-search.js` - Direct ChromaDB queries
+    ```javascript
+    #!/usr/bin/env node
+    // Parse args, query ChromaDB, return JSON results
+    const results = await collection.query({ queryTexts: [args.query] });
+    console.log(JSON.stringify(results));
+    ```
+  - `tools/text-search.sh` - Ripgrep wrapper for exact matches
+    ```bash
+    #!/bin/bash
+    rg -j 8 "$1" ./data/lifelogs/ --json
+    ```
+  - `tools/get-lifelog.js` - Content fetcher
+  - `tools/analyze-results.js` - Result ranking/merging
+- [ ] Make tools executable: `chmod +x tools/*`
+- [ ] Document tools in CLAUDE.md for Claude to understand
+- [ ] Implement Claude-callable tool interfaces
+- [ ] Add result caching for common queries
+- [ ] Create performance monitoring
+
+#### 5.4 Claude CLI Orchestration
+
+- [ ] Design search orchestrator prompts
+- [ ] Implement Claude CLI wrapper class using Node.js child_process:
+  ```typescript
+  // Execute with JSON output
+  const { stdout } = await execAsync(
+    `claude -p "${prompt}" --output-format json --max-turns 3`
+  );
+  
+  // Stream responses
+  const child = spawn('claude', [
+    '-p', prompt,
+    '--output-format', 'stream-json',
+    '--allowedTools', 'Read,Bash(rg:*)'
+  ]);
+  ```
+- [ ] Create headless execution pipeline with error handling
+- [ ] Add streaming result support via spawn and stdout parsing
+- [ ] Build fallback strategies for offline/slow responses
+- [ ] Implement timeout handling (default 120s)
+- [ ] Parse JSON responses with proper error checking
+
+#### 5.5 Pre-Processing Pipeline
+
+- [ ] Nightly analysis job using Claude CLI
+- [ ] Pre-computed summaries and action items
+- [ ] Structured data extraction (decisions, tasks)
+- [ ] Search index optimization
+- [ ] Pattern learning from Claude's decisions
+
+#### 5.6 Scalable Storage Architecture
+
+- [ ] Implement date-based file hierarchy for efficient access:
+  ```
+  /data/lifelogs/YYYY/MM/DD/{id}.md       # Original transcripts
+  /data/lifelogs/YYYY/MM/DD/{id}.meta.json # Metadata
+  /data/embeddings/YYYY/MM/DD/{id}.json    # Portable embeddings
+  ```
+- [ ] Create monthly aggregation system for 10K+ days
+- [ ] Build hierarchical search (recent → year → all-time)
+- [ ] Implement pre-computed summaries for common queries
+- [ ] Add data retention and archival policies
 
 **Files to create:**
 
-- `src/vector-store/manager.ts` - Vector store management
-- `src/vector-store/embeddings.ts` - Embedding generation
-- `src/vector-store/sync.ts` - Daily sync service
-- `src/vector-store/search.ts` - Semantic search implementation
+- `src/search/query-router.ts` - Intelligent query routing
+- `src/search/claude-orchestrator.ts` - Claude CLI integration
+- `src/search/fast-patterns.ts` - Simple query handlers
+- `src/vector-store/chroma-manager.ts` - ChromaDB integration
+- `src/vector-store/vector-store.interface.ts` - Abstract interface
+- `src/vector-store/sync-service.ts` - Incremental sync
+- `src/storage/file-manager.ts` - Scalable file storage
+- `src/storage/aggregation-service.ts` - Monthly/yearly rollups
+- `src/tools/vector-search.js` - Claude-callable vector search
+- `src/tools/text-search.sh` - Claude-callable text search
+- `src/cache/intelligent-cache.ts` - Learning cache system
 
 ### 6. Voice-Activated Keyword Monitoring System
 
@@ -312,6 +389,10 @@ Connect with other productivity tools.
 ### Phase 2 (Target)
 
 - [ ] Semantic search accuracy > 90%
+- [ ] Query response time: <100ms (simple), <3s (complex)
+- [ ] Support for 100K+ days without performance degradation
+- [ ] Vector DB swap time < 1 hour for 50K documents
+- [ ] Storage efficiency: <10KB per day (including embeddings)
 - [ ] Keyword detection latency < 60s
 - [ ] Local vector store sync < 5 minutes
 - [ ] 95% uptime for monitoring service

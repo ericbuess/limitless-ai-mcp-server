@@ -306,9 +306,123 @@ This will show:
 - **MCP Protocol Specification**: `docs/references/llms-full_model-context-protocol_20250601.md`
 - **Limitless API Documentation**: `docs/references/limitless-api-docs_20250601.md`
 
+## Claude Code CLI Integration (Phase 2)
+
+### Prerequisites
+
+For Phase 2 enhanced search features, this server requires Claude Code CLI:
+
+```bash
+# Users must have Claude Code CLI installed and authenticated
+claude --version  # Check installation
+
+# Authenticate with Claude Max subscription for unlimited tokens
+claude auth login  # Opens browser for SSO authentication
+```
+
+### Claude CLI Usage in the Project
+
+The server executes Claude CLI in headless mode using Node.js child_process:
+
+```typescript
+// Basic execution with JSON output
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
+
+async function runClaudeAnalysis(prompt: string) {
+  const { stdout } = await execAsync(
+    `claude -p "${prompt}" --output-format json --max-turns 3`,
+    { 
+      timeout: 120000, // 2 minute timeout
+      maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+    }
+  );
+  return JSON.parse(stdout);
+}
+
+// Streaming for real-time feedback
+import { spawn } from 'child_process';
+
+function streamClaudeSearch(prompt: string) {
+  const child = spawn('claude', [
+    '-p', prompt,
+    '--output-format', 'stream-json',
+    '--allowedTools', 'Read,Bash(rg:*)'
+  ]);
+  
+  child.stdout.on('data', (chunk) => {
+    const message = JSON.parse(chunk.toString());
+    // Process each message as it arrives
+  });
+}
+```
+
+**Command Flags Used:**
+- `-p "prompt"` - Headless mode with prompt
+- `--output-format json` - Structured output for parsing
+- `--output-format stream-json` - Real-time streaming
+- `--max-turns 3` - Limit iterations for cost control
+- `--allowedTools` - Pre-approve safe tools
+
+**Important Notes:**
+- No need to specify model, temperature, or tokens (uses user's Claude settings)
+- Requires active Claude Max subscription for optimal performance
+- All processing uses the user's allocated Claude.ai tokens
+- SSO authentication links browser session to Claude Code
+- User must run `claude auth login` before first use
+
+### Search Architecture
+
+Phase 2 introduces Claude-orchestrated search with:
+1. **Fast Path**: Direct queries (<100ms) for simple searches
+2. **Claude Path**: Intelligent routing (2-3s) for complex queries
+3. **Hybrid Mode**: Combines vector search (ChromaDB) with full-text search
+
+### Context Management Strategy
+
+When implementing search features, use sub-agents to preserve context:
+
+```typescript
+// Good: Use Task tool for research (only summary enters context)
+await Task({
+  description: "Research vector databases",
+  prompt: "Compare vector databases for TypeScript..."
+});
+
+// Avoid: Direct searches that fill up context
+// await WebSearch(...) // Full results enter context
+```
+
+### Scalability Considerations
+
+The system is designed to handle tens of thousands of days of lifelogs:
+
+**Storage Structure**:
+```
+/data/
+  /lifelogs/YYYY/MM/DD/    # Date-based hierarchy
+    - {id}.md              # Original transcript (preserves searchability)
+    - {id}.meta.json       # Metadata for filtering
+  /embeddings/             # Portable vector embeddings
+  /indexes/                # Vector DB files (swappable)
+```
+
+**Performance at Scale**:
+- 10K days: ~100MB memory (very fast)
+- 100K days: ~1GB memory (still performant)
+- 1M+ days: Implement sharding by year
+
+**Vector DB Portability**:
+- Abstract interface allows easy swapping between ChromaDB, Qdrant, etc.
+- Raw embeddings stored separately from vector DB
+- Original markdown files always preserved
+
 ## Useful Links
 
 - [Limitless API Docs](https://www.limitless.ai/developers)
 - [MCP Protocol Spec](https://github.com/anthropics/model-context-protocol)
 - [Project Repository](https://github.com/ericbuess/limitless-ai-mcp-server)
 - [Issue Tracker](https://github.com/ericbuess/limitless-ai-mcp-server/issues)
+- [Claude Code CLI](https://claude.ai/code)
