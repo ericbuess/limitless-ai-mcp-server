@@ -37,6 +37,7 @@
    ```
 
 5. **Dry run**:
+
    ```bash
    npm pack --dry-run
    # CRITICAL: Verify dist/ files are included (should show ~22 files, not just 3)
