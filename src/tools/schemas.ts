@@ -2,8 +2,14 @@ import { z } from 'zod';
 
 // Common schemas
 const includeOptionsSchema = z.object({
-  includeMarkdown: z.coerce.boolean().default(true).describe('Include markdown content in the response.'),
-  includeHeadings: z.coerce.boolean().default(true).describe('Include headings content in the response.'),
+  includeMarkdown: z.coerce
+    .boolean()
+    .default(true)
+    .describe('Include markdown content in the response.'),
+  includeHeadings: z.coerce
+    .boolean()
+    .default(true)
+    .describe('Include headings content in the response.'),
 });
 
 const paginationOptionsSchema = z.object({

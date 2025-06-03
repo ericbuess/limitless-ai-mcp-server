@@ -42,7 +42,8 @@ export const toolDefinitions: Tool[] = [
           type: ['number', 'string'],
           minimum: 1,
           maximum: 100,
-          description: 'Maximum number of lifelogs to return (Max: 100). Fetches in batches from the API if needed.',
+          description:
+            'Maximum number of lifelogs to return (Max: 100). Fetches in batches from the API if needed.',
         },
         direction: {
           type: 'string',
@@ -51,7 +52,8 @@ export const toolDefinitions: Tool[] = [
         },
         timezone: {
           type: 'string',
-          description: "IANA timezone for date/time parameters (defaults to server's local timezone).",
+          description:
+            "IANA timezone for date/time parameters (defaults to server's local timezone).",
         },
         includeMarkdown: {
           type: ['boolean', 'string'],
@@ -87,7 +89,8 @@ export const toolDefinitions: Tool[] = [
           type: ['number', 'string'],
           minimum: 1,
           maximum: 100,
-          description: 'Maximum number of lifelogs to return (Max: 100). Fetches in batches from the API if needed.',
+          description:
+            'Maximum number of lifelogs to return (Max: 100). Fetches in batches from the API if needed.',
         },
         direction: {
           type: 'string',
@@ -96,7 +99,8 @@ export const toolDefinitions: Tool[] = [
         },
         timezone: {
           type: 'string',
-          description: "IANA timezone for date/time parameters (defaults to server's local timezone).",
+          description:
+            "IANA timezone for date/time parameters (defaults to server's local timezone).",
         },
         includeMarkdown: {
           type: ['boolean', 'string'],
@@ -129,7 +133,8 @@ export const toolDefinitions: Tool[] = [
         },
         timezone: {
           type: 'string',
-          description: "IANA timezone for date/time parameters (defaults to server's local timezone).",
+          description:
+            "IANA timezone for date/time parameters (defaults to server's local timezone).",
         },
         includeMarkdown: {
           type: ['boolean', 'string'],
@@ -161,13 +166,15 @@ export const toolDefinitions: Tool[] = [
           default: 20,
           minimum: 1,
           maximum: 100,
-          description: 'How many *recent* lifelogs to fetch from the API to search within (Default: 20, Max: 100). This defines the scope of the search, NOT the number of results returned.',
+          description:
+            'How many *recent* lifelogs to fetch from the API to search within (Default: 20, Max: 100). This defines the scope of the search, NOT the number of results returned.',
         },
         limit: {
           type: ['number', 'string'],
           minimum: 1,
           maximum: 100,
-          description: 'Maximum number of lifelogs to return (Max: 100). Fetches in batches from the API if needed.',
+          description:
+            'Maximum number of lifelogs to return (Max: 100). Fetches in batches from the API if needed.',
         },
         direction: {
           type: 'string',
@@ -176,7 +183,8 @@ export const toolDefinitions: Tool[] = [
         },
         timezone: {
           type: 'string',
-          description: "IANA timezone for date/time parameters (defaults to server's local timezone).",
+          description:
+            "IANA timezone for date/time parameters (defaults to server's local timezone).",
         },
         includeMarkdown: {
           type: ['boolean', 'string'],
