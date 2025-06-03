@@ -1,12 +1,12 @@
 {
   "name": "limitless-ai-mcp-server",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "MCP server for integrating Limitless AI Pendant recordings with AI assistants",
   "author": "Eric Buess",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ericbuess/limitless-ai-mcp-server.git"
+    "url": "git+https://github.com/ericbuess/limitless-ai-mcp-server.git"
   },
   "bugs": {
     "url": "https://github.com/ericbuess/limitless-ai-mcp-server/issues"
@@ -45,7 +45,7 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist coverage",
     "prepare": "husky install",
-    "prepublishOnly": "npm run clean && npm run lint && npm run test && npm run build && ls dist/index.js",
+    "prepublishOnly": "npm run clean && npm run lint && npm run test",
     "prepack": "npm run build"
   },
   "dependencies": {
