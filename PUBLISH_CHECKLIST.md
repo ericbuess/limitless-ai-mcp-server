@@ -60,9 +60,16 @@
    npm login
    ```
 
-2. **Publish**:
+2. **CRITICAL: Build first, then publish**:
 
    ```bash
+   # Build the project
+   npm run build
+
+   # Verify dist exists
+   ls -la dist/
+
+   # NOW publish
    npm publish
    ```
 
