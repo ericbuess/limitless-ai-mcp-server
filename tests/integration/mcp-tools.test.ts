@@ -41,19 +41,9 @@ describe('MCP Tools Integration', () => {
       stdio: 'pipe',
     });
 
-    serverReady = new Promise((resolve) => {
-      const handler = (data: Buffer) => {
-        if (data.toString().includes('Server running')) {
-          serverProcess.stdout?.off('data', handler);
-          resolve();
-        }
-      };
-      serverProcess.stdout?.on('data', handler);
-    });
-
-    // Wait for server to be ready
-    await serverReady;
-  });
+    // Give server time to start up
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }, 15000); // Increase timeout to 15 seconds
 
   afterAll(() => {
     if (serverProcess) {

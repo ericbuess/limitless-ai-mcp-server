@@ -3,7 +3,6 @@ import { LimitlessClient } from '../core/limitless-client.js';
 import { FileManager } from '../storage/file-manager.js';
 import { UnifiedSearchHandler } from '../search/unified-search.js';
 import { SyncService } from '../vector-store/sync-service.js';
-import { ChromaVectorStore } from '../vector-store/chroma-manager.js';
 import {
   getLifelogByIdSchema,
   listLifelogsByDateSchema,
@@ -29,6 +28,7 @@ export class EnhancedToolHandlers {
   private syncService: SyncService | null = null;
   private options: EnhancedHandlerOptions;
   private isInitialized: boolean = false;
+  private shouldInitSync: boolean = false;
 
   constructor(client: LimitlessClient, options: EnhancedHandlerOptions = {}) {
     this.client = client;
@@ -60,19 +60,42 @@ export class EnhancedToolHandlers {
       enableClaude: this.options.enableClaude,
     });
 
-    // Initialize sync service if enabled
-    if (this.options.enableSync && this.options.enableVectorStore) {
-      const vectorStore = new ChromaVectorStore({
-        collectionName: 'limitless-lifelogs',
-        persistPath: process.env.CHROMA_PATH || 'http://localhost:8000',
-      });
-
-      this.syncService = new SyncService(this.client, this.fileManager, vectorStore, {
-        enableVectorStore: true,
-        enableFileStorage: true,
-        pollInterval: 60000, // 1 minute
-      });
+    // Sync service will be initialized asynchronously in initialize()
+    this.shouldInitSync = !!(this.options.enableSync && this.options.enableVectorStore);
+    if (this.shouldInitSync) {
+      logger.info('Sync service will be initialized');
     }
+  }
+
+  private async createSyncService(): Promise<void> {
+    // Create LanceDB store for sync (same as search handler uses)
+    const { LanceDBStore } = await import('../vector-store/lancedb-store.js');
+    const vectorStore = new LanceDBStore({
+      collectionName: 'limitless-lifelogs',
+      persistPath: './data/lancedb',
+    });
+
+    // Get sync interval from environment or use default
+    const syncInterval = process.env.LIMITLESS_SYNC_INTERVAL
+      ? parseInt(process.env.LIMITLESS_SYNC_INTERVAL, 10)
+      : 60000; // 1 minute default
+
+    if (!this.fileManager) {
+      throw new Error('FileManager not initialized');
+    }
+
+    this.syncService = new SyncService(this.client, this.fileManager, vectorStore, {
+      enableVectorStore: true,
+      enableFileStorage: true,
+      pollInterval: syncInterval,
+      batchSize: 50,
+    });
+
+    logger.info('Sync service configured', {
+      pollInterval: syncInterval,
+      vectorStore: 'LanceDB',
+      batchSize: 50,
+    });
   }
 
   async initialize(): Promise<void> {
@@ -84,8 +107,20 @@ export class EnhancedToolHandlers {
       await this.searchHandler.initialize();
     }
 
-    if (this.syncService) {
-      await this.syncService.start();
+    // Create and start sync service if enabled
+    if (this.shouldInitSync) {
+      await this.createSyncService();
+      if (this.syncService) {
+        logger.info('Starting background sync service');
+        await this.syncService.start();
+
+        // Log initial sync status
+        const status = this.syncService.getStatus();
+        logger.info('Sync service started', {
+          isRunning: status.isRunning,
+          pollInterval: process.env.LIMITLESS_SYNC_INTERVAL || 60000,
+        });
+      }
     }
 
     this.isInitialized = true;
@@ -347,16 +382,50 @@ export class EnhancedToolHandlers {
 
   private async getSyncStatus(): Promise<CallToolResult> {
     if (!this.syncService) {
-      throw new Error('Sync service not available.');
+      return {
+        content: [
+          {
+            type: 'text',
+            text: '🔴 Sync Service Status: DISABLED\n\nTo enable background synchronization:\n1. Set LIMITLESS_ENABLE_SYNC=true\n2. Restart the server\n\nThis will sync new lifelogs every 60 seconds.',
+          },
+        ],
+      };
     }
 
     const status = this.syncService.getStatus();
+    const lines = [
+      '📊 Sync Service Status\n',
+      `Status: ${status.isRunning ? '🟢 Running' : '🔴 Stopped'}`,
+      `Last Sync: ${status.lastSync ? status.lastSync.toLocaleString() : 'Never'}`,
+      `Total Synced: ${status.totalSynced} lifelogs`,
+      `Pending Sync: ${status.pendingSync} lifelogs`,
+    ];
+
+    if (status.lastError) {
+      lines.push(`\n⚠️ Last Error: ${status.lastError.message}`);
+    }
+
+    // Add configuration info
+    lines.push('\n📋 Configuration:');
+    lines.push(
+      `Poll Interval: ${process.env.LIMITLESS_SYNC_INTERVAL || '60000'}ms (${(parseInt(process.env.LIMITLESS_SYNC_INTERVAL || '60000') / 1000 / 60).toFixed(1)} minutes)`
+    );
+    lines.push(`Vector Store: LanceDB with Contextual RAG`);
+    lines.push(`File Storage: Enabled`);
+    lines.push(`Batch Size: 50 lifelogs per sync`);
+
+    // Add performance info if available
+    if (status.isRunning && status.lastSync) {
+      const uptimeMs = Date.now() - status.lastSync.getTime();
+      const uptimeMinutes = Math.floor(uptimeMs / 1000 / 60);
+      lines.push(`\n⏱️ Uptime: ${uptimeMinutes} minutes`);
+    }
 
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify(status, null, 2),
+          text: lines.join('\n'),
         },
       ],
     };

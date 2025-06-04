@@ -2,7 +2,6 @@ import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 import { LanceDBStore } from '../../src/vector-store/lancedb-store.js';
 import { VectorDocument } from '../../src/vector-store/vector-store.interface.js';
 import * as fs from 'fs/promises';
-import * as path from 'path';
 
 describe('Vector Search Integration', () => {
   let vectorStore: LanceDBStore;
