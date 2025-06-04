@@ -87,4 +87,11 @@ Desktop.ini
 .env.development.local
 .env.test.local
 .env.production.local
-.env.localmodels/
+.env.local
+
+# Model downloads
+models/
+
+# LanceDB data
+data/lancedb/
+test-lancedb/
