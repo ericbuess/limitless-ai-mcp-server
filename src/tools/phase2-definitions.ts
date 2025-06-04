@@ -89,6 +89,28 @@ export const phase2Tools: Tool[] = [
       additionalProperties: false,
     },
   },
+  {
+    name: 'limitless_bulk_sync',
+    description: 'Manually trigger a bulk sync of historical lifelogs',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        days: {
+          type: 'number',
+          default: 365,
+          minimum: 1,
+          maximum: 730,
+          description: 'Number of days of history to sync',
+        },
+        clearExisting: {
+          type: 'boolean',
+          default: false,
+          description: 'Clear existing data before syncing',
+        },
+      },
+      additionalProperties: false,
+    },
+  },
 ];
 
 export const phase2ToolDescriptions = {
@@ -130,5 +152,14 @@ Monitor the background sync service:
 - Reports total synced lifelogs
 - Displays any sync errors
 - Useful for troubleshooting
+`,
+
+  limitless_bulk_sync: `
+Manually trigger bulk sync of historical data:
+- Downloads all lifelogs for specified number of days
+- Processes in parallel batches for speed
+- Shows progress as batches complete
+- Optionally clears existing data first
+- Use this to populate local database initially
 `,
 };

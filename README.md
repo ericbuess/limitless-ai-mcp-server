@@ -17,7 +17,8 @@ An intelligent Model Context Protocol (MCP) server for Limitless AI Pendant reco
 - **Semantic Understanding**: Find conceptually related content using vector embeddings
 - **AI-Powered Analysis**: Complex queries handled by Claude integration
 - **Smart Query Routing**: Automatically selects optimal search strategy
-- **Real-time Sync**: Background updates every 60 seconds
+- **Real-time Sync V3**: Respectful API usage with batch-level checkpointing
+- **Download Once**: Never re-downloads data, works from local storage
 - **Scalable Storage**: Handles 100K+ days of recordings efficiently
 
 ### Core Capabilities
@@ -397,6 +398,36 @@ The server includes an intelligent caching system with Phase 2 enhancements:
 - `CACHE_TTL` - Cache lifetime in ms (default: 300000 / 5 minutes)
 - `SEARCH_CACHE_MAX_SIZE` - Search cache size (default: 50)
 - `SEARCH_CACHE_TTL` - Search cache lifetime (default: 180000 / 3 minutes)
+
+## 📥 Data Synchronization (V3)
+
+Our improved sync system is designed to be respectful of the Limitless API while ensuring data persistence:
+
+### Key Features
+
+- **Batch-level checkpointing**: Saves progress after every batch (not every 100 items)
+- **No re-downloading**: Once data is saved locally, it's never fetched again
+- **No arbitrary limits**: Downloads ALL your data (removed 365-day limit)
+- **Handles gaps**: Continues searching even with months of no recordings
+- **Respectful delays**: 2-second pause between API requests
+
+### Commands
+
+```bash
+# Download all your data + build embeddings
+npm run sync:all
+
+# Download only (skip vectorization)
+npm run sync:download
+
+# Rebuild embeddings from local data (no API calls)
+npm run sync:rebuild
+
+# With options
+npm run sync:all -- --years=5 --batch=30 --delay=3000
+```
+
+See [SYNC_V3_IMPROVEMENTS.md](SYNC_V3_IMPROVEMENTS.md) for detailed documentation.
 
 ## 💡 Usage Examples
 

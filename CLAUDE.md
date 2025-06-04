@@ -189,6 +189,7 @@ headers: {
 7. **limitless_semantic_search** - Find conceptually similar content
 8. **limitless_analyze_lifelogs** - AI-powered analysis using Claude
 9. **limitless_sync_status** - Monitor background sync status
+10. **limitless_bulk_sync** - Manually trigger bulk historical download
 
 ## Testing the MCP Server
 
@@ -228,9 +229,15 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 
 3. **Rate Limiting**: Be mindful of API rate limits. The retry logic handles 429 errors.
 
-4. **Search Functionality**: The search tool fetches recent logs and searches client-side (API doesn't have server-side search).
+4. **Search Functionality**: All searches are 100% local after initial sync. Phase 2 implements multi-strategy search with automatic query routing.
 
 5. **Pagination**: The client handles pagination automatically when fetching multiple records.
+
+6. **Background Sync**: When `LIMITLESS_ENABLE_SYNC=true`, the server automatically:
+   - Performs bulk download of historical data on first run (365 days default)
+   - Polls for new lifelogs every 60 seconds
+   - Handles duplicates via ID tracking
+   - Stores data locally in LanceDB with Contextual RAG embeddings
 
 ## Common Issues and Solutions
 

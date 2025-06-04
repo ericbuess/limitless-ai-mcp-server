@@ -1,3 +1,8 @@
+// This file is deprecated. Use sync-service-v2.ts instead.
+// The new version implements a two-phase approach:
+// Phase 1: Download ALL data from API (no limits, with delays)
+// Phase 2: Build embeddings from local data (no API calls)
+
 import { LimitlessClient } from '../core/limitless-client.js';
 import { FileManager } from '../storage/file-manager.js';
 import { logger } from '../utils/logger.js';
@@ -81,6 +86,35 @@ export class SyncService {
 
     // Load existing synced IDs
     await this.loadSyncedIds();
+
+    // Check if this is first run (no data synced yet)
+    if (this.syncedIds.size === 0) {
+      logger.info('No existing data found. Performing initial bulk sync...');
+
+      // Get initial sync days from environment or default to 365
+      // DEPRECATED: Use sync-service-v2.ts which downloads ALL data
+      const initialDays = process.env.LIMITLESS_SYNC_INITIAL_DAYS
+        ? parseInt(process.env.LIMITLESS_SYNC_INITIAL_DAYS, 10)
+        : 365;
+
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - initialDays);
+
+      try {
+        await this.performInitialBulkSync({
+          startDate,
+          daysPerBatch: 7,
+          parallelBatches: process.env.LIMITLESS_SYNC_PARALLEL_BATCHES
+            ? parseInt(process.env.LIMITLESS_SYNC_PARALLEL_BATCHES, 10)
+            : 4,
+        });
+      } catch (error) {
+        logger.error('Initial bulk sync failed', { error });
+        // Continue with regular sync even if bulk sync fails
+      }
+    } else {
+      logger.info(`Found ${this.syncedIds.size} existing synced lifelogs`);
+    }
 
     // Start syncing
     this.status.isRunning = true;
@@ -344,6 +378,125 @@ export class SyncService {
   }
 
   /**
+   * Perform initial bulk sync of all historical data
+   */
+  async performInitialBulkSync(
+    options: {
+      startDate?: Date;
+      endDate?: Date;
+      daysPerBatch?: number;
+      parallelBatches?: number;
+      onProgress?: (progress: { current: number; total: number; percentage: number }) => void;
+    } = {}
+  ): Promise<void> {
+    const {
+      startDate = new Date(new Date().setFullYear(new Date().getFullYear() - 1)), // 1 year ago
+      endDate = new Date(),
+      daysPerBatch = 7,
+      parallelBatches = 4,
+      onProgress,
+    } = options;
+
+    logger.info('Starting bulk historical sync', {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      daysPerBatch,
+      parallelBatches,
+    });
+
+    // Calculate total days and batches
+    const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const totalBatches = Math.ceil(totalDays / daysPerBatch);
+    let processedBatches = 0;
+
+    // Create date ranges for batches
+    const batches: Array<{ start: Date; end: Date }> = [];
+    let currentDate = new Date(startDate);
+
+    while (currentDate < endDate) {
+      const batchEnd = new Date(currentDate);
+      batchEnd.setDate(batchEnd.getDate() + daysPerBatch - 1);
+
+      if (batchEnd > endDate) {
+        batchEnd.setTime(endDate.getTime());
+      }
+
+      batches.push({
+        start: new Date(currentDate),
+        end: new Date(batchEnd),
+      });
+
+      currentDate.setDate(currentDate.getDate() + daysPerBatch);
+    }
+
+    logger.info(`Processing ${totalBatches} batches covering ${totalDays} days`);
+
+    // Process batches in parallel groups
+    for (let i = 0; i < batches.length; i += parallelBatches) {
+      const batchGroup = batches.slice(i, i + parallelBatches);
+
+      // Process batch group in parallel
+      const promises = batchGroup.map(async (batch) => {
+        try {
+          const apiLifelogs = await this.client.listLifelogsByRange({
+            start: batch.start.toISOString().split('T')[0],
+            end: batch.end.toISOString().split('T')[0],
+            limit: 1000,
+          });
+
+          const phase2Lifelogs = apiLifelogs.map(toPhase2Lifelog);
+
+          // Filter out already synced
+          const newLogs = phase2Lifelogs.filter((log) => !this.syncedIds.has(log.id));
+
+          if (newLogs.length > 0) {
+            logger.debug(
+              `Batch ${batch.start.toISOString().split('T')[0]} to ${batch.end.toISOString().split('T')[0]}: ${newLogs.length} new lifelogs`
+            );
+
+            // Process this batch
+            for (let j = 0; j < newLogs.length; j += this.options.batchSize) {
+              const chunk = newLogs.slice(j, j + this.options.batchSize);
+              await this.processBatch(chunk);
+            }
+          }
+        } catch (error) {
+          logger.error('Failed to process batch', {
+            start: batch.start.toISOString(),
+            end: batch.end.toISOString(),
+            error,
+          });
+          throw error;
+        }
+      });
+
+      // Wait for batch group to complete
+      await Promise.allSettled(promises);
+
+      processedBatches += batchGroup.length;
+
+      // Report progress
+      const percentage = Math.round((processedBatches / totalBatches) * 100);
+      logger.info(
+        `Bulk sync progress: ${processedBatches}/${totalBatches} batches (${percentage}%)`
+      );
+
+      if (onProgress) {
+        onProgress({
+          current: processedBatches,
+          total: totalBatches,
+          percentage,
+        });
+      }
+    }
+
+    logger.info('Bulk historical sync complete', {
+      totalSynced: this.status.totalSynced,
+      totalBatches: processedBatches,
+    });
+  }
+
+  /**
    * Rebuild the entire index
    */
   async rebuildIndex(): Promise<void> {
@@ -352,22 +505,11 @@ export class SyncService {
     // Clear existing data
     await this.clearSyncedData();
 
-    // Fetch all lifelogs from the past year
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setFullYear(startDate.getFullYear() - 1);
-
-    const apiLifelogs = await this.client.listLifelogsByRange({
-      start: startDate.toISOString().split('T')[0],
-      end: endDate.toISOString().split('T')[0],
-      limit: 10000,
+    // Use bulk sync to rebuild
+    await this.performInitialBulkSync({
+      startDate: new Date(new Date().setFullYear(new Date().getFullYear() - 2)), // 2 years of data
+      parallelBatches: 4,
     });
-
-    const phase2Lifelogs = apiLifelogs.map(toPhase2Lifelog);
-    logger.info('Rebuilding with lifelogs', { count: phase2Lifelogs.length });
-
-    // Sync all
-    await this.syncLifelogs(phase2Lifelogs);
 
     logger.info('Index rebuild complete', { totalSynced: this.status.totalSynced });
   }

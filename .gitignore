@@ -92,6 +92,19 @@ Desktop.ini
 # Model downloads
 models/
 
+# Data directories
+data/
+./data/
+
 # LanceDB data
 data/lancedb/
 test-lancedb/
+
+# Test files in root
+test-*.js
+sync-all-data.ts
+rebuild-embeddings.ts
+*.log
+
+# Sync checkpoint
+sync-checkpoint.json

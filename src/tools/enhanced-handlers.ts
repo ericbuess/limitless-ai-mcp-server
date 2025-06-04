@@ -2,7 +2,7 @@ import { CallToolRequest, CallToolResult } from '@modelcontextprotocol/sdk/types
 import { LimitlessClient } from '../core/limitless-client.js';
 import { FileManager } from '../storage/file-manager.js';
 import { UnifiedSearchHandler } from '../search/unified-search.js';
-import { SyncService } from '../vector-store/sync-service.js';
+import { SyncServiceV3 } from '../vector-store/sync-service-v3.js';
 import {
   getLifelogByIdSchema,
   listLifelogsByDateSchema,
@@ -25,7 +25,7 @@ export class EnhancedToolHandlers {
   private client: LimitlessClient;
   private fileManager: FileManager | null = null;
   private searchHandler: UnifiedSearchHandler | null = null;
-  private syncService: SyncService | null = null;
+  private syncService: SyncServiceV3 | null = null;
   private options: EnhancedHandlerOptions;
   private isInitialized: boolean = false;
   private shouldInitSync: boolean = false;
@@ -84,11 +84,12 @@ export class EnhancedToolHandlers {
       throw new Error('FileManager not initialized');
     }
 
-    this.syncService = new SyncService(this.client, this.fileManager, vectorStore, {
-      enableVectorStore: true,
-      enableFileStorage: true,
-      pollInterval: syncInterval,
+    this.syncService = new SyncServiceV3(this.client, this.fileManager, vectorStore, {
       batchSize: 50,
+      apiDelayMs: 2000, // 2 second delay between API calls
+      checkpointInterval: 1, // Save after every batch
+      downloadOnly: false, // We want both download and vectorization
+      maxYearsBack: 10, // Go back max 10 years
     });
 
     logger.info('Sync service configured', {
@@ -115,9 +116,11 @@ export class EnhancedToolHandlers {
         await this.syncService.start();
 
         // Log initial sync status
-        const status = this.syncService.getStatus();
+        const progress = this.syncService.getProgress();
         logger.info('Sync service started', {
-          isRunning: status.isRunning,
+          phase: progress.phase,
+          totalDownloaded: progress.totalDownloaded,
+          totalVectorized: progress.totalVectorized,
           pollInterval: process.env.LIMITLESS_SYNC_INTERVAL || 60000,
         });
       }
@@ -158,6 +161,8 @@ export class EnhancedToolHandlers {
           return await this.analyzeLifelogs(args);
         case 'limitless_sync_status':
           return await this.getSyncStatus();
+        case 'limitless_bulk_sync':
+          return await this.bulkSync(args);
 
         default:
           throw new Error(`Unknown tool: ${name}`);
@@ -392,17 +397,27 @@ export class EnhancedToolHandlers {
       };
     }
 
-    const status = this.syncService.getStatus();
+    const progress = this.syncService.getProgress();
     const lines = [
       '📊 Sync Service Status\n',
-      `Status: ${status.isRunning ? '🟢 Running' : '🔴 Stopped'}`,
-      `Last Sync: ${status.lastSync ? status.lastSync.toLocaleString() : 'Never'}`,
-      `Total Synced: ${status.totalSynced} lifelogs`,
-      `Pending Sync: ${status.pendingSync} lifelogs`,
+      `Phase: ${progress.phase.toUpperCase()}`,
+      `Downloaded: ${progress.totalDownloaded} lifelogs`,
+      `Vectorized: ${progress.totalVectorized} lifelogs`,
+      `Current Date: ${progress.currentDate || 'N/A'}`,
+      `Date Range: ${progress.oldestDate || 'N/A'} to ${progress.newestDate || 'N/A'}`,
+      `Storage Size: ${(progress.storageSize / (1024 * 1024)).toFixed(2)} MB`,
+      `Processed Batches: ${progress.processedBatches.size}`,
     ];
 
-    if (status.lastError) {
-      lines.push(`\n⚠️ Last Error: ${status.lastError.message}`);
+    if (progress.lastCheckpoint) {
+      lines.push(`\nLast Checkpoint: ${progress.lastCheckpoint.toLocaleString()}`);
+    }
+
+    if (progress.errors.length > 0) {
+      lines.push(`\n⚠️ Errors: ${progress.errors.length}`);
+      progress.errors.slice(-3).forEach((err: { date: string; error: string }) => {
+        lines.push(`  ${err.date}: ${err.error}`);
+      });
     }
 
     // Add configuration info
@@ -414,12 +429,9 @@ export class EnhancedToolHandlers {
     lines.push(`File Storage: Enabled`);
     lines.push(`Batch Size: 50 lifelogs per sync`);
 
-    // Add performance info if available
-    if (status.isRunning && status.lastSync) {
-      const uptimeMs = Date.now() - status.lastSync.getTime();
-      const uptimeMinutes = Math.floor(uptimeMs / 1000 / 60);
-      lines.push(`\n⏱️ Uptime: ${uptimeMinutes} minutes`);
-    }
+    // Note about bulk sync
+    lines.push('\n💡 To sync all historical data:');
+    lines.push('Run: npm run sync:all');
 
     return {
       content: [
@@ -509,6 +521,99 @@ export class EnhancedToolHandlers {
     lines.push(`Analyzed ${result.results.length} lifelogs`);
 
     return lines.join('\n');
+  }
+
+  private async bulkSync(args: any): Promise<CallToolResult> {
+    // Try to create sync service if not available
+    if (!this.syncService && this.fileManager && this.options.enableVectorStore) {
+      await this.createSyncService();
+    }
+
+    if (!this.syncService) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: '❌ Sync service is not available.\n\nTo enable sync:\n1. Set LIMITLESS_ENABLE_SYNC=true\n2. Set LIMITLESS_ENABLE_VECTOR=true\n3. Restart the server',
+          },
+        ],
+      };
+    }
+
+    // Check if sync is already running
+    const progress = this.syncService.getProgress();
+    if (progress.phase !== 'idle') {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `⚠️ Sync already in progress!\n\nPhase: ${progress.phase}\nDownloaded: ${progress.totalDownloaded}\nVectorized: ${progress.totalVectorized}`,
+          },
+        ],
+      };
+    }
+
+    const { days = 365, clearExisting = false } = args;
+
+    const lines = [
+      '🔄 Starting Bulk Historical Sync\n',
+      `📅 Syncing ${days} days of history`,
+      `🗑️ Clear existing: ${clearExisting ? 'Yes' : 'No'}`,
+      '',
+    ];
+
+    try {
+      // Clear existing data if requested
+      if (clearExisting) {
+        lines.push('⚠️ Clear existing data is not supported in V2.');
+        lines.push('To clear data, manually delete the ./data directory and restart.\n');
+      }
+
+      // Calculate start date
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      lines.push(`Starting bulk sync from ${startDate.toLocaleDateString()}...`);
+      lines.push('This may take several minutes depending on the amount of data.\n');
+
+      // V3 sync service improvements
+      lines.push('⚠️ Bulk sync must be run from command line:\n');
+      lines.push('npm run sync:all');
+      lines.push('\nImproved in V3:');
+      lines.push('• Downloads ALL historical data (no 365-day limit)');
+      lines.push('• Saves checkpoint after EVERY batch');
+      lines.push('• Never re-downloads data once saved locally');
+      lines.push('• Respectful 2-second delays between API requests');
+      lines.push('• Resumes exactly where it left off if interrupted');
+      lines.push('• Can rebuild embeddings from local data anytime');
+      lines.push('\nOptions:');
+      lines.push('• --years=10  (how far back to go)');
+      lines.push('• --batch=50  (days per batch)');
+      lines.push('• --delay=2000  (ms between requests)');
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: lines.join('\n'),
+          },
+        ],
+      };
+    } catch (error) {
+      lines.push(
+        `\n❌ Bulk sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: lines.join('\n'),
+          },
+        ],
+        isError: true,
+      };
+    }
   }
 
   async stop(): Promise<void> {
