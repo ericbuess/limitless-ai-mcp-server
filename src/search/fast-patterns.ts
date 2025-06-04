@@ -1,0 +1,426 @@
+import { logger } from '../utils/logger.js';
+import type { Phase2Lifelog } from '../types/phase2.js';
+
+export interface FastSearchResult {
+  lifelog: Phase2Lifelog;
+  score: number;
+  matches: {
+    type: 'exact' | 'fuzzy' | 'partial';
+    context: string;
+    position: number;
+  }[];
+}
+
+export interface FastSearchOptions {
+  caseSensitive?: boolean;
+  wholeWord?: boolean;
+  maxResults?: number;
+  scoreThreshold?: number;
+  contextLength?: number;
+}
+
+export class FastPatternMatcher {
+  private indexCache: Map<string, Set<string>>; // keyword -> lifelog IDs
+  private lifelogCache: Map<string, Phase2Lifelog>;
+  private lastIndexUpdate: Date;
+
+  constructor() {
+    this.indexCache = new Map();
+    this.lifelogCache = new Map();
+    this.lastIndexUpdate = new Date(0);
+  }
+
+  /**
+   * Build or update the search index
+   */
+  async buildIndex(lifelogs: Phase2Lifelog[]): Promise<void> {
+    const startTime = Date.now();
+
+    // Clear existing index
+    this.indexCache.clear();
+    this.lifelogCache.clear();
+
+    for (const lifelog of lifelogs) {
+      // Cache the lifelog
+      this.lifelogCache.set(lifelog.id, lifelog);
+
+      // Index content words
+      const words = this.tokenize(lifelog.content + ' ' + lifelog.title);
+      for (const word of words) {
+        if (!this.indexCache.has(word)) {
+          this.indexCache.set(word, new Set());
+        }
+        this.indexCache.get(word)!.add(lifelog.id);
+      }
+
+      // Index headings
+      if (lifelog.headings) {
+        for (const heading of lifelog.headings) {
+          const headingWords = this.tokenize(heading);
+          for (const word of headingWords) {
+            if (!this.indexCache.has(word)) {
+              this.indexCache.set(word, new Set());
+            }
+            this.indexCache.get(word)!.add(lifelog.id);
+          }
+        }
+      }
+    }
+
+    this.lastIndexUpdate = new Date();
+    const indexTime = Date.now() - startTime;
+
+    logger.info('Fast search index built', {
+      lifelogCount: lifelogs.length,
+      uniqueWords: this.indexCache.size,
+      indexTime,
+    });
+  }
+
+  /**
+   * Perform a fast keyword search
+   */
+  search(query: string, options: FastSearchOptions = {}): FastSearchResult[] {
+    const startTime = Date.now();
+    const {
+      caseSensitive = false,
+      wholeWord = false,
+      maxResults = 50,
+      scoreThreshold = 0.1,
+      contextLength = 100,
+    } = options;
+
+    const queryTokens = this.tokenize(query, !caseSensitive);
+    const results = new Map<string, FastSearchResult>();
+
+    // Find all lifelogs containing any query token
+    const candidateIds = new Set<string>();
+    for (const token of queryTokens) {
+      const ids = this.indexCache.get(token);
+      if (ids) {
+        ids.forEach((candidateId) => candidateIds.add(candidateId));
+      }
+    }
+
+    // Score and rank candidates
+    for (const id of candidateIds) {
+      const lifelog = this.lifelogCache.get(id);
+      if (!lifelog) continue;
+
+      const result = this.scoreLifelog(lifelog, queryTokens, {
+        caseSensitive,
+        wholeWord,
+        contextLength,
+      });
+
+      if (result.score >= scoreThreshold) {
+        results.set(id, result);
+      }
+    }
+
+    // Sort by score and limit results
+    const sortedResults = Array.from(results.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, maxResults);
+
+    const searchTime = Date.now() - startTime;
+    logger.debug('Fast pattern search completed', {
+      query,
+      candidateCount: candidateIds.size,
+      resultCount: sortedResults.length,
+      searchTime,
+    });
+
+    return sortedResults;
+  }
+
+  /**
+   * Search for exact phrases
+   */
+  searchPhrase(phrase: string, options: FastSearchOptions = {}): FastSearchResult[] {
+    const startTime = Date.now();
+    const { caseSensitive = false, maxResults = 50, contextLength = 100 } = options;
+
+    const searchPhrase = caseSensitive ? phrase : phrase.toLowerCase();
+    const results: FastSearchResult[] = [];
+
+    for (const lifelog of this.lifelogCache.values()) {
+      const content = caseSensitive ? lifelog.content : lifelog.content.toLowerCase();
+      const title = caseSensitive ? lifelog.title : lifelog.title.toLowerCase();
+      const fullText = `${title} ${content}`;
+
+      const matches = this.findPhraseMatches(fullText, searchPhrase, contextLength);
+
+      if (matches.length > 0) {
+        results.push({
+          lifelog,
+          score: matches.length / (fullText.length / 1000), // Normalize by text length
+          matches: matches.map((m) => ({ ...m, type: 'exact' as const })),
+        });
+      }
+    }
+
+    const sortedResults = results.sort((a, b) => b.score - a.score).slice(0, maxResults);
+
+    const searchTime = Date.now() - startTime;
+    logger.debug('Phrase search completed', {
+      phrase,
+      resultCount: sortedResults.length,
+      searchTime,
+    });
+
+    return sortedResults;
+  }
+
+  /**
+   * Search using regular expressions
+   */
+  searchRegex(pattern: string, options: FastSearchOptions = {}): FastSearchResult[] {
+    const startTime = Date.now();
+    const { maxResults = 50, contextLength = 100 } = options;
+
+    const results: FastSearchResult[] = [];
+
+    try {
+      const regex = new RegExp(pattern, 'gi');
+
+      for (const lifelog of this.lifelogCache.values()) {
+        const fullText = `${lifelog.title} ${lifelog.content}`;
+        const matches: FastSearchResult['matches'] = [];
+
+        let match;
+        while ((match = regex.exec(fullText)) !== null) {
+          const start = Math.max(0, match.index - contextLength / 2);
+          const end = Math.min(fullText.length, match.index + match[0].length + contextLength / 2);
+
+          matches.push({
+            type: 'exact',
+            context: fullText.substring(start, end),
+            position: match.index,
+          });
+        }
+
+        if (matches.length > 0) {
+          results.push({
+            lifelog,
+            score: matches.length,
+            matches,
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Invalid regex pattern', { pattern, error });
+      return [];
+    }
+
+    const sortedResults = results.sort((a, b) => b.score - a.score).slice(0, maxResults);
+
+    const searchTime = Date.now() - startTime;
+    logger.debug('Regex search completed', {
+      pattern,
+      resultCount: sortedResults.length,
+      searchTime,
+    });
+
+    return sortedResults;
+  }
+
+  /**
+   * Search within a specific date range
+   */
+  searchByDateRange(
+    startDate: Date,
+    endDate: Date,
+    query?: string,
+    options: FastSearchOptions = {}
+  ): FastSearchResult[] {
+    const results: FastSearchResult[] = [];
+
+    for (const lifelog of this.lifelogCache.values()) {
+      const lifelogDate = new Date(lifelog.createdAt);
+
+      if (lifelogDate >= startDate && lifelogDate <= endDate) {
+        if (query) {
+          const queryTokens = this.tokenize(query, !options.caseSensitive);
+          const result = this.scoreLifelog(lifelog, queryTokens, options);
+
+          if (result.score >= (options.scoreThreshold || 0.1)) {
+            results.push(result);
+          }
+        } else {
+          results.push({
+            lifelog,
+            score: 1,
+            matches: [],
+          });
+        }
+      }
+    }
+
+    return results.sort((a, b) => b.score - a.score).slice(0, options.maxResults || 50);
+  }
+
+  /**
+   * Get search suggestions based on partial input
+   */
+  getSuggestions(partial: string, limit: number = 10): string[] {
+    const lowerPartial = partial.toLowerCase();
+    const suggestions = new Set<string>();
+
+    for (const word of this.indexCache.keys()) {
+      if (word.startsWith(lowerPartial)) {
+        suggestions.add(word);
+        if (suggestions.size >= limit) break;
+      }
+    }
+
+    return Array.from(suggestions);
+  }
+
+  private tokenize(text: string, toLowerCase: boolean = true): string[] {
+    const processed = toLowerCase ? text.toLowerCase() : text;
+    return processed
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter((token) => token.length > 0);
+  }
+
+  private scoreLifelog(
+    lifelog: Phase2Lifelog,
+    queryTokens: string[],
+    options: {
+      caseSensitive?: boolean;
+      wholeWord?: boolean;
+      contextLength?: number;
+    }
+  ): FastSearchResult {
+    const { caseSensitive = false, wholeWord = false, contextLength = 100 } = options;
+
+    const content = caseSensitive ? lifelog.content : lifelog.content.toLowerCase();
+    const title = caseSensitive ? lifelog.title : lifelog.title.toLowerCase();
+    const fullText = `${title} ${content}`;
+
+    let totalScore = 0;
+    const matches: FastSearchResult['matches'] = [];
+
+    for (const token of queryTokens) {
+      const searchToken = caseSensitive ? token : token.toLowerCase();
+      let tokenScore = 0;
+      let index = 0;
+
+      while ((index = fullText.indexOf(searchToken, index)) !== -1) {
+        // Check for whole word match if required
+        if (wholeWord) {
+          const before = index > 0 ? fullText[index - 1] : ' ';
+          const after =
+            index + searchToken.length < fullText.length
+              ? fullText[index + searchToken.length]
+              : ' ';
+
+          if (!/\w/.test(before) && !/\w/.test(after)) {
+            tokenScore += 1;
+            const start = Math.max(0, index - contextLength / 2);
+            const end = Math.min(fullText.length, index + searchToken.length + contextLength / 2);
+
+            matches.push({
+              type: 'exact',
+              context: fullText.substring(start, end),
+              position: index,
+            });
+          }
+        } else {
+          tokenScore += 1;
+          const start = Math.max(0, index - contextLength / 2);
+          const end = Math.min(fullText.length, index + searchToken.length + contextLength / 2);
+
+          matches.push({
+            type: 'partial',
+            context: fullText.substring(start, end),
+            position: index,
+          });
+        }
+
+        index += searchToken.length;
+      }
+
+      // Boost score for title matches
+      if (title.includes(searchToken)) {
+        tokenScore *= 2;
+      }
+
+      totalScore += tokenScore;
+    }
+
+    // Normalize score
+    const normalizedScore = totalScore / (queryTokens.length * Math.log(fullText.length + 1));
+
+    return {
+      lifelog,
+      score: Math.min(normalizedScore, 1),
+      matches,
+    };
+  }
+
+  private findPhraseMatches(
+    text: string,
+    phrase: string,
+    contextLength: number
+  ): FastSearchResult['matches'] {
+    const matches: FastSearchResult['matches'] = [];
+    let index = 0;
+
+    while ((index = text.indexOf(phrase, index)) !== -1) {
+      const start = Math.max(0, index - contextLength / 2);
+      const end = Math.min(text.length, index + phrase.length + contextLength / 2);
+
+      matches.push({
+        type: 'exact',
+        context: text.substring(start, end),
+        position: index,
+      });
+
+      index += phrase.length;
+    }
+
+    return matches;
+  }
+
+  /**
+   * Get index statistics
+   */
+  getStats(): {
+    indexedLifelogs: number;
+    uniqueWords: number;
+    lastUpdated: Date;
+    memorySizeEstimate: number;
+  } {
+    let memorySizeEstimate = 0;
+
+    // Estimate memory usage
+    for (const [word, ids] of this.indexCache) {
+      memorySizeEstimate += word.length * 2; // UTF-16 encoding
+      memorySizeEstimate += ids.size * 36; // Approximate UUID size
+    }
+
+    for (const lifelog of this.lifelogCache.values()) {
+      memorySizeEstimate += JSON.stringify(lifelog).length * 2;
+    }
+
+    return {
+      indexedLifelogs: this.lifelogCache.size,
+      uniqueWords: this.indexCache.size,
+      lastUpdated: this.lastIndexUpdate,
+      memorySizeEstimate,
+    };
+  }
+
+  /**
+   * Clear the index
+   */
+  clear(): void {
+    this.indexCache.clear();
+    this.lifelogCache.clear();
+    this.lastIndexUpdate = new Date(0);
+    logger.info('Fast search index cleared');
+  }
+}

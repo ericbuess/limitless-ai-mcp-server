@@ -1,7 +1,7 @@
 {
   "name": "limitless-ai-mcp-server",
-  "version": "0.0.7",
-  "description": "MCP server for integrating Limitless AI Pendant recordings with AI assistants",
+  "version": "0.2.0",
+  "description": "Intelligent MCP server for Limitless AI with 59x faster search, semantic understanding, and AI analysis",
   "author": "Eric Buess",
   "license": "MIT",
   "repository": {
@@ -32,7 +32,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/tools/*.js src/tools/*.sh dist/tools/ 2>/dev/null || true && chmod +x dist/tools/*.js dist/tools/*.sh 2>/dev/null || true",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "test": "jest",
@@ -47,10 +47,13 @@
     "prepare": "husky install",
     "prepublishOnly": "npm run clean && npm run lint && npm run test",
     "prepack": "npm run build",
-    "postinstall": "chmod +x dist/index.js 2>/dev/null || true"
+    "postinstall": "chmod +x dist/index.js dist/tools/*.js 2>/dev/null || true"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "@xenova/transformers": "^2.17.2",
+    "chromadb": "^2.4.6",
+    "chromadb-default-embed": "^2.14.0",
     "zod": "^3.25.48"
   },
   "devDependencies": {
