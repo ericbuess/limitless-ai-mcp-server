@@ -18,14 +18,31 @@ export class TransformerEmbeddingProvider implements EmbeddingProvider {
     logger.info('Initializing transformer embeddings', { model: this.modelName });
 
     try {
+      logger.info('Initializing transformer model...', { model: this.modelName });
+
       // This downloads the model on first use, then caches it
+      // Model is ~90MB, download may take a moment on first run
+      const startTime = Date.now();
+
       this.pipe = await pipeline('feature-extraction', this.modelName, {
         // Cache models in project directory
         cache_dir: './models',
+        // Progress callback for model download
+        progress_callback: (progress: any) => {
+          if (progress.status === 'downloading' && progress.progress) {
+            const percentage = Math.round(progress.progress);
+            logger.info(`Model download progress: ${percentage}%`);
+          }
+        },
       });
 
+      const initTime = Date.now() - startTime;
       this.initialized = true;
-      logger.info('Transformer embeddings initialized successfully');
+      logger.info('Transformer embeddings initialized successfully', {
+        model: this.modelName,
+        dimension: this.dimension,
+        initTimeMs: initTime,
+      });
     } catch (error) {
       logger.error('Failed to initialize transformer embeddings', { error });
       throw error;
@@ -60,11 +77,22 @@ export class TransformerEmbeddingProvider implements EmbeddingProvider {
     // Process in batches for better performance
     const batchSize = 10;
     const embeddings: number[][] = [];
+    const totalTexts = texts.length;
+
+    if (totalTexts > batchSize) {
+      logger.info(`Generating embeddings for ${totalTexts} texts in batches...`);
+    }
 
     for (let i = 0; i < texts.length; i += batchSize) {
       const batch = texts.slice(i, i + batchSize);
       const batchEmbeddings = await Promise.all(batch.map((text) => this.embedSingle(text)));
       embeddings.push(...batchEmbeddings);
+
+      if (totalTexts > batchSize) {
+        const progress = Math.min(i + batchSize, totalTexts);
+        const percentage = Math.round((progress / totalTexts) * 100);
+        logger.debug(`Embedding progress: ${progress}/${totalTexts} (${percentage}%)`);
+      }
     }
 
     return embeddings;

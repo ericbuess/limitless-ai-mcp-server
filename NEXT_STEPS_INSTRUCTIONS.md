@@ -5,7 +5,9 @@
 ## Current State Summary
 
 ### What Was Just Implemented
+
 1. **LanceDB Vector Store** (`src/vector-store/lancedb-store.ts`)
+
    - Replaces simple in-memory vector store
    - Uses `@lancedb/lancedb` package (not the deprecated `vectordb`)
    - Persistent storage in `./data/lancedb/`
@@ -13,6 +15,7 @@
    - 384-dimension transformer embeddings
 
 2. **Transformer Embeddings** (`src/vector-store/transformer-embeddings.ts`)
+
    - Uses `@xenova/transformers` with model `Xenova/all-MiniLM-L6-v2`
    - Model downloads to `./models/` on first use (~90MB)
    - Fallback to TF-IDF if transformer fails
@@ -25,6 +28,7 @@
 ## How to Run the New Vector Approach
 
 ### Basic Testing
+
 ```bash
 # Set environment and run
 export LIMITLESS_API_KEY="***REMOVED***"
@@ -39,6 +43,7 @@ npm start
 ```
 
 ### MCP Server Configuration
+
 ```bash
 # Remove old configuration
 claude mcp remove limitless -s user
@@ -50,7 +55,9 @@ claude mcp add limitless -s user \
 ```
 
 ### Testing Semantic Search
+
 Use the MCP tool `limitless_semantic_search`:
+
 ```typescript
 {
   query: "birthday celebration",
@@ -62,6 +69,7 @@ Use the MCP tool `limitless_semantic_search`:
 ## Critical Improvements Needed
 
 ### 1. Implement Contextual RAG
+
 The foundation is ready but Contextual RAG is NOT implemented yet. To add it:
 
 ```typescript
@@ -73,25 +81,25 @@ async addDocuments(documents: VectorDocument[]): Promise<void> {
     // Prepend context to content before embedding
     content: this.addContext(doc.content, doc.metadata)
   }));
-  
+
   // Then proceed with embedding...
 }
 
 private addContext(content: string, metadata?: any): string {
   const contexts: string[] = [];
-  
+
   if (metadata?.date) {
     contexts.push(`Date: ${new Date(metadata.date).toLocaleDateString()}`);
   }
-  
+
   if (metadata?.title) {
     contexts.push(`Topic: ${metadata.title}`);
   }
-  
+
   if (metadata?.speakers) {
     contexts.push(`Speakers: ${metadata.speakers.join(', ')}`);
   }
-  
+
   // This is the key: prepend context before content
   const contextString = contexts.length > 0 ? contexts.join('. ') + '\n\n' : '';
   return contextString + content;
@@ -99,17 +107,20 @@ private addContext(content: string, metadata?: any): string {
 ```
 
 ### 2. Fix Type Issues
+
 - `Phase2Lifelog` has `duration` not `durationSeconds`
 - Need to implement missing LanceDB methods (update, delete, get)
 - Consider using LanceDB's native TypeScript types better
 
 ### 3. Performance Optimizations
+
 - Batch embedding generation (already done in transformer-embeddings.ts)
 - Add progress logging for initial indexing
 - Consider caching embeddings separately
 - Implement incremental updates instead of full reindex
 
 ### 4. Better Error Handling
+
 - Gracefully handle model download failures
 - Provide fallback if LanceDB fails
 - Better logging for debugging
@@ -117,6 +128,7 @@ private addContext(content: string, metadata?: any): string {
 ## Repository Cleanup Tasks
 
 ### Test Files in Root (10 files)
+
 These test files should be evaluated and handled:
 
 ```bash
@@ -134,12 +146,14 @@ test-vector-local.js    # Local vector testing
 ```
 
 **Recommendation:**
+
 1. **Keep temporarily**: `test-mcp.js` and `test-search-performance.js` (useful for quick testing)
 2. **Move to tests/**: Convert others to proper Jest tests
 3. **Delete**: Redundant ones like `test-everything.js`, `test-final-*.js`
 4. **Create**: `npm run test:integration` script for end-to-end testing
 
 ### Documentation Cleanup
+
 ```bash
 # Files that can be consolidated or removed:
 DOCUMENTATION_INDEX.md  # Merge into README
@@ -148,6 +162,7 @@ SETUP_GUIDE.md         # Merge into README
 ```
 
 ### Proper Test Structure
+
 ```
 tests/
 ├── unit/              # Existing unit tests
@@ -164,17 +179,19 @@ tests/
 **Problem**: MCP CLI not passing environment variables correctly
 
 **Current Workaround** (in `src/index.ts`):
+
 ```typescript
 // TEMPORARY: Hardcode vector store enablement
 const enableVector = process.env[ENABLE_VECTOR_ENV] === 'true' || true;
 
-// TEMPORARY: Force simple vector store mode  
+// TEMPORARY: Force simple vector store mode
 if (!process.env.CHROMADB_MODE) {
   process.env.CHROMADB_MODE = 'simple';
 }
 ```
 
-**Proper Fix**: 
+**Proper Fix**:
+
 - Investigate Claude CLI environment passing
 - Consider config file approach
 - File issue with Claude Code team
@@ -182,6 +199,7 @@ if (!process.env.CHROMADB_MODE) {
 ## Testing Checklist After Cleanup
 
 1. **Build and Lint**
+
    ```bash
    npm run build
    npm run lint
@@ -189,6 +207,7 @@ if (!process.env.CHROMADB_MODE) {
    ```
 
 2. **Vector Store Test**
+
    ```bash
    # Create simple test script
    node -e "
@@ -208,11 +227,13 @@ if (!process.env.CHROMADB_MODE) {
 ## Priority Actions
 
 1. **Immediate** (before next session):
+
    - Clean up test files in root
    - Update .gitignore for `./data/lancedb/`
    - Commit cleanup changes
 
 2. **Next Session**:
+
    - Implement Contextual RAG properly
    - Add progress bars for indexing
    - Create proper integration tests

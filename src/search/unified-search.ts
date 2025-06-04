@@ -106,7 +106,7 @@ export class UnifiedSearchHandler {
       const { LanceDBStore } = await import('../vector-store/lancedb-store.js');
       this.vectorStore = new LanceDBStore({
         collectionName: 'limitless-lifelogs',
-        persistPath: './data/lancedb'
+        persistPath: './data/lancedb',
       });
     }
 
@@ -124,7 +124,7 @@ export class UnifiedSearchHandler {
           const { LanceDBStore } = await import('../vector-store/lancedb-store.js');
           this.vectorStore = new LanceDBStore({
             collectionName: 'limitless-lifelogs',
-            persistPath: './data/lancedb'
+            persistPath: './data/lancedb',
           });
           await this.vectorStore.initialize();
           logger.info('Fallback to LanceDB successful');
@@ -503,8 +503,24 @@ export class UnifiedSearchHandler {
             },
           }));
 
-          await this.vectorStore.addDocuments(vectorDocs);
-          logger.info('Vector store populated', { documentCount: vectorDocs.length });
+          // Add documents in batches with progress logging
+          const batchSize = 50;
+          const totalDocs = vectorDocs.length;
+          logger.info(`Starting vector store indexing of ${totalDocs} documents...`);
+
+          for (let i = 0; i < vectorDocs.length; i += batchSize) {
+            const batch = vectorDocs.slice(i, Math.min(i + batchSize, vectorDocs.length));
+            await this.vectorStore.addDocuments(batch);
+
+            const progress = Math.min(i + batchSize, totalDocs);
+            const percentage = Math.round((progress / totalDocs) * 100);
+            logger.info(`Indexing progress: ${progress}/${totalDocs} (${percentage}%)`);
+          }
+
+          logger.info('Vector store indexing completed', {
+            documentCount: vectorDocs.length,
+            indexSize: await this.vectorStore.getStats().then((s) => s.documentCount),
+          });
         } catch (error) {
           logger.warn('Failed to populate vector store', { error });
         }
