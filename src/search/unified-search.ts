@@ -1,8 +1,6 @@
 import { LimitlessClient } from '../core/limitless-client.js';
 import { FileManager } from '../storage/file-manager.js';
 import { ChromaVectorStore } from '../vector-store/chroma-manager.js';
-import { SimpleVectorStore } from '../vector-store/simple-vector-store.js';
-import { TFIDFEmbeddingProvider } from '../vector-store/transformer-embeddings.js';
 import { QueryRouter, QueryType } from './query-router.js';
 import { FastPatternMatcher } from './fast-patterns.js';
 import { ClaudeOrchestrator } from './claude-orchestrator.js';
@@ -80,13 +78,10 @@ export class UnifiedSearchHandler {
           persistPath: process.env.CHROMA_PATH || 'http://localhost:8000',
         });
       } else {
-        // Use simple in-memory vector store with TF-IDF embeddings for now
-        // TransformerEmbeddingProvider requires model download on first use
-        const embeddingProvider = new TFIDFEmbeddingProvider();
-        this.vectorStore = new SimpleVectorStore(
-          { collectionName: 'limitless-lifelogs' },
-          embeddingProvider
-        );
+        // Use LanceDB with Contextual RAG for best performance
+        logger.info('Initializing LanceDB with Contextual RAG');
+        // Dynamic import in constructor not async, so defer to initialize()
+        this.vectorStore = null; // Will be set in initialize()
       }
     }
 
@@ -106,6 +101,15 @@ export class UnifiedSearchHandler {
     // Initialize components
     await this.fileManager.initialize();
 
+    // Initialize LanceDB if needed
+    if (!this.vectorStore && this.client) {
+      const { LanceDBStore } = await import('../vector-store/lancedb-store.js');
+      this.vectorStore = new LanceDBStore({
+        collectionName: 'limitless-lifelogs',
+        persistPath: './data/lancedb'
+      });
+    }
+
     if (this.vectorStore) {
       try {
         await this.vectorStore.initialize();
@@ -114,15 +118,16 @@ export class UnifiedSearchHandler {
           error,
         });
 
-        // If ChromaDB fails, fall back to simple vector store
+        // If ChromaDB fails, fall back to LanceDB
         if (this.vectorStore instanceof ChromaVectorStore) {
-          const embeddingProvider = new TFIDFEmbeddingProvider();
-          this.vectorStore = new SimpleVectorStore(
-            { collectionName: 'limitless-lifelogs' },
-            embeddingProvider
-          );
+          logger.info('ChromaDB failed, falling back to LanceDB');
+          const { LanceDBStore } = await import('../vector-store/lancedb-store.js');
+          this.vectorStore = new LanceDBStore({
+            collectionName: 'limitless-lifelogs',
+            persistPath: './data/lancedb'
+          });
           await this.vectorStore.initialize();
-          logger.info('Fallback to simple vector store successful');
+          logger.info('Fallback to LanceDB successful');
         } else {
           // If simple vector store also fails, disable it
           this.vectorStore = null;
