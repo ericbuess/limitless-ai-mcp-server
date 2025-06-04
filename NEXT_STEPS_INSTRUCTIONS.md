@@ -43,7 +43,7 @@ The system now implements Anthropic's Contextual RAG approach and should see sig
 
 ```bash
 # Set environment and run
-export LIMITLESS_API_KEY="***REMOVED***"
+export LIMITLESS_API_KEY="your-api-key-here"
 npm run build
 npm start
 
@@ -62,7 +62,7 @@ claude mcp remove limitless -s user
 
 # Add with LanceDB enabled (already hardcoded)
 claude mcp add limitless -s user \
-  -e "LIMITLESS_API_KEY=***REMOVED***" \
+  -e "LIMITLESS_API_KEY=your-api-key-here" \
   -- node /Users/ericbuess/Projects/limitless-ai-mcp-server/dist/index.js
 ```
 

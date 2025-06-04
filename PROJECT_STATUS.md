@@ -212,14 +212,14 @@ Phase 2 Performance (2025-06-03):
 **1. Basic Setup (Fast Search Only):**
 
 ```bash
-export LIMITLESS_API_KEY="***REMOVED***"
+export LIMITLESS_API_KEY="your-api-key-here"
 npm start
 ```
 
 **2. With Vector Store (No Docker Required):**
 
 ```bash
-export LIMITLESS_API_KEY="***REMOVED***"
+export LIMITLESS_API_KEY="your-api-key-here"
 export LIMITLESS_ENABLE_VECTOR=true
 export CHROMADB_MODE=simple
 npm start
@@ -240,7 +240,7 @@ claude mcp remove limitless -s user
 
 # Add with all Phase 2 features
 claude mcp add limitless -s user \
-  -e "LIMITLESS_API_KEY=***REMOVED***" \
+  -e "LIMITLESS_API_KEY=your-api-key-here" \
   -e "LIMITLESS_ENABLE_VECTOR=true" \
   -e "CHROMADB_MODE=simple" \
   -- node /Users/ericbuess/Projects/limitless-ai-mcp-server/dist/index.js
@@ -301,7 +301,7 @@ npm install vectordb
 
 **Required:**
 
-- Limitless API Key: `***REMOVED***`
+- Limitless API Key: `your-api-key-here`
 
 **Optional:**
 

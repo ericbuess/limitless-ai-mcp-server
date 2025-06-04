@@ -91,7 +91,7 @@ The project now has:
 
 ```bash
 # Set API key
-export LIMITLESS_API_KEY="***REMOVED***"
+export LIMITLESS_API_KEY="your-api-key-here"
 
 # Run full sync (respectful of API)
 npm run sync:all
@@ -105,7 +105,7 @@ npm run sync:rebuild
 
 ## Important Context
 
-1. **API Key**: ***REMOVED***
+1. **API Key**: your-api-key-here
 2. **Search Performance**: 100ms local searches after sync
 3. **Data Storage**: ./data/lifelogs/YYYY/MM/DD/
 4. **Vector Store**: LanceDB with Contextual RAG
