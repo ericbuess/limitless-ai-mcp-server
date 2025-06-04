@@ -352,6 +352,12 @@ This will show:
 - **MCP Protocol Specification**: `docs/references/llms-full_model-context-protocol_20250601.md`
 - **Limitless API Documentation**: `docs/references/limitless-api-docs_20250601.md`
 
+## Critical Implementation Notes
+
+- **Next Steps & Cleanup**: @NEXT_STEPS_INSTRUCTIONS.md
+- **Project Status**: @PROJECT_STATUS.md
+- **Development Roadmap**: @ROADMAP.md
+
 ## Phase 2: Intelligent Search & Voice Keywords Implementation
 
 > ⚡ **Phase 2 Status**: In Development  
