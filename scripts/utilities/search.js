@@ -1,9 +1,6 @@
 import { LanceDBStore } from '../../dist/vector-store/lancedb-store.js';
 import { LimitlessClient } from '../../dist/core/limitless-client.js';
 
-// Set API key
-process.env.LIMITLESS_API_KEY = 'sk-a740f4f7-fb38-4a20-8286-43549ab21157';
-
 async function search(query, options = {}) {
   const { limit = 5, showContent = true } = options;
 
@@ -75,12 +72,16 @@ async function search(query, options = {}) {
     // Optionally fetch full content for top result
     if (showContent && results.length > 0 && process.argv.includes('--full')) {
       console.log('--- Full content of top result ---\n');
-      const client = new LimitlessClient({ apiKey: process.env.LIMITLESS_API_KEY });
-      try {
-        const fullLog = await client.getLifelogById(results[0].id);
-        console.log(fullLog.content);
-      } catch (error) {
-        console.log('Could not fetch full content:', error.message);
+      if (process.env.LIMITLESS_API_KEY) {
+        const client = new LimitlessClient({ apiKey: process.env.LIMITLESS_API_KEY });
+        try {
+          const fullLog = await client.getLifelogById(results[0].id);
+          console.log(fullLog.content);
+        } catch (error) {
+          console.log('Could not fetch full content:', error.message);
+        }
+      } else {
+        console.log('Note: --full option requires LIMITLESS_API_KEY to fetch from API');
       }
     }
   } catch (error) {

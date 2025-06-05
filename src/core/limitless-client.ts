@@ -44,11 +44,8 @@ export class LimitlessClient {
   private retryDelay: number;
 
   constructor(config: LimitlessClientConfig) {
-    if (!config.apiKey) {
-      throw new Error('API key is required');
-    }
-
-    this.apiKey = config.apiKey;
+    // Allow empty API key for local-only mode
+    this.apiKey = config.apiKey || '';
     this.baseUrl = config.baseUrl || DEFAULT_BASE_URL;
     this.timeout = config.timeout || DEFAULT_TIMEOUT;
     this.retryAttempts = config.retryAttempts || DEFAULT_RETRY_ATTEMPTS;
@@ -56,6 +53,11 @@ export class LimitlessClient {
   }
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    // Check if API key is available
+    if (!this.apiKey) {
+      throw new LimitlessAPIError('API key is required for API calls', 401);
+    }
+
     const url = `${this.baseUrl}${endpoint}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);

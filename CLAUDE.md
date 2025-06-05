@@ -297,9 +297,10 @@ gh pr create --title "PR title" --body "description"
 
 ## Environment Variables
 
-Required:
+Required (one of):
 
-- `LIMITLESS_API_KEY` - API key from limitless.ai/developers (required)
+- `LIMITLESS_API_KEY` - API key from limitless.ai/developers (required for API access)
+- `LOCAL_ONLY_MODE=true` - Enable local-only mode (no API key required, uses existing local data)
 
 Optional:
 
@@ -1816,7 +1817,23 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 
 ### High Priority Tasks (Next Up)
 
-1. **Implement Parallel Batch Processing for Embeddings (#6)**
+1. **Fix Search System to Find Exact Matches** - HIGH PRIORITY (NEXT TASK)
+
+   - Current issue: Search utility uses only vector store, missing exact keyword matches
+   - Example: Searching "doordash" doesn't find transcript containing "DoorDash" multiple times
+   - Test case: "what did we eat for dinner yesterday?" should find McDonald's/DoorDash content
+
+   Sub-tasks:
+
+   1. Fix search.js to use UnifiedSearchHandler instead of direct vector store
+   2. Ensure fast pattern matcher is used for keyword searches
+   3. Show full context around matches (not truncated excerpts)
+   4. Implement content window extraction (±100 words around matches)
+   5. Test with query "what did we eat for dinner yesterday?" - should return:
+      - DoorDash/McDonald's content from 4:44 PM on June 4
+      - Full context showing what was ordered
+
+2. **Implement Parallel Batch Processing for Embeddings (#6)**
 
    - Current: Sequential processing (100-200ms per lifelog)
    - Target: Batch processing with 5-10x speedup
@@ -1826,14 +1843,13 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
      - Process embeddings in parallel batches of 10-20
      - Control memory usage via batch size limits
 
-2. **Build Real-time Notification System (#7)**
+3. **Build Real-time Notification System (#7)**
    - Monitor for keywords in new lifelogs
    - Trigger actions based on detected patterns
    - Foundation for Phase 3 voice commands
 
 ### Medium Priority Tasks
 
-- [ ] Add content window extraction (±100 words around matches)
 - [ ] Implement BM25 scoring for better relevance
 - [ ] Add time-decay scoring (recent = more relevant)
 - [ ] Implement AI-powered automatic summaries (#8)

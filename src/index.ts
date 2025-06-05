@@ -41,8 +41,14 @@ const DATA_DIR_ENV = 'LIMITLESS_DATA_DIR';
 async function main() {
   // Get configuration from environment
   const apiKey = process.env[API_KEY_ENV];
-  if (!apiKey) {
-    logger.error(`Missing required environment variable: ${API_KEY_ENV}`);
+
+  // Check if we're in local-only mode (no API key but local data exists)
+  const isLocalOnlyMode = !apiKey && process.env.LOCAL_ONLY_MODE === 'true';
+
+  if (!apiKey && !isLocalOnlyMode) {
+    logger.error(
+      `Missing required environment variable: ${API_KEY_ENV}. To use local-only mode, set LOCAL_ONLY_MODE=true`
+    );
     process.exit(1);
   }
 
@@ -53,7 +59,7 @@ async function main() {
   // TEMPORARY: Hardcode vector store enablement due to MCP env var passing issue
   const enableVector = process.env[ENABLE_VECTOR_ENV] === 'true' || true; // Always enable for now
   const enableClaude = process.env[ENABLE_CLAUDE_ENV] === 'true';
-  const enableSync = process.env[ENABLE_SYNC_ENV] === 'true';
+  const enableSync = process.env[ENABLE_SYNC_ENV] === 'true' && !isLocalOnlyMode; // Disable sync in local-only mode
   const dataDir = process.env[DATA_DIR_ENV] || './data';
 
   // TEMPORARY: Force simple vector store mode
@@ -62,15 +68,16 @@ async function main() {
   }
 
   logger.info('Server configuration', {
+    mode: isLocalOnlyMode ? 'local-only' : 'full',
     vectorStoreEnabled: enableVector,
     claudeEnabled: enableClaude,
     syncEnabled: enableSync,
     dataDir,
   });
 
-  // Initialize client
+  // Initialize client (empty API key is allowed for local-only mode)
   const client = new LimitlessClient({
-    apiKey,
+    apiKey: apiKey || '',
     baseUrl,
     timeout,
   });

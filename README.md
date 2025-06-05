@@ -183,6 +183,36 @@ claude mcp remove limitless -s user
 
 5. **Verify it's working**: Type "Show me my recent recordings" in Claude
 
+#### Local-Only Mode (No API Key Required)
+
+If you have already synced data locally and want to use the server without an API key:
+
+1. **Ensure you have local data**: Run `npm run sync:download` at least once with a valid API key
+2. **Enable local-only mode**:
+
+```json
+{
+  "mcpServers": {
+    "limitless": {
+      "command": "node",
+      "args": ["/path/to/limitless-ai-mcp-server/dist/index.js"],
+      "env": {
+        "LOCAL_ONLY_MODE": "true",
+        "LIMITLESS_ENABLE_VECTOR": "true",
+        "LIMITLESS_ENABLE_SYNC": "false"
+      }
+    }
+  }
+}
+```
+
+In local-only mode:
+
+- Search works using only local files (no API calls)
+- Sync service is automatically disabled
+- All search features remain available
+- Perfect for offline usage or when API access is restricted
+
 #### Other MCP Clients
 
 Refer to your client's documentation for MCP server configuration.
