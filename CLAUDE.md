@@ -1921,6 +1921,54 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
    - Works in local-only mode without API key
    - Test case successful: "what did we eat for dinner yesterday" now finds McDonald's/DoorDash content
 
+## Testing the AI-Powered Assistant
+
+### Data Preparation Complete (2025-06-05)
+
+1. **Transcript Deduplication Completed**
+
+   - Successfully cleaned 109 duplicate transcript files
+   - Removed repeated lines caused by API response issues
+   - All lifelogs now contain clean, deduplicated content
+
+2. **Vector Database Rebuilt**
+
+   - Rebuilt vector store with clean data
+   - Successfully indexed 198 documents
+   - LanceDB embeddings regenerated from deduplicated transcripts
+   - Ready for improved search accuracy
+
+3. **Assistant Ready for Testing**
+
+   - All components implemented and initialized
+   - Monitoring service configured with 30-second polling
+   - Trigger detection ready for "Claudius" keyword
+   - Memory search tool connected to Claude CLI
+
+4. **Test Plan**
+
+   - User will say: "Claudius what did I have for lunch yesterday"
+   - This phrase should be captured in next lifelog sync
+   - Assistant will detect trigger and execute memory search
+   - Expected to find Smoothie King discussion from June 4
+
+5. **Expected Behavior**
+
+   - Monitor detects "Claudius" in new lifelog (within 30-60s)
+   - Pre-assessment confirms it's a valid memory query
+   - Claude executes iterative search for lunch information
+   - Returns answer about Smoothie King from yesterday's transcripts
+   - Creates full audit trail in `data/search-history/`
+
+6. **Monitoring Results**
+   - Run `npm run assistant:status` to check:
+     - Current monitoring status
+     - Last processed timestamp
+     - Recent trigger detections
+     - Task execution results
+   - Check `data/tasks/` for execution logs
+   - Review `data/search-history/` for search sessions
+
 ### High Priority Tasks (Next Up)
 
 1. **Improve Search Query Understanding and Result Ranking** - HIGHEST PRIORITY (NEXT TASK)
