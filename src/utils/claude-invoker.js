@@ -98,7 +98,16 @@ export class ClaudeInvoker {
           // Claude CLI might return plain text or JSON depending on the output format
           let response;
           if (outputFormat === 'json') {
-            response = JSON.parse(stdout);
+            // Handle Claude's response which might be wrapped in markdown code blocks
+            const jsonMatch = stdout.match(/```json\s*([\s\S]*?)\s*```/);
+            if (jsonMatch) {
+              response = {
+                ...JSON.parse(stdout),
+                result: jsonMatch[1].trim(),
+              };
+            } else {
+              response = JSON.parse(stdout);
+            }
           } else {
             response = { content: stdout };
           }

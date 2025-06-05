@@ -12,7 +12,7 @@
     "memory_search": {
       "enabled": true,
       "maxIterations": 3,
-      "confidenceThreshold": 0.8,
+      "confidenceThreshold": 0.9,
       "cacheAnswers": true
     },
     "create_reminder": {

@@ -1,4 +1,4 @@
-import { MemorySearchTool } from '../../scripts/memory-search.js';
+import { IterativeMemorySearchTool as MemorySearchTool } from '../../scripts/memory-search-iterative.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { logger } from '../utils/logger.js';
