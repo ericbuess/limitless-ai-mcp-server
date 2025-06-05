@@ -5,6 +5,7 @@ import { QueryRouter, QueryType } from './query-router.js';
 import { FastPatternMatcher } from './fast-patterns.js';
 import { ClaudeOrchestrator } from './claude-orchestrator.js';
 import { IntelligentCache } from '../cache/intelligent-cache.js';
+import { ParallelSearchExecutor } from './parallel-search-executor.js';
 import { logger } from '../utils/logger.js';
 import { Phase2Lifelog, toPhase2Lifelog } from '../types/phase2.js';
 import type {
@@ -15,18 +16,19 @@ import type { FastSearchResult } from './fast-patterns.js';
 import type { ClaudeSearchResult } from './claude-orchestrator.js';
 
 export interface UnifiedSearchOptions {
-  strategy?: 'auto' | 'fast' | 'vector' | 'hybrid' | 'claude';
+  strategy?: 'auto' | 'fast' | 'vector' | 'hybrid' | 'claude' | 'parallel';
   limit?: number;
   includeContent?: boolean;
   includeMetadata?: boolean;
   scoreThreshold?: number;
   enableCache?: boolean;
   enableLearning?: boolean;
+  enableParallel?: boolean;
 }
 
 export interface UnifiedSearchResult {
   query: string;
-  strategy: 'fast' | 'vector' | 'hybrid' | 'claude';
+  strategy: 'fast' | 'vector' | 'hybrid' | 'claude' | 'parallel';
   results: Array<{
     id: string;
     score: number;
@@ -43,6 +45,8 @@ export interface UnifiedSearchResult {
     strategy: string;
     cacheHit: boolean;
   };
+  strategyTimings?: Record<string, number>;
+  failedStrategies?: string[];
 }
 
 export class UnifiedSearchHandler {
@@ -53,6 +57,7 @@ export class UnifiedSearchHandler {
   private fastMatcher: FastPatternMatcher;
   private claudeOrchestrator: ClaudeOrchestrator | null = null;
   private cache: IntelligentCache;
+  private parallelExecutor: ParallelSearchExecutor | null = null;
   private isInitialized: boolean = false;
 
   constructor(
@@ -138,6 +143,13 @@ export class UnifiedSearchHandler {
     // Build initial fast search index
     await this.buildFastSearchIndex();
 
+    // Initialize parallel executor after vector store is ready
+    this.parallelExecutor = new ParallelSearchExecutor(
+      this.fastMatcher,
+      this.vectorStore,
+      this.fileManager
+    );
+
     this.isInitialized = true;
     logger.info('Unified search handler initialized');
   }
@@ -178,10 +190,18 @@ export class UnifiedSearchHandler {
       if (learnedStrategy) {
         strategy = learnedStrategy;
       } else {
-        strategy = classification.suggestedStrategy;
+        // Use parallel by default if enabled
+        strategy =
+          options.enableParallel !== false && this.parallelExecutor
+            ? 'parallel'
+            : classification.suggestedStrategy;
       }
     } else if (strategy === 'auto') {
-      strategy = classification.suggestedStrategy;
+      // Use parallel by default if enabled
+      strategy =
+        options.enableParallel !== false && this.parallelExecutor
+          ? 'parallel'
+          : classification.suggestedStrategy;
     }
 
     // Execute search based on strategy
@@ -189,6 +209,19 @@ export class UnifiedSearchHandler {
     const searchStartTime = Date.now();
 
     switch (strategy) {
+      case 'parallel':
+        if (this.parallelExecutor) {
+          result = await this.parallelExecutor.executeParallelSearch(
+            query,
+            classification,
+            options
+          );
+        } else {
+          // Fallback to hybrid search
+          result = await this.executeHybridSearch(query, classification, options);
+        }
+        break;
+
       case 'fast':
         result = await this.executeFastSearch(query, classification, options);
         break;
