@@ -92,6 +92,7 @@ export class IterativeMemorySearchTool {
       let finalAnswer = null;
       let allSearchResults = [];
       let searchQueries = [expandedQuery]; // Start with expanded query (same as original if not follow-up)
+      const seenResultIds = new Set(); // Track seen results to avoid duplicates
 
       // Iterative search until confidence threshold is met
       while (
@@ -109,6 +110,16 @@ export class IterativeMemorySearchTool {
 
         // Step 1: Search with current queries
         const iterationResults = [];
+
+        // For first iteration, also try automatic query variations
+        if (iteration === 1 && searchQueries.length === 1) {
+          const variations = this.generateAutomaticVariations(searchQueries[0]);
+          searchQueries.push(...variations);
+          logger.info(
+            `Added ${variations.length} automatic query variations for comprehensive search`
+          );
+        }
+
         for (const searchQuery of searchQueries) {
           logger.info(`Searching with query: "${searchQuery}"`);
           const searchResults = await this.searchHandler.search(searchQuery);
@@ -138,23 +149,38 @@ export class IterativeMemorySearchTool {
           }
         }
 
-        // Deduplicate results by ID
-        const uniqueResults = this.deduplicateResults([...allSearchResults, ...iterationResults]);
-        allSearchResults = uniqueResults;
+        // Filter out previously seen results
+        const newResults = iterationResults.filter((r) => {
+          const id = r.lifelog?.id || r.file || JSON.stringify(r);
+          if (seenResultIds.has(id)) {
+            return false;
+          }
+          seenResultIds.add(id);
+          return true;
+        });
+
+        // Add new results to all results
+        allSearchResults.push(...newResults);
 
         logger.info(
-          `Iteration ${iteration} found ${iterationResults.length} new results, ${uniqueResults.length} total unique`
+          `Iteration ${iteration}: ${iterationResults.length} results found, ${newResults.length} new, ${allSearchResults.length} total unique`
         );
 
+        // Early termination if no new results found
+        if (newResults.length === 0 && iteration > 1) {
+          logger.info('No new results found, terminating early');
+          break;
+        }
+
         // Step 2: Generate answer and assess confidence
-        if (uniqueResults.length === 0) {
-          // No results found, can't improve confidence
+        if (allSearchResults.length === 0) {
+          // No results found at all, can't improve confidence
           break;
         }
 
         const assessment = await this.assessResults(
           expandedQuery,
-          uniqueResults,
+          allSearchResults,
           sessionDir,
           iteration
         );
@@ -179,7 +205,7 @@ export class IterativeMemorySearchTool {
           searchQueries = await this.generateRefinedQueries(
             query,
             assessment.refinementHints,
-            uniqueResults,
+            allSearchResults,
             sessionDir,
             iteration
           );
@@ -232,8 +258,15 @@ export class IterativeMemorySearchTool {
   }
 
   async assessResults(query, results, sessionDir, iteration) {
-    const relevantResults = results.slice(0, 10);
-    const prompt = this.buildAssessmentPrompt(query, relevantResults);
+    // Filter results by minimum score threshold (0.7)
+    const scoredResults = results.filter((r) => r.score && r.score > 0.7);
+
+    // If no results meet threshold, take top 3 results anyway but note low confidence
+    const relevantResults =
+      scoredResults.length > 0 ? scoredResults.slice(0, 10) : results.slice(0, 3);
+
+    const lowScoreWarning = scoredResults.length === 0 && results.length > 0;
+    const prompt = this.buildAssessmentPrompt(query, relevantResults, lowScoreWarning);
 
     logger.info('Assessing results with Claude');
     const response = await this.claudeInvoker.invoke(prompt, {
@@ -272,7 +305,7 @@ export class IterativeMemorySearchTool {
     }
   }
 
-  buildAssessmentPrompt(query, results) {
+  buildAssessmentPrompt(query, results, lowScoreWarning = false) {
     const resultsText = results
       .map((r, i) => {
         const date = r.lifelog?.createdAt
@@ -299,8 +332,12 @@ Score: ${r.score || 0}`;
       })
       .join('\n---\n');
 
-    return `Assess whether these search results contain a complete answer to: "${query}"
+    const scoreWarning = lowScoreWarning
+      ? '\n⚠️ WARNING: All results have low relevance scores (<0.7). Consider this when assessing confidence.\n'
+      : '';
 
+    return `Assess whether these search results contain a complete answer to: "${query}"
+${scoreWarning}
 Search Results:
 ${resultsText}
 
@@ -309,6 +346,7 @@ Instructions:
 2. Assess your confidence level (0.0-1.0) in the completeness of the answer
 3. If confidence >= 0.9, provide the complete answer
 4. If confidence < 0.9, suggest what additional information to search for
+5. ${lowScoreWarning ? 'Given the low relevance scores, be conservative with confidence and suggest better search terms.' : ''}
 
 Respond with JSON:
 {
@@ -321,6 +359,62 @@ Respond with JSON:
   }
 
   async generateRefinedQueries(query, hints, currentResults, sessionDir, iteration) {
+    // First try common query expansions for meal-related queries
+    const queryLower = query.toLowerCase();
+    const mealKeywords = ['breakfast', 'lunch', 'dinner', 'eat', 'ate', 'food', 'meal'];
+    const isMealQuery = mealKeywords.some((keyword) => queryLower.includes(keyword));
+
+    if (isMealQuery) {
+      // Generate meal-specific variations
+      const baseQuery = query.replace(/\b(breakfast|lunch|dinner)\b/i, '');
+      const variations = [
+        // Food/restaurant names
+        'smoothie king',
+        'mcdonald',
+        'subway',
+        'starbucks',
+        'chipotle',
+        // Food types
+        'sandwich',
+        'burger',
+        'salad',
+        'smoothie',
+        'coffee',
+        'pizza',
+        // Actions
+        'ordered',
+        'got',
+        'had',
+        'bought',
+        'picked up',
+        'delivered',
+      ];
+
+      const timeOfDay = queryLower.includes('breakfast')
+        ? 'morning'
+        : queryLower.includes('lunch')
+          ? 'afternoon'
+          : queryLower.includes('dinner')
+            ? 'evening'
+            : '';
+
+      const generatedQueries = [];
+      for (const variation of variations.slice(0, 5)) {
+        if (timeOfDay) {
+          generatedQueries.push(`${variation} ${timeOfDay}`);
+        }
+        generatedQueries.push(variation);
+      }
+
+      logger.info('Generated meal-specific query variations', {
+        originalQuery: query,
+        variations: generatedQueries.slice(0, 3),
+      });
+
+      return generatedQueries.slice(0, 3);
+    }
+
+    // Fall back to Claude for complex queries
     const prompt = `Generate refined search queries based on:
 
 Original query: "${query}"
@@ -336,7 +430,7 @@ ${hints.join('\n')}
 
 Generate 2-3 alternative search queries that might find missing information.
 Consider:
-- Related terms and synonyms
+- Related terms and synonyms (for meals: restaurant names, food types, "ordered", "delivered")
 - Different time periods mentioned in results
 - Names or topics mentioned in partial results
 - More specific or more general versions of the query
@@ -527,6 +621,49 @@ Respond with JSON:
     });
 
     return result;
+  }
+
+  generateAutomaticVariations(query) {
+    const variations = [];
+    const queryLower = query.toLowerCase();
+
+    // Meal-related variations
+    if (queryLower.match(/\b(breakfast|lunch|dinner|eat|ate|food|meal)\b/)) {
+      // Extract temporal part if present
+      const temporalMatch = queryLower.match(/\b(yesterday|today|this morning|last night)\b/);
+      const temporal = temporalMatch ? temporalMatch[0] : '';
+
+      // Common food-related searches
+      variations.push('smoothie', 'coffee', 'sandwich', 'restaurant');
+      if (temporal) {
+        variations.push(`smoothie ${temporal}`, `food ${temporal}`, `restaurant ${temporal}`);
+      }
+    }
+
+    // Meeting-related variations
+    if (queryLower.match(/\b(meeting|discuss|talk|conversation)\b/)) {
+      const personMatch = query.match(/\b[A-Z][a-z]+\b/);
+      if (personMatch) {
+        variations.push(
+          personMatch[0],
+          `conversation ${personMatch[0]}`,
+          `discussed with ${personMatch[0]}`
+        );
+      }
+    }
+
+    // Extract key nouns and create focused searches
+    const nouns = query.match(/\b[a-zA-Z]{4,}\b/g) || [];
+    for (const noun of nouns) {
+      if (
+        !['what', 'when', 'where', 'have', 'with', 'about', 'from'].includes(noun.toLowerCase())
+      ) {
+        variations.push(noun.toLowerCase());
+      }
+    }
+
+    // Return unique variations, max 3
+    return [...new Set(variations)].slice(0, 3);
   }
 
   extractQuery(task) {
