@@ -2,6 +2,21 @@
 
 > 🤖 **Purpose**: This document provides essential information for Claude and other AI assistants to effectively work on this project. It includes project structure, development commands, implementation details, and troubleshooting guidance.
 
+## Critical Information for Context Reset
+
+**Project State**: Production-ready MCP server with Phase 2 complete (v0.2.0)
+**Key Achievement**: 59x faster search using LanceDB vector store + intelligent caching
+**Current Focus**: Ready for Phase 3 (Voice-Activated Keywords) implementation
+**Repository**: Clean and organized - all docs consolidated, scripts organized
+
+**Essential Context**:
+
+- All planning/documentation MUST go in CLAUDE.md (never create new .md files)
+- Use sub-agents for multi-file analysis to preserve context
+- Background sync service downloads lifelogs every 60 seconds
+- Vector search works with LanceDB (no Docker needed)
+- Environment variables hardcoded in index.ts due to MCP CLI bug
+
 ## Project Overview
 
 This is a Model Context Protocol (MCP) server that enables AI assistants to interact with the Limitless AI API, specifically for accessing Pendant recordings (lifelogs). The server provides structured tools for searching, listing, and retrieving recording data.
@@ -1415,8 +1430,35 @@ export DEBUG_SYNC_SERVICE=true
   - `scripts/maintenance/` - Database maintenance (7 scripts)
   - `scripts/debug/` - Debug utilities (3 scripts)
   - `archive-tests/` - Archived test scripts (12 scripts)
-- **Clean Root Directory**: Only 1 .js file remains (jest.config.js)
+- **Clean Root Directory**: Organized all files appropriately
 - **New npm Scripts**: Added convenient commands for common operations
+
+### Root Directory Files (All Appropriate)
+
+Configuration files that belong in root:
+
+- `.env.example` - Example environment variables
+- `.eslintrc.json` - ESLint configuration
+- `.gitignore` - Git ignore patterns
+- `.npmignore` - NPM publish ignore patterns
+- `.prettierrc.json` - Prettier configuration
+- `codecov.yml` - Code coverage configuration
+- `eslint.config.mjs` - ESLint module configuration
+- `jest.config.js` - Jest test configuration
+- `tsconfig.json` - TypeScript configuration
+- `package.json` - NPM package configuration
+- `package-lock.json` - NPM dependency lock file
+
+Documentation files:
+
+- `README.md` - User documentation
+- `CLAUDE.md` - AI assistant reference (this file)
+- `LICENSE` - MIT license
+
+Build artifacts (git-ignored):
+
+- `tsconfig.tsbuildinfo` - TypeScript build cache
+- `.env` - Local environment variables (if present)
 
 ### Performance Metrics
 
@@ -1614,6 +1656,31 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 - `src/monitoring/notification-service.ts` - Alert system
 - `src/types/monitoring.ts` - Type definitions
 - `config/keywords.json` - Default keyword configurations
+
+## Current TODO List (as of 2025-06-04)
+
+### Pending High Priority
+
+- [ ] Implement parallel search execution within strategies (#2)
+- [ ] Build real-time notification system for new lifelogs (#7)
+
+### Pending Medium Priority
+
+- [ ] Create parallel batch processing for embeddings (#6)
+- [ ] Implement AI-powered automatic summaries (#8)
+
+### In Progress
+
+- [ ] Clean up and reorganize documentation (#9) - Mostly complete
+
+### Completed
+
+- [x] Enable background sync service (#1)
+- [x] Add initial bulk download of ALL historical lifelogs (#3)
+- [x] Implement incremental sync for new lifelogs only (#4)
+- [x] Add sync status monitoring and progress tracking (#5)
+- [x] Fix sync service batch processing bug (#10)
+- [x] Download missing June 1st and 2nd data (#11)
 
 ## Success Metrics
 
