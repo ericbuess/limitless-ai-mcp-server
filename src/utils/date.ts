@@ -51,3 +51,46 @@ export function isValidDateTimeFormat(dateTimeStr: string): boolean {
   const date = new Date(dateTimeStr);
   return !isNaN(date.getTime());
 }
+
+export function convertUTCTimestampsToLocal(content: string): string {
+  // Pattern to match timestamps like "(6/4/25 7:37 PM)"
+  const timestampPattern = /\((\d{1,2}\/\d{1,2}\/\d{2,4}\s+\d{1,2}:\d{2}\s+[AP]M)\)/g;
+
+  return content.replace(timestampPattern, (match, timestamp) => {
+    try {
+      // Parse the timestamp assuming it's UTC
+      const [datePart, timePart, ampm] = timestamp.split(/\s+/);
+      const [month, day, year] = datePart.split('/');
+      const [hours, minutes] = timePart.split(':');
+
+      // Convert to full year if needed
+      const fullYear = year.length === 2 ? `20${year}` : year;
+
+      // Convert 12-hour to 24-hour format
+      let hour24 = parseInt(hours);
+      if (ampm === 'PM' && hour24 !== 12) hour24 += 12;
+      if (ampm === 'AM' && hour24 === 12) hour24 = 0;
+
+      // Create UTC date
+      const utcDate = new Date(
+        Date.UTC(parseInt(fullYear), parseInt(month) - 1, parseInt(day), hour24, parseInt(minutes))
+      );
+
+      // Format to local time
+      const localTime = utcDate.toLocaleString('en-US', {
+        timeZone: 'America/Chicago',
+        month: 'numeric',
+        day: 'numeric',
+        year: '2-digit',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+
+      return `(${localTime})`;
+    } catch {
+      // If parsing fails, return original
+      return match;
+    }
+  });
+}

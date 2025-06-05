@@ -48,9 +48,15 @@ export class FileManager {
   }
 
   private getDatePath(date: Date): { year: string; month: string; day: string } {
-    const year = date.getFullYear().toString();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
+    // Ensure we have a valid Date object
+    const validDate = date instanceof Date ? date : new Date(date);
+    if (isNaN(validDate.getTime())) {
+      throw new Error(`Invalid date: ${date}`);
+    }
+
+    const year = validDate.getFullYear().toString();
+    const month = (validDate.getMonth() + 1).toString().padStart(2, '0');
+    const day = validDate.getDate().toString().padStart(2, '0');
     return { year, month, day };
   }
 
@@ -64,6 +70,7 @@ export class FileManager {
   }
 
   async saveLifelog(lifelog: Phase2Lifelog): Promise<void> {
+    // Use UTC date for directory structure to match API organization
     const date = new Date(lifelog.createdAt);
     const dirPath = await this.ensureDateDirectory(date, 'lifelogs');
 
@@ -101,7 +108,7 @@ export class FileManager {
         try {
           const metaContent = await fs.readFile(metaPath, 'utf8');
           metadata = JSON.parse(metaContent);
-        } catch (error) {
+        } catch {
           logger.debug('No metadata found for lifelog', { id });
         }
       }
@@ -241,7 +248,7 @@ export class FileManager {
       `# Lifelog: ${lifelog.title}`,
       '',
       `**ID:** ${lifelog.id}`,
-      `**Date:** ${new Date(lifelog.createdAt).toLocaleString()}`,
+      `**Date:** ${new Date(lifelog.createdAt).toLocaleString('en-US', { timeZone: 'America/Chicago' })}`,
       `**Duration:** ${Math.floor(lifelog.duration / 60)} minutes`,
       '',
       '---',
@@ -252,7 +259,13 @@ export class FileManager {
     if (lifelog.headings && lifelog.headings.length > 0) {
       lines.push('', '## Headings', '');
       for (const heading of lifelog.headings) {
-        lines.push(`- ${heading}`);
+        if (typeof heading === 'string') {
+          lines.push(`- ${heading}`);
+        } else if (heading && typeof heading === 'object' && 'content' in heading) {
+          lines.push(`- ${(heading as any).content}`);
+        } else {
+          lines.push(`- ${JSON.stringify(heading)}`);
+        }
       }
     }
 
@@ -359,5 +372,33 @@ export class FileManager {
     }
 
     return { deleted };
+  }
+
+  /**
+   * Clear all lifelog files and metadata
+   */
+  async clearAllLifelogs(): Promise<void> {
+    logger.info('Clearing all lifelog files');
+
+    try {
+      // Remove the entire lifelogs directory
+      await fs.rm(this.lifelogsDir, { recursive: true, force: true });
+
+      // Remove embeddings directory if it exists
+      if (this.enableEmbeddings) {
+        await fs.rm(this.embeddingsDir, { recursive: true, force: true });
+      }
+
+      // Recreate the directories
+      await fs.mkdir(this.lifelogsDir, { recursive: true });
+      if (this.enableEmbeddings) {
+        await fs.mkdir(this.embeddingsDir, { recursive: true });
+      }
+
+      logger.info('All lifelog files cleared');
+    } catch (error) {
+      logger.error('Error clearing lifelog files', { error });
+      throw error;
+    }
   }
 }

@@ -130,8 +130,27 @@ export class LanceDBStore extends BaseVectorStore {
 
     logger.info(`Adding ${documents.length} documents to LanceDB with Contextual RAG`);
 
+    // Check for existing documents to prevent duplicates
+    let documentsToAdd = documents;
+    if (this.table) {
+      // Get existing document IDs
+      const existingIds = new Set(await this.listDocumentIds());
+
+      // Filter out documents that already exist
+      documentsToAdd = documents.filter((doc) => !existingIds.has(doc.id));
+
+      if (documentsToAdd.length < documents.length) {
+        logger.info(`Skipping ${documents.length - documentsToAdd.length} duplicate documents`);
+      }
+    }
+
+    if (documentsToAdd.length === 0) {
+      logger.info('No new documents to add');
+      return;
+    }
+
     // Apply Contextual RAG: enrich documents with context before embedding
-    const contextualDocs = documents.map((doc) => ({
+    const contextualDocs = documentsToAdd.map((doc) => ({
       ...doc,
       // Prepend context to content before embedding
       content: this.addContext(doc.content, doc.metadata),
@@ -150,7 +169,7 @@ export class LanceDBStore extends BaseVectorStore {
     // Store original content in metadata for retrieval
     const records = docsWithEmbeddings.map((doc, index) => ({
       id: doc.id,
-      content: documents[index].content, // Store original content without context
+      content: documentsToAdd[index].content, // Store original content without context
       vector: doc.embedding, // LanceDB expects 'vector' not 'embedding'
       metadata: JSON.stringify({
         ...doc.metadata,
@@ -192,29 +211,38 @@ export class LanceDBStore extends BaseVectorStore {
       const queryEmbedding = await this.embeddingProvider.embedSingle(enrichedQuery);
 
       // Perform vector search
-      const results: VectorSearchResult[] = [];
-      const query = this.table.search(queryEmbedding).limit(limit);
+      const results = await this.table
+        .search(queryEmbedding)
+        .limit(limit * 2) // Get more results since we filter by threshold
+        .toArray();
 
-      // Collect results
-      for await (const batch of query) {
-        const rows = batch.toArray();
-        for (const row of rows) {
-          const score = 1 - (row._distance || 0);
-          if (score >= threshold) {
-            results.push({
-              id: row.id,
-              score,
-              content: options.includeContent !== false ? row.content : undefined,
-              metadata:
-                options.includeMetadata !== false ? JSON.parse(row.metadata || '{}') : undefined,
-            });
-          }
+      // Convert results
+      const searchResults: VectorSearchResult[] = [];
+      for (const row of results) {
+        // LanceDB returns L2 (Euclidean) distance, convert to similarity score
+        // Using exponential decay: score = exp(-distance)
+        const distance = row._distance || 0;
+        const score = Math.exp(-distance);
+        if (score >= threshold) {
+          searchResults.push({
+            id: row.id,
+            score,
+            content: options.includeContent !== false ? row.content : undefined,
+            metadata:
+              options.includeMetadata !== false ? JSON.parse(row.metadata || '{}') : undefined,
+          });
         }
+        // Stop if we have enough results
+        if (searchResults.length >= limit) break;
       }
 
-      return results;
+      return searchResults;
     } catch (error) {
-      logger.error('Search failed', { error, query: queryText });
+      logger.error('Search failed', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        query: queryText,
+      });
       return [];
     }
   }
@@ -269,26 +297,29 @@ export class LanceDBStore extends BaseVectorStore {
     const threshold = options.scoreThreshold || 0.0;
 
     try {
-      const results: VectorSearchResult[] = [];
-      const query = this.table.search(embedding).limit(limit);
+      const searchResults: VectorSearchResult[] = [];
+      const results = await this.table
+        .search(embedding)
+        .limit(limit * 2)
+        .toArray();
 
-      for await (const batch of query) {
-        const rows = batch.toArray();
-        for (const row of rows) {
-          const score = 1 - (row._distance || 0);
-          if (score >= threshold) {
-            results.push({
-              id: row.id,
-              score,
-              content: options.includeContent !== false ? row.content : undefined,
-              metadata:
-                options.includeMetadata !== false ? JSON.parse(row.metadata || '{}') : undefined,
-            });
-          }
+      for (const row of results) {
+        // LanceDB returns L2 (Euclidean) distance, convert to similarity score
+        const distance = row._distance || 0;
+        const score = Math.exp(-distance);
+        if (score >= threshold) {
+          searchResults.push({
+            id: row.id,
+            score,
+            content: options.includeContent !== false ? row.content : undefined,
+            metadata:
+              options.includeMetadata !== false ? JSON.parse(row.metadata || '{}') : undefined,
+          });
         }
+        if (searchResults.length >= limit) break;
       }
 
-      return results;
+      return searchResults;
     } catch (error) {
       logger.error('Vector search failed', { error });
       return [];
@@ -356,19 +387,16 @@ export class LanceDBStore extends BaseVectorStore {
 
     try {
       // Search for exact ID match
-      const query = this.table.filter(`id = "${id}"`).limit(1);
+      const results = await this.table.query().where(`id = "${id}"`).limit(1).toArray();
 
-      for await (const batch of query) {
-        const rows = batch.toArray();
-        if (rows.length > 0) {
-          const row = rows[0];
-          return {
-            id: row.id,
-            content: row.content,
-            metadata: JSON.parse(row.metadata || '{}'),
-            embedding: row.vector,
-          };
-        }
+      if (results.length > 0) {
+        const row = results[0];
+        return {
+          id: row.id,
+          content: row.content,
+          metadata: JSON.parse(row.metadata || '{}'),
+          embedding: row.vector,
+        };
       }
 
       return null;
@@ -387,19 +415,16 @@ export class LanceDBStore extends BaseVectorStore {
     try {
       // Build WHERE clause for multiple IDs
       const whereClause = ids.map((id) => `id = "${id}"`).join(' OR ');
-      const query = this.table.filter(whereClause);
+      const results = await this.table.query().where(whereClause).toArray();
 
       const documents: VectorDocument[] = [];
-      for await (const batch of query) {
-        const rows = batch.toArray();
-        for (const row of rows) {
-          documents.push({
-            id: row.id,
-            content: row.content,
-            metadata: JSON.parse(row.metadata || '{}'),
-            embedding: row.vector,
-          });
-        }
+      for (const row of results) {
+        documents.push({
+          id: row.id,
+          content: row.content,
+          metadata: JSON.parse(row.metadata || '{}'),
+          embedding: row.vector,
+        });
       }
 
       return documents;
@@ -416,15 +441,9 @@ export class LanceDBStore extends BaseVectorStore {
     if (!this.table) return [];
 
     try {
-      const query = this.table.select(['id']);
-      const ids: string[] = [];
-
-      for await (const batch of query) {
-        const rows = batch.toArray();
-        ids.push(...rows.map((row: any) => row.id));
-      }
-
-      return ids;
+      // Query all rows and get just the IDs
+      const rows = await this.table.query().toArray();
+      return rows.map((row: any) => row.id);
     } catch (error) {
       logger.error('Failed to list document IDs', { error });
       return [];

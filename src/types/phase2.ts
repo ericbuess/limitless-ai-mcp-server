@@ -1,4 +1,5 @@
 import type { Lifelog } from './limitless.js';
+import { convertUTCTimestampsToLocal } from '../utils/date.js';
 
 /**
  * Extended Lifelog type for Phase 2 internal use
@@ -20,9 +21,10 @@ export function toPhase2Lifelog(lifelog: Lifelog): Phase2Lifelog {
   const headings: string[] = [];
 
   if (lifelog.markdown) {
-    content = lifelog.markdown;
+    // Convert UTC timestamps in the markdown to local time
+    content = convertUTCTimestampsToLocal(lifelog.markdown);
     // Extract headings from markdown
-    const headingMatches = lifelog.markdown.match(/^#{1,3}\s+(.+)$/gm);
+    const headingMatches = content.match(/^#{1,3}\s+(.+)$/gm);
     if (headingMatches) {
       headings.push(...headingMatches.map((h) => h.replace(/^#{1,3}\s+/, '')));
     }
