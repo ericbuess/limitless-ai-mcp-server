@@ -49,20 +49,27 @@ export class ClaudeInvoker {
     }
 
     return new Promise((resolve, reject) => {
-      const args = ['-p', prompt, '--output-format', outputFormat, '--max-turns', String(maxTurns)];
+      const args = ['--print', '--output-format', outputFormat, '--max-turns', String(maxTurns)];
 
-      // TEMPORARY: Use --dangerously-skip-permissions to avoid hanging
-      // TODO: Fix --allowedTools issue with Claude CLI
-      if (allowedTools.length > 0) {
-        args.push('--dangerously-skip-permissions');
-      }
+      // Skip adding any permission flags for now
+      // Both --allowedTools and --dangerously-skip-permissions cause hanging
+      // Claude will use default permissions
 
-      logger.debug('Invoking Claude CLI', { args: args.slice(0, 4) }); // Don't log full prompt
+      logger.debug('Invoking Claude CLI', { args });
 
       const child = spawn(this.claudePath, args, {
         timeout: this.timeout,
         maxBuffer: 10 * 1024 * 1024,
+        env: {
+          ...process.env,
+          // Ensure HOME is set for Claude config
+          HOME: process.env.HOME,
+        },
       });
+
+      // Send prompt via stdin
+      child.stdin.write(prompt);
+      child.stdin.end();
 
       let stdout = '';
       let stderr = '';
