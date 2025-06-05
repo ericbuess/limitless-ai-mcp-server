@@ -1134,6 +1134,42 @@ await Task({
 // await WebSearch(...) // Full results enter context
 ```
 
+### Parallel Batch Embeddings Implementation Details
+
+**Current Pain Point**: Sequential embedding generation is the bottleneck in sync
+
+- 1000 lifelogs × 150ms average = 150 seconds just for embeddings
+- CPU underutilized (single-threaded processing)
+
+**Proposed Solution**:
+
+```typescript
+// In transformer-embeddings.ts
+async generateEmbeddingsParallel(texts: string[], options = {}) {
+  const { batchSize = 10, maxConcurrent = 4 } = options;
+
+  // Split into batches
+  const batches = chunk(texts, batchSize);
+
+  // Process batches with concurrency limit
+  const results = await pLimit(maxConcurrent, batches, async (batch) => {
+    return await this.pipeline(batch, {
+      pooling: 'mean',
+      normalize: true,
+    });
+  });
+
+  return results.flat();
+}
+```
+
+**Expected Improvements**:
+
+- Initial sync: 150s → 15-30s (5-10x faster)
+- Memory usage: Controlled via batch size
+- CPU usage: Better utilization across cores
+- User experience: Much faster "ready to search" time
+
 ### Practical Sub-Agent Patterns
 
 **Pattern 1: Multi-File Analysis**
@@ -1659,14 +1695,28 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 
 ## Current TODO List (as of 2025-06-04)
 
-### Pending High Priority
+### Next Up (In Order)
 
-- [ ] Implement parallel search execution within strategies (#2)
-- [ ] Build real-time notification system for new lifelogs (#7)
+1. **Implement parallel search execution within strategies (#2)** - HIGH PRIORITY
+
+   - Run vector, keyword, and date searches simultaneously
+   - Expected improvement: 200-500ms total search time
+   - Use Promise.allSettled for resilience
+
+2. **Create parallel batch processing for embeddings (#6)** - HIGH PRIORITY
+
+   - Current: Sequential processing (100-200ms per lifelog)
+   - Target: Batch processing with 5-10x speedup
+   - Benefits: Faster initial sync, better CPU utilization
+   - Implementation: Worker threads or batch pipeline
+
+3. **Build real-time notification system for new lifelogs (#7)** - HIGH PRIORITY
+   - Monitor for keywords in new lifelogs
+   - Trigger actions based on detected patterns
+   - Foundation for Phase 3 voice commands
 
 ### Pending Medium Priority
 
-- [ ] Create parallel batch processing for embeddings (#6)
 - [ ] Implement AI-powered automatic summaries (#8)
 
 ### In Progress
