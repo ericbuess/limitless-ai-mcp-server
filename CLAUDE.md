@@ -1815,6 +1815,16 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 
 ## Current TODO List (as of 2025-06-05)
 
+### Recently Completed (2025-06-05)
+
+1. ✅ **Enable Local-Only Mode for Search** - COMPLETED
+   - Created LOCAL_ONLY_MODE environment variable
+   - Modified LimitlessClient to allow empty API key
+   - Updated UnifiedSearchHandler to work without API access
+   - Tested successfully with 185 local lifelogs
+   - Search performance: 5-14ms for parallel searches
+   - Documentation updated in README.md
+
 ### High Priority Tasks (Next Up)
 
 1. **Fix Search System to Find Exact Matches** - HIGH PRIORITY (NEXT TASK)
