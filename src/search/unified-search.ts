@@ -1,5 +1,4 @@
-// LimitlessClient removed - search is always local
-import type { LimitlessClient } from '../core/limitless-client.js'; // Keep type for backward compatibility
+// Search is always local - no API client needed
 import { FileManager } from '../storage/file-manager.js';
 import { ChromaVectorStore } from '../vector-store/chroma-manager.js';
 import { QueryRouter, QueryType } from './query-router.js';
@@ -64,7 +63,6 @@ export class UnifiedSearchHandler {
   private isInitialized: boolean = false;
 
   constructor(
-    _client: LimitlessClient | null, // Keep parameter for backward compatibility
     fileManager: FileManager,
     options: {
       enableVectorStore?: boolean;
@@ -72,7 +70,6 @@ export class UnifiedSearchHandler {
       cacheOptions?: any;
     } = {}
   ) {
-    // Client parameter kept for backward compatibility but not used
     this.fileManager = fileManager;
     this.queryRouter = new QueryRouter();
     this.queryPreprocessor = new QueryPreprocessor();

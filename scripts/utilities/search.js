@@ -74,8 +74,8 @@ async function search(query, options = {}) {
       createIfMissing: false,
     });
 
-    // Pass null for client since search should never use API
-    const searchHandler = new UnifiedSearchHandler(null, fileManager, {
+    // Search should never use API
+    const searchHandler = new UnifiedSearchHandler(fileManager, {
       enableVectorStore: true, // Enable vector store for better search
       enableClaude: false,
     });

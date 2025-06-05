@@ -17,7 +17,7 @@ async function testContextSharing() {
     const fileManager = new FileManager({ basePath: './data/lifelogs' });
 
     // Pass null for client since search should never use API
-    const searchHandler = new UnifiedSearchHandler(null, fileManager, {
+    const searchHandler = new UnifiedSearchHandler(fileManager, {
       enableVectorStore: true,
     });
 

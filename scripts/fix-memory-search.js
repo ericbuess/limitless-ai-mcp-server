@@ -13,7 +13,7 @@ const require = createRequire(import.meta.url);
 export class FixedMemorySearch {
   constructor() {
     this.fileManager = new FileManager({ baseDir: './data' });
-    this.searchHandler = new UnifiedSearchHandler(null, this.fileManager, {
+    this.searchHandler = new UnifiedSearchHandler(this.fileManager, {
       enableVectorStore: true,
       enableClaude: false,
     });

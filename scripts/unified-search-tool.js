@@ -21,7 +21,7 @@ async function main() {
   try {
     // Initialize search components
     const fileManager = new FileManager({ baseDir: './data' });
-    const searchHandler = new UnifiedSearchHandler(null, fileManager, {
+    const searchHandler = new UnifiedSearchHandler(fileManager, {
       enableVectorStore: true,
       enableClaude: false,
     });

@@ -54,8 +54,8 @@ export class EnhancedToolHandlers {
       enableMetadata: true,
     });
 
-    // Initialize unified search handler
-    this.searchHandler = new UnifiedSearchHandler(this.client, this.fileManager, {
+    // Initialize unified search handler - search is always local
+    this.searchHandler = new UnifiedSearchHandler(this.fileManager, {
       enableVectorStore: this.options.enableVectorStore,
       enableClaude: this.options.enableClaude,
     });

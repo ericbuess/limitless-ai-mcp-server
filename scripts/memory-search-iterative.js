@@ -33,7 +33,7 @@ export class IterativeMemorySearchTool {
 
     // Initialize search components
     this.fileManager = new FileManager({ baseDir: './data' });
-    this.searchHandler = new UnifiedSearchHandler(null, this.fileManager, {
+    this.searchHandler = new UnifiedSearchHandler(this.fileManager, {
       enableVectorStore: true,
       enableClaude: false,
     });

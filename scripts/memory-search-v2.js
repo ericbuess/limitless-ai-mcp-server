@@ -23,7 +23,7 @@ export class MemorySearchToolV2 {
 
     // Initialize unified search handler
     const fileManager = new FileManager({ baseDir: './data' });
-    this.searchHandler = new UnifiedSearchHandler(null, fileManager, {
+    this.searchHandler = new UnifiedSearchHandler(fileManager, {
       enableVectorStore: true,
       enableClaude: false,
     });

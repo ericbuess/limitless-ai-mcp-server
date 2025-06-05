@@ -5,7 +5,7 @@ import { FileManager } from '../dist/storage/file-manager.js';
 
 async function debugSearchFormat() {
   const fileManager = new FileManager({ baseDir: './data' });
-  const searchHandler = new UnifiedSearchHandler(null, fileManager, {
+  const searchHandler = new UnifiedSearchHandler(fileManager, {
     enableVectorStore: true,
     enableClaude: false,
   });

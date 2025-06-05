@@ -405,8 +405,8 @@ npm run search "your query"
    **Search Implementation Details:**
 
    ```typescript
-   // Search handler accepts null client - no API dependency
-   const searchHandler = new UnifiedSearchHandler(null, fileManager, {
+   // Search handler - no API dependency
+   const searchHandler = new UnifiedSearchHandler(fileManager, {
      enableVectorStore: true,
      enableClaude: false,
    });
@@ -703,10 +703,7 @@ node scripts/utilities/test-preprocessing.js
 ```typescript
 // Search initialization - NO API client needed
 const fileManager = new FileManager({ baseDir: './data' });
-const searchHandler = new UnifiedSearchHandler(
-  null, // No client needed - search is always local
-  fileManager
-);
+const searchHandler = new UnifiedSearchHandler(fileManager);
 await searchHandler.initialize();
 const results = await searchHandler.search('your query');
 ```
@@ -2094,7 +2091,103 @@ The AI assistant was designed to let Claude handle the entire search process, bu
 
 ### High Priority Tasks (Next Up)
 
-1. **Test AI Assistant with Live Monitoring** - HIGHEST PRIORITY (NEXT TASK)
+1. **Improve Search Quality and Performance** - HIGHEST PRIORITY (NEXT TASK)
+
+   The current search implementation has critical issues that need immediate attention:
+
+   **Problems Identified:**
+
+   - Poor search relevance (scores 0.49-0.65 for irrelevant results)
+   - Same low-quality results sent to Claude multiple times across iterations
+   - No minimum score threshold (sending score < 0.5 results to Claude)
+   - Context sharing between search strategies not working properly
+   - Performance: 6+ minutes for 10 iterations is unacceptable
+   - Claude CLI showing cost_usd in responses (should be $0 for local)
+
+   **Implementation Plan:**
+
+   a) **Implement Minimum Score Threshold**
+
+   - Only include results with score > 0.7 in Claude assessment prompts
+   - Filter out low-relevance results before sending to Claude
+   - Add configuration for threshold in assistant.json
+
+   b) **Fix Context Sharing Between Strategies**
+
+   - Fast-keyword finds "breakfast" → share as hot keyword
+   - Smart-date finds June 5 → share date with other strategies
+   - Vector-semantic boosts documents with BOTH keywords AND dates
+   - Context-aware focuses on hot documents for meal content
+
+   c) **Implement Result Deduplication**
+
+   - Track which results have been sent to Claude
+   - Never send same result twice across iterations
+   - Stop iterating if no new high-scoring results
+
+   d) **Improve Query Expansion**
+
+   - "breakfast today" → "breakfast OR morning meal OR cereal OR eggs OR coffee AND June 5 2025"
+   - Use exact date for "today", "yesterday", etc.
+   - Expand meal terms: breakfast → [breakfast, morning meal, cereal, eggs, toast, coffee, ate morning]
+
+   e) **Add Early Termination Logic**
+
+   - Stop if no results with score > 0.7
+   - Stop if same results as previous iteration
+   - Stop if confidence hasn't improved in 3 iterations
+
+   f) **Fix Claude CLI Usage**
+
+   - Investigate why response.json has cost_usd field
+   - Ensure using local `claude` command, not API
+   - Check ClaudeInvoker spawn configuration
+
+   g) **Performance Optimizations**
+
+   - Cache embeddings for common query patterns
+   - Pre-filter results before Claude assessment
+   - Batch similar queries together
+   - **IMPORTANT**: When reducing prompt size, preserve full content windows
+     - Don't summarize the actual content
+     - Only reduce number of results shown (top 3-5)
+     - Keep full context windows around matches
+
+   h) **Better Result Ranking with Composite Scoring**
+
+   ```typescript
+   const enhancedScore =
+     baseScore * 0.4 +
+     temporalRelevance * 0.3 + // How close to query date
+     keywordDensity * 0.2 + // Number of query terms matched
+     contextBoost * 0.1; // Boost from other strategies
+   ```
+
+   i) **Smarter Prompt Construction**
+
+   - Group results by relevance tiers
+   - Only show top 3-5 HIGH SCORING results
+   - Include match reason for each result
+   - Explicit "no relevant results" when true
+
+   j) **Add Query Understanding for Meals**
+
+   - Detect meal queries (breakfast/lunch/dinner)
+   - Add time-of-day filtering:
+     - Breakfast: 6am-11am
+     - Lunch: 11am-2pm
+     - Dinner: 5pm-9pm
+   - Search in appropriate time windows
+
+   **Expected Outcomes:**
+
+   - Search results with scores > 0.7 only
+   - No duplicate results across iterations
+   - Total time < 1 minute (from 6+ minutes)
+   - Claude confidence > 0.9 for valid queries
+   - Early termination for impossible queries
+
+2. **Test AI Assistant with Live Monitoring**
 
    Now that the hybrid memory search is working, we need comprehensive testing:
 
@@ -2127,7 +2220,7 @@ The AI assistant was designed to let Claude handle the entire search process, bu
    - Consistent performance <5s per query
    - Proper audit trail for all queries
 
-2. **Improve Search Query Understanding and Result Ranking**
+3. **Improve Search Query Understanding and Result Ranking**
 
    Current Issues:
 
@@ -2166,7 +2259,7 @@ The AI assistant was designed to let Claude handle the entire search process, bu
    - No need for user to try multiple search terms
    - System automatically explores variations
 
-3. **Implement Parallel Batch Processing for Embeddings (#6)**
+4. **Implement Parallel Batch Processing for Embeddings (#6)**
 
    - Current: Sequential processing (100-200ms per lifelog)
    - Target: Batch processing with 5-10x speedup
@@ -2176,7 +2269,7 @@ The AI assistant was designed to let Claude handle the entire search process, bu
      - Process embeddings in parallel batches of 10-20
      - Control memory usage via batch size limits
 
-4. **Build Real-time Notification System (#7)**
+5. **Build Real-time Notification System (#7)**
    - Monitor for keywords in new lifelogs
    - Trigger actions based on detected patterns
    - Foundation for Phase 3 voice commands
