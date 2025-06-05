@@ -51,11 +51,27 @@ export class IterativeMemorySearchTool {
   }
 
   async search(query, context = {}) {
-    const queryHash = this.hashQuery(query);
+    // Handle follow-up questions by expanding query with context
+    let expandedQuery = query;
+    if (context.isFollowUp && context.previousQueries && context.previousQueries.length > 0) {
+      const lastQuery = context.previousQueries[context.previousQueries.length - 1];
+      // If query references "him", "her", "it", "that", etc., expand with context
+      if (/\b(him|her|it|that|they|them|this|the same)\b/i.test(query)) {
+        expandedQuery = `${query} (context: previous query was about "${lastQuery.query}" with answer mentioning: ${lastQuery.answer?.slice(0, 100)}...)`;
+        logger.info('Expanded follow-up query with context', {
+          originalQuery: query,
+          expandedQuery,
+        });
+      }
+    }
+
+    const queryHash = this.hashQuery(expandedQuery);
     logger.info('Starting iterative memory search', {
       query,
+      expandedQuery,
       queryHash,
       confidenceThreshold: this.config.tasks.memory_search.confidenceThreshold,
+      isFollowUp: context.isFollowUp || false,
     });
 
     // Check cache
@@ -75,7 +91,7 @@ export class IterativeMemorySearchTool {
       let confidence = 0;
       let finalAnswer = null;
       let allSearchResults = [];
-      let searchQueries = [query]; // Start with original query
+      let searchQueries = [expandedQuery]; // Start with expanded query (same as original if not follow-up)
 
       // Iterative search until confidence threshold is met
       while (
@@ -136,7 +152,12 @@ export class IterativeMemorySearchTool {
           break;
         }
 
-        const assessment = await this.assessResults(query, uniqueResults, sessionDir, iteration);
+        const assessment = await this.assessResults(
+          expandedQuery,
+          uniqueResults,
+          sessionDir,
+          iteration
+        );
         confidence = assessment.confidence;
 
         logger.info(`Iteration ${iteration} assessment`, {
@@ -180,7 +201,7 @@ export class IterativeMemorySearchTool {
       const result = {
         sessionId,
         query,
-        answer: finalAnswer,
+        answer: this.cleanAnswer(finalAnswer),
         confidence,
         iterations: iteration,
         resultCount: allSearchResults.length,
@@ -262,10 +283,11 @@ export class IterativeMemorySearchTool {
         let content;
         if (r.highlights && r.highlights.length > 0) {
           // Use highlights which are already focused on relevant parts
+          // Each highlight has ~100 chars of context, so 3 highlights = ~300 chars
           content = r.highlights.slice(0, 3).join(' ... ');
         } else {
-          // Fallback to first 300 chars if no highlights
-          content = (r.lifelog?.content || '').slice(0, 300);
+          // Fallback to first 400 chars if no highlights to give more context
+          content = (r.lifelog?.content || '').slice(0, 400);
         }
 
         return `
@@ -421,6 +443,31 @@ Respond with JSON:
     return createHash('sha256').update(query.toLowerCase().trim()).digest('hex').substring(0, 16);
   }
 
+  cleanAnswer(answer) {
+    // Remove embedded JSON formatting from answers
+    if (typeof answer !== 'string') return answer;
+
+    // Check if answer contains markdown code blocks with JSON
+    const jsonBlockMatch = answer.match(
+      /```json\s*\n\{[\s\S]*?"answer"\s*:\s*"([^"]+)"[\s\S]*?\}\s*\n```/
+    );
+    if (jsonBlockMatch) {
+      return jsonBlockMatch[1];
+    }
+
+    // Check if answer is raw JSON
+    try {
+      const parsed = JSON.parse(answer);
+      if (parsed.answer) {
+        return parsed.answer;
+      }
+    } catch (e) {
+      // Not JSON, return as is
+    }
+
+    return answer;
+  }
+
   async getCachedAnswer(queryHash) {
     try {
       const cachePath = path.join(this.cacheDir, `${queryHash}.json`);
@@ -430,7 +477,11 @@ Respond with JSON:
       // Check cache age (24 hours)
       const age = Date.now() - new Date(cached.timestamp).getTime();
       if (age < 24 * 60 * 60 * 1000) {
-        return cached.result;
+        // Clean answer before returning
+        return {
+          ...cached.result,
+          answer: this.cleanAnswer(cached.result.answer),
+        };
       }
     } catch (error) {
       // Cache miss

@@ -11,7 +11,7 @@
   "tasks": {
     "memory_search": {
       "enabled": true,
-      "maxIterations": 3,
+      "maxIterations": 10,
       "confidenceThreshold": 0.9,
       "cacheAnswers": true
     },
