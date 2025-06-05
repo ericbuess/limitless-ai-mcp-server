@@ -33,11 +33,17 @@ limitless-ai-mcp-server/
 │   │   ├── vector-search.js      # Executable tool
 │   │   ├── text-search.sh        # Ripgrep wrapper
 │   │   ├── get-lifelog.js        # Content fetcher
-│   │   └── analyze-results.js    # Result merger
-│   ├── vector-store/      # ChromaDB integration (Phase 2)
-│   │   ├── vector-store.interface.ts
-│   │   ├── chroma-manager.ts
-│   │   └── sync-service.ts
+│   │   ├── analyze-results.js    # Result merger
+│   │   └── sync-all-data-v3.ts  # Standalone sync script
+│   ├── vector-store/      # Vector Store implementations
+│   │   ├── vector-store.interface.ts  # Abstract interface
+│   │   ├── lancedb-store.ts          # LanceDB implementation (primary)
+│   │   ├── transformer-embeddings.ts  # 384-dim embeddings
+│   │   ├── chroma-manager.ts         # ChromaDB (optional)
+│   │   ├── simple-vector-store.ts    # Fallback in-memory store
+│   │   ├── sync-service.ts           # Original sync
+│   │   ├── sync-service-v2.ts        # Two-phase sync
+│   │   └── sync-service-v3.ts        # Batch-based sync
 │   ├── resources/         # MCP Resources feature
 │   │   ├── handlers.ts    # Resource request handlers
 │   │   └── manager.ts     # Resource management logic
@@ -120,6 +126,22 @@ npm run format
 
 # Type check without building
 npm run typecheck
+```
+
+### Sync Commands
+
+```bash
+# Full sync (download + vectorize)
+npm run sync:all
+
+# Download only (no embeddings)
+npm run sync:download
+
+# Rebuild embeddings from local data
+npm run sync:rebuild
+
+# Run sync with options
+npm run sync:all -- --years=5 --batch=30 --delay=3000
 ```
 
 ### Git Commands
@@ -266,22 +288,106 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 
 See @PROJECT_STATUS.md for detailed metrics and @ROADMAP.md for future plans.
 
-## Release Process
+## Publishing to NPM
 
-**Important**: Follow the detailed checklist in PUBLISH_CHECKLIST.md for npm publishing.
+### Pre-Publish Verification
 
-Quick overview:
+1. **Clean build**:
 
-1. Ensure all tests pass: `npm test`
-2. Run linting: `npm run lint`
-3. Build the project: `npm run build`
-4. Verify dist/ directory exists and dist/index.js is executable
-5. Update version in package.json
-6. Commit changes
-7. Create a pull request from dev to main
-8. After merge, publish to npm and tag the release
+   ```bash
+   npm run clean
+   npm run build
+   ```
 
-See PUBLISH_CHECKLIST.md for the complete pre-publish verification steps and troubleshooting.
+2. **Verify dist directory**:
+
+   ```bash
+   ls -la dist/
+   # Should see index.js and all compiled files
+
+   # Check executable permissions
+   ls -la dist/index.js
+   # Should show -rwxr-xr-x (executable)
+   # If not: chmod +x dist/index.js
+   ```
+
+3. **Test locally**:
+
+   ```bash
+   LIMITLESS_API_KEY="test-key" timeout 5 node dist/index.js
+   # Should run without errors (will timeout after 5s)
+   ```
+
+4. **Critical: Dry run verification**:
+
+   ```bash
+   npm pack --dry-run
+   # MUST show ~22 files including dist/, not just 3 files
+   # If only 3 files shown, run: npm run build
+   ```
+
+5. **Test pack**:
+   ```bash
+   npm pack
+   tar -tzf limitless-ai-mcp-server-*.tgz | grep dist/
+   # Should see dist/index.js and other dist files
+   rm limitless-ai-mcp-server-*.tgz
+   ```
+
+### Publishing Steps
+
+1. **Update version** in package.json
+
+2. **Commit all changes**:
+
+   ```bash
+   git add .
+   git commit -m "chore: prepare for v0.x.x release"
+   ```
+
+3. **Login to npm** (if needed):
+
+   ```bash
+   npm login
+   ```
+
+4. **Build and publish**:
+   ```bash
+   # CRITICAL: Always build first, then publish immediately
+   npm run build
+   ls -la dist/  # Verify dist exists
+   npm publish
+   ```
+
+### Post-Publish Verification
+
+1. **Verify on npm**:
+
+   ```bash
+   npm view limitless-ai-mcp-server
+   ```
+
+2. **Test installation**:
+
+   ```bash
+   npm install -g limitless-ai-mcp-server
+   npx limitless-ai-mcp-server --version
+   ```
+
+3. **Create git tag**:
+
+   ```bash
+   git tag v0.x.x
+   git push origin v0.x.x
+   ```
+
+4. **Create GitHub release** with changelog
+
+### Common Publishing Issues
+
+- **Missing dist/ files**: Previous releases failed because dist/ wasn't included. Always verify with `npm pack --dry-run` shows ~22 files
+- **Not executable**: Ensure dist/index.js has executable permissions
+- **Build not current**: Always run `npm run build` immediately before `npm publish`
 
 ## Future Development
 
@@ -919,6 +1025,451 @@ The system is designed to handle tens of thousands of days of lifelogs:
 - Abstract interface allows easy swapping between ChromaDB, Qdrant, etc.
 - Raw embeddings stored separately from vector DB
 - Original markdown files always preserved
+
+## LanceDB Vector Store Implementation
+
+### Overview
+
+The project now uses LanceDB as the primary vector store, replacing the simple in-memory implementation:
+
+- **Package**: `@lancedb/lancedb` (not the deprecated `vectordb`)
+- **Location**: Persistent storage in `./data/lancedb/`
+- **Embeddings**: 384-dimension transformer embeddings using `@xenova/transformers`
+- **Model**: `Xenova/all-MiniLM-L6-v2` (~90MB, downloads to `./models/` on first use)
+- **No Docker Required**: Embedded database with native TypeScript support
+
+### Contextual RAG Implementation
+
+The system implements Anthropic's Contextual RAG approach for improved retrieval accuracy:
+
+```typescript
+// In lancedb-store.ts
+private addContext(content: string, metadata?: any): string {
+  const contexts: string[] = [];
+
+  if (metadata?.date) {
+    contexts.push(`Date: ${new Date(metadata.date).toLocaleDateString()}`);
+  }
+
+  if (metadata?.title) {
+    contexts.push(`Topic: ${metadata.title}`);
+  }
+
+  if (metadata?.speakers) {
+    contexts.push(`Speakers: ${metadata.speakers.join(', ')}`);
+  }
+
+  // Prepend context before content for better embeddings
+  const contextString = contexts.length > 0 ? contexts.join('. ') + '\n\n' : '';
+  return contextString + content;
+}
+```
+
+### Environment Variable Workaround
+
+Due to MCP CLI environment variable passing issues, the following is hardcoded in `src/index.ts`:
+
+```typescript
+// TEMPORARY: Hardcode vector store enablement
+const enableVector = process.env[ENABLE_VECTOR_ENV] === 'true' || true;
+
+// TEMPORARY: Force simple vector store mode
+if (!process.env.CHROMADB_MODE) {
+  process.env.CHROMADB_MODE = 'simple';
+}
+```
+
+## Sync Service V3 - Respectful API Usage
+
+### Key Features
+
+1. **Download Once, Never Re-download**: Data is stored permanently in local files
+2. **Two-Phase Approach**:
+   - Phase 1: Download from API to `.md` and `.meta.json` files
+   - Phase 2: Build vector embeddings from local files (no API calls)
+3. **Batch Processing**: Downloads in configurable batches (default: 50 days)
+4. **Day-by-Day Queries**: Works around API limitation where date ranges only return 25 most recent items
+
+### API Limitation Workaround
+
+The Limitless API has a limitation where date range queries only return the 25 most recent lifelogs. The sync service works around this:
+
+```typescript
+// Instead of date ranges, query each day individually:
+for each date from oldest to newest:
+  const lifelogs = await client.listLifelogsByDate(dateStr, {
+    limit: 1000,
+    includeMarkdown: true,
+    includeHeadings: true
+  });
+```
+
+### Sync Commands
+
+```bash
+# Full sync (download + vectorize)
+npm run sync:all
+
+# Download only (no embeddings)
+npm run sync:download
+
+# Rebuild embeddings from local data
+npm run sync:rebuild
+
+# With options
+npm run sync:all -- --years=5 --batch=30 --delay=3000
+```
+
+### Configuration Options
+
+- `--years=N` - How many years back to sync (default: 10)
+- `--batch=N` - Days per batch (default: 50)
+- `--delay=N` - Milliseconds between API requests (default: 2000)
+- `--download-only` - Skip vectorization phase
+
+### Data Storage Structure
+
+```
+./data/
+├── lifelogs/YYYY/MM/DD/       # Raw API data
+│   ├── {id}.md                # Markdown transcript
+│   └── {id}.meta.json         # Metadata (title, date, duration)
+├── embeddings/YYYY/MM/DD/     # Vector embeddings
+│   └── {id}.json              # Embedding vectors
+├── lancedb/                   # Vector database
+└── sync-checkpoint.json       # Resume information
+```
+
+### Checkpoint System
+
+The sync service saves progress after every batch:
+
+```json
+{
+  "phase": "download",
+  "currentDate": "2024-12-15",
+  "totalDownloaded": 1250,
+  "totalVectorized": 1250,
+  "lastCheckpoint": "2025-06-04T12:34:56.789Z",
+  "oldestDate": "2023-01-15",
+  "newestDate": "2025-06-04",
+  "storageSize": 125829120,
+  "errors": [],
+  "processedBatches": ["2025-05-01_2025-05-31", "2025-04-01_2025-04-30"]
+}
+```
+
+### Monitoring Mode
+
+After initial sync, the service monitors for new lifelogs:
+
+- Polls every 60 seconds (configurable)
+- Only downloads new lifelogs after last processed timestamp
+- Automatically updates vector embeddings
+- Never re-downloads existing files
+
+## Performance Optimizations
+
+### LanceDB Features
+
+- **Apache Arrow Format**: Efficient columnar storage
+- **Memory Mapping**: Handles large datasets efficiently
+- **Hybrid Search**: Supports vector + metadata filtering
+- **Native TypeScript**: No Python dependencies
+- **Scales to Millions**: Can handle 1M+ vectors efficiently
+
+### Embedding Generation
+
+- **Batch Processing**: Generates embeddings in batches of 100
+- **Fallback**: TF-IDF if transformer model fails
+- **Caching**: Embeddings stored separately for portability
+- **Progress Tracking**: Shows indexing progress
+
+## Testing and Debugging
+
+### Test Vector Store
+
+```bash
+# Simple test script
+node -e "
+import { LanceDBStore } from './dist/vector-store/lancedb-store.js';
+const store = new LanceDBStore({ collectionName: 'test' });
+await store.initialize();
+console.log('LanceDB initialized successfully');
+"
+```
+
+### Debug Environment Variables
+
+```bash
+# Enable detailed debugging
+export LOG_LEVEL=DEBUG
+export DEBUG_VECTOR_STORE=true
+export DEBUG_SYNC_SERVICE=true
+```
+
+### Common Issues
+
+1. **"No data in batch"**: Normal for date ranges without recordings
+2. **"Failed to process batch"**: Check API key and network connectivity
+3. **Slow Progress**: Normal - respects API with 2s delays
+4. **Storage Issues**: Ensure adequate disk space (~1-2MB per day of recordings)
+
+## Current Status
+
+**Version:** 0.2.0  
+**Status:** Phase 2 Complete / Beta 🚧  
+**Last Updated:** 2025-06-04
+
+⚠️ **Note**: Phase 2 intelligent search is now complete. While core features are implemented and tested, real-world usage testing is needed. Please report issues!
+
+### Performance Metrics
+
+Phase 2 Performance (2025-06-03):
+
+| Query Type       | Phase 1 | Phase 2 | Improvement    |
+| ---------------- | ------- | ------- | -------------- |
+| Simple lookup    | 5.9s    | 100ms   | **59x faster** |
+| Keyword search   | 1.8s    | 200ms   | **9x faster**  |
+| Semantic search  | N/A     | 300ms   | New capability |
+| Complex analysis | N/A     | 2-3s    | New capability |
+| Cached results   | 0ms     | 0ms     | Instant        |
+
+### Known Limitations
+
+1. **API Constraints**
+
+   - Only returns Pendant recordings (no app/extension data)
+   - Requires active internet connection
+   - Rate limiting applies to API calls
+
+2. **Search Capabilities** (Enhanced in Phase 2)
+
+   - Multi-strategy search system (fast, vector, hybrid, Claude)
+   - Semantic search using LanceDB embeddings
+   - Complex query analysis via Claude CLI
+   - Still limited by API (no server-side search)
+
+3. **Storage & Resources** (Enhanced in Phase 2)
+   - Scalable date-based file storage (YYYY/MM/DD)
+   - Persistent vector embeddings in LanceDB
+   - Background sync service (60s intervals)
+   - Still requires internet for API access
+
+## Publishing to NPM
+
+### Pre-Publish Verification
+
+1. **Clean Build**
+
+   ```bash
+   rm -rf dist/
+   npm run build
+   ```
+
+2. **Verify Dist Directory**
+
+   ```bash
+   ls -la dist/
+   # Should contain: index.js, all .ts files compiled to .js
+   ```
+
+3. **Check Executable Permissions**
+
+   ```bash
+   chmod +x dist/index.js
+   head -n 1 dist/index.js  # Should show: #!/usr/bin/env node
+   ```
+
+4. **Test Locally**
+
+   ```bash
+   LIMITLESS_API_KEY="your-key" node dist/index.js
+   ```
+
+5. **Critical Dry Run Check**
+
+   ```bash
+   npm publish --dry-run
+   # MUST show ~22 files being packaged, not just 3
+   # Should include all dist/ files
+   ```
+
+6. **Pack and Test**
+   ```bash
+   npm pack
+   tar -tzf limitless-ai-mcp-server-*.tgz | head -20
+   ```
+
+### Publishing Steps
+
+1. **Update Version**
+
+   ```bash
+   npm version patch  # or minor/major
+   ```
+
+2. **Commit Changes**
+
+   ```bash
+   git add -A
+   git commit -m "chore: release v0.2.1"
+   git push origin dev
+   ```
+
+3. **Login to NPM**
+
+   ```bash
+   npm login
+   ```
+
+4. **Build and Publish** (CRITICAL: Build immediately before publish)
+   ```bash
+   npm run build && npm publish
+   ```
+
+### Post-Publish Verification
+
+1. **Check NPM Registry**
+
+   ```bash
+   npm view limitless-ai-mcp-server
+   ```
+
+2. **Test Global Install**
+
+   ```bash
+   npm install -g limitless-ai-mcp-server
+   limitless-ai-mcp-server --version
+   ```
+
+3. **Tag Release**
+
+   ```bash
+   git tag v0.2.1
+   git push origin v0.2.1
+   ```
+
+4. **Create GitHub Release**
+   - Go to GitHub releases
+   - Create release from tag
+   - Add changelog
+
+### Common Publishing Issues
+
+1. **Missing dist/ files**: Always build immediately before publish
+2. **Wrong permissions**: Ensure dist/index.js is executable
+3. **Stale build**: Delete dist/ and rebuild fresh
+
+## Phase 3: Voice-Activated Keywords (Next Milestone)
+
+### Overview
+
+Transform the Pendant into a voice-command system by monitoring for keywords and triggering actions.
+
+### 6.1 Monitoring Service
+
+- Create background service polling recent lifelogs (30-60s intervals)
+- Implement efficient delta checking (only new content)
+- Add configurable polling intervals
+- Create monitoring dashboard/status
+- Implement pause/resume functionality
+
+### 6.2 Keyword Detection System
+
+- Define keyword configuration schema
+- Implement exact match detection ("Hey Limitless")
+- Add pattern matching ("Action item: _", "Remind me to _")
+- Support context-aware keywords ("urgent", "important")
+- Create keyword validation and testing tools
+
+### 6.3 Action Registry & Execution
+
+- Create action mapping system (keyword → action)
+- Implement action types:
+  - Create task/reminder
+  - Send notification
+  - Trigger webhook
+  - Execute MCP tool
+  - Calendar integration
+- Add action confirmation/logging
+- Support custom action plugins
+
+### 6.4 Notification System
+
+- Real-time alerts when keywords detected
+- Action execution confirmations
+- Error/failure notifications
+- Daily summary of triggered actions
+- Integration with notification services
+
+### Example Use Cases
+
+- "Hey Limitless, remind me to call John tomorrow" → Creates reminder
+- "Action item: review the budget proposal" → Adds to task list
+- "Note to self: great idea about..." → Saves to notes
+- "Urgent: need to fix the..." → High-priority notification
+- "Schedule meeting with Sarah next week" → Calendar event
+
+### Implementation Files
+
+- `src/monitoring/keyword-monitor.ts` - Main monitoring service
+- `src/monitoring/keyword-detector.ts` - Keyword detection logic
+- `src/monitoring/action-registry.ts` - Action mapping and execution
+- `src/monitoring/notification-service.ts` - Alert system
+- `src/types/monitoring.ts` - Type definitions
+- `config/keywords.json` - Default keyword configurations
+
+## Success Metrics
+
+### Phase 2 (Achieved) ✅
+
+- ✅ Query response time: 100ms (simple), 2-3s (complex)
+- ✅ Support for 100K+ days without performance degradation
+- ✅ Storage efficiency: <10KB per day (including embeddings)
+- ✅ Local vector store sync < 60s
+- ✅ 59x performance improvement for simple queries
+- ✅ 9x performance improvement for keyword search
+- ✅ Abstract vector store interface for easy DB swapping
+- ✅ Learning cache system that improves over time
+
+### Phase 3 (Vision)
+
+- [ ] 10+ integrations
+- [ ] 1000+ active users
+- [ ] Sub-second response times
+- [ ] Full offline capability
+
+## Future Enhancements (Phase 4+)
+
+### Batch Operations
+
+- Batch fetch multiple lifelogs by IDs
+- Bulk export functionality
+- Parallel processing for large date ranges
+- Progress tracking for long operations
+
+### CLI Tool
+
+- Interactive CLI with prompts
+- Scriptable commands for automation
+- Output formatting options (JSON, CSV, Markdown)
+- Integration with shell pipelines
+
+### Advanced Analytics
+
+- Time tracking analytics
+- Topic frequency analysis
+- Speaker identification and stats
+- Sentiment analysis over time
+- Meeting efficiency metrics
+
+### Integration Ecosystem
+
+- Calendar integration (Google, Outlook)
+- Task management (Todoist, Asana)
+- Note-taking apps (Obsidian, Roam)
+- Communication tools (Slack, Teams)
 
 ## Useful Links
 
