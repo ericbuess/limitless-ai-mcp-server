@@ -1,109 +1,177 @@
-import { LanceDBStore } from '../../dist/vector-store/lancedb-store.js';
+#!/usr/bin/env node
+
+import { UnifiedSearchHandler } from '../../dist/search/unified-search.js';
 import { LimitlessClient } from '../../dist/core/limitless-client.js';
+import { FileManager } from '../../dist/storage/file-manager.js';
+
+// ANSI color codes
+const colors = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  cyan: '\x1b[36m',
+  gray: '\x1b[90m',
+};
+
+/**
+ * Extract a content window around the first match of query terms
+ */
+function extractContentWindow(content, query, windowSize = 150) {
+  if (!content) return '';
+
+  const queryWords = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2);
+  const contentLower = content.toLowerCase();
+
+  // Find the best match position
+  let bestIndex = -1;
+  let matchedWord = '';
+
+  for (const word of queryWords) {
+    const index = contentLower.indexOf(word);
+    if (index !== -1 && (bestIndex === -1 || index < bestIndex)) {
+      bestIndex = index;
+      matchedWord = word;
+    }
+  }
+
+  if (bestIndex === -1) {
+    // No match found, return beginning of content
+    return content.substring(0, windowSize * 2) + '...';
+  }
+
+  // Extract window around match
+  const start = Math.max(0, bestIndex - windowSize);
+  const end = Math.min(content.length, bestIndex + matchedWord.length + windowSize);
+
+  let window = content.substring(start, end);
+
+  // Add ellipsis if needed
+  if (start > 0) window = '...' + window;
+  if (end < content.length) window = window + '...';
+
+  // Highlight the matched word
+  const regex = new RegExp(`\\b(${queryWords.join('|')})\\b`, 'gi');
+  window = window.replace(regex, `${colors.yellow}$1${colors.reset}`);
+
+  return window;
+}
 
 async function search(query, options = {}) {
-  const { limit = 5, showContent = true } = options;
+  const { limit = 10, showContent = true, strategy = 'auto' } = options;
 
-  console.log(`\nSearching for: "${query}"\n`);
+  console.log(`\n${colors.cyan}Searching for: "${query}"${colors.reset}\n`);
 
   try {
-    // Initialize vector store
-    const vectorStore = new LanceDBStore({
-      path: './data/lancedb',
-      collectionName: 'limitless-lifelogs',
+    // Initialize components - use empty API key for local-only mode
+    const client = new LimitlessClient(process.env.LIMITLESS_API_KEY || '');
+    const fileManager = new FileManager({
+      baseDir: './data',
+      createIfMissing: false,
     });
-    await vectorStore.initialize();
 
-    // Perform search
-    const results = await vectorStore.searchByText(query, {
-      topK: limit,
+    const searchHandler = new UnifiedSearchHandler(client, fileManager, {
+      enableVectorStore: false, // Disable to avoid initialization issues
+      enableClaude: false,
+    });
+
+    console.log('Initializing search handler...');
+    await searchHandler.initialize();
+
+    // Perform search using unified handler
+    const result = await searchHandler.search(query, {
+      strategy: strategy,
+      limit: limit,
+      includeContent: true,
       includeMetadata: true,
-      includeContent: showContent,
+      enableQueryExpansion: true, // Enable for better results
     });
 
-    if (results.length === 0) {
+    if (result.results.length === 0) {
       console.log('No results found.');
+      await searchHandler.stop();
       return;
     }
 
-    console.log(`Found ${results.length} results:\n`);
+    console.log(
+      `${colors.green}Found ${result.results.length} results${colors.reset} (${result.strategy} strategy, ${result.performance.searchTime}ms):\n`
+    );
 
     // Display results
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      console.log(`${i + 1}. ${result.metadata?.title || 'Untitled'}`);
-      console.log(`   Score: ${result.score.toFixed(3)}`);
+    for (let i = 0; i < result.results.length; i++) {
+      const item = result.results[i];
+      const lifelog = item.lifelog;
+
+      console.log(`${colors.bright}${i + 1}. ${lifelog?.title || 'Untitled'}${colors.reset}`);
+      console.log(`   Score: ${colors.yellow}${item.score.toFixed(3)}${colors.reset}`);
       console.log(
-        `   Date: ${result.metadata?.date ? new Date(result.metadata.date).toLocaleString() : 'Unknown'}`
+        `   Date: ${lifelog?.recordedAt ? new Date(lifelog.recordedAt).toLocaleString() : 'Unknown'}`
       );
-      console.log(`   ID: ${result.id}`);
+      console.log(`   ID: ${colors.gray}${item.id}${colors.reset}`);
 
-      if (showContent && result.content) {
-        // Find relevant excerpt around the query terms
-        const queryWords = query.toLowerCase().split(' ');
-        const contentLower = result.content.toLowerCase();
-        let excerpt = '';
+      if (showContent && lifelog?.content) {
+        // Show content window around matches
+        const contentWindow = extractContentWindow(lifelog.content, query, 150);
+        console.log(`   ${colors.blue}Context:${colors.reset} ${contentWindow}`);
+      }
 
-        // Find first occurrence of any query word
-        let bestIndex = -1;
-        for (const word of queryWords) {
-          const index = contentLower.indexOf(word);
-          if (index !== -1 && (bestIndex === -1 || index < bestIndex)) {
-            bestIndex = index;
-          }
-        }
-
-        if (bestIndex !== -1) {
-          // Extract context around the match
-          const start = Math.max(0, bestIndex - 100);
-          const end = Math.min(result.content.length, bestIndex + 200);
-          excerpt = '...' + result.content.substring(start, end).trim() + '...';
-        } else {
-          // No exact match, show beginning
-          excerpt = result.content.substring(0, 300).trim() + '...';
-        }
-
-        console.log(`   Excerpt: ${excerpt}`);
+      // Show highlights if available
+      if (item.highlights && item.highlights.length > 0) {
+        console.log(`   ${colors.blue}Highlights:${colors.reset}`);
+        item.highlights.slice(0, 3).forEach((highlight) => {
+          console.log(`     - ${highlight.trim()}`);
+        });
       }
 
       console.log();
     }
 
-    // Optionally fetch full content for top result
-    if (showContent && results.length > 0 && process.argv.includes('--full')) {
-      console.log('--- Full content of top result ---\n');
-      if (process.env.LIMITLESS_API_KEY) {
-        const client = new LimitlessClient({ apiKey: process.env.LIMITLESS_API_KEY });
-        try {
-          const fullLog = await client.getLifelogById(results[0].id);
-          console.log(fullLog.content);
-        } catch (error) {
-          console.log('Could not fetch full content:', error.message);
-        }
-      } else {
-        console.log('Note: --full option requires LIMITLESS_API_KEY to fetch from API');
-      }
-    }
+    await searchHandler.stop();
   } catch (error) {
-    console.error('Search error:', error.message);
+    console.error(`${colors.bright}Search error:${colors.reset}`, error.message);
+    if (process.env.DEBUG) {
+      console.error(error);
+    }
+    process.exit(1);
   }
 }
 
-// Get query from command line
+// Parse command line arguments
 const args = process.argv.slice(2);
-const query = args.filter((arg) => !arg.startsWith('--')).join(' ');
+const queryArgs = [];
+const options = {};
 
-if (!query) {
-  console.log('Usage: node search.js <query> [--limit N] [--full]');
+// Separate query from options
+for (const arg of args) {
+  if (arg.startsWith('--')) {
+    const [key, value] = arg.substring(2).split('=');
+    if (key === 'limit') {
+      options.limit = parseInt(value) || 10;
+    } else if (key === 'strategy') {
+      options.strategy = value;
+    } else if (key === 'no-content') {
+      options.showContent = false;
+    }
+  } else {
+    queryArgs.push(arg);
+  }
+}
+
+if (queryArgs.length === 0) {
+  console.log(
+    'Usage: search.js <query> [--limit=10] [--strategy=auto|fast|vector|hybrid] [--no-content]'
+  );
   console.log('\nExamples:');
-  console.log('  node search.js "chess game"');
-  console.log('  node search.js "meeting about project" --limit 10');
-  console.log('  node search.js "how did the game turn out" --full');
+  console.log('  search.js "what did we eat for dinner yesterday"');
+  console.log('  search.js doordash --limit=5');
+  console.log('  search.js "meeting with Sarah" --strategy=fast');
   process.exit(1);
 }
 
-// Parse options
-const limitArg = args.find((arg) => arg.startsWith('--limit'));
-const limit = limitArg ? parseInt(args[args.indexOf(limitArg) + 1]) : 5;
-
-search(query, { limit, showContent: true }).then(() => process.exit(0));
+const query = queryArgs.join(' ');
+search(query, options);

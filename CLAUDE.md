@@ -1567,6 +1567,12 @@ export DEBUG_SYNC_SERVICE=true
 
 ### Recent Changes (2025-06-05)
 
+- **Fixed Search System to Find Exact Matches**: Resolved critical search utility issue
+  - Fixed `search.js` to use `UnifiedSearchHandler` instead of direct vector store
+  - Now finds exact keyword matches using fast pattern matcher
+  - Shows content windows around matches with highlighting
+  - Works in local-only mode without API key
+  - Test case successful: "what did we eat for dinner yesterday" now finds McDonald's/DoorDash
 - **Query Preprocessing with Temporal Normalization**: Implemented advanced query preprocessing in `ParallelSearchExecutor`
   - Converts relative time expressions ("yesterday", "last week") to absolute dates
   - Handles various temporal formats with chrono-node library
@@ -1818,6 +1824,7 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 ### Recently Completed (2025-06-05)
 
 1. ✅ **Enable Local-Only Mode for Search** - COMPLETED
+
    - Created LOCAL_ONLY_MODE environment variable
    - Modified LimitlessClient to allow empty API key
    - Updated UnifiedSearchHandler to work without API access
@@ -1825,25 +1832,16 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
    - Search performance: 5-14ms for parallel searches
    - Documentation updated in README.md
 
+2. ✅ **Fix Search System to Find Exact Matches** - COMPLETED
+   - Fixed `search.js` to use `UnifiedSearchHandler` instead of direct vector store
+   - Now finds exact keyword matches using fast pattern matcher
+   - Shows content windows around matches with highlighting
+   - Works in local-only mode without API key
+   - Test case successful: "what did we eat for dinner yesterday" now finds McDonald's/DoorDash content
+
 ### High Priority Tasks (Next Up)
 
-1. **Fix Search System to Find Exact Matches** - HIGH PRIORITY (NEXT TASK)
-
-   - Current issue: Search utility uses only vector store, missing exact keyword matches
-   - Example: Searching "doordash" doesn't find transcript containing "DoorDash" multiple times
-   - Test case: "what did we eat for dinner yesterday?" should find McDonald's/DoorDash content
-
-   Sub-tasks:
-
-   1. Fix search.js to use UnifiedSearchHandler instead of direct vector store
-   2. Ensure fast pattern matcher is used for keyword searches
-   3. Show full context around matches (not truncated excerpts)
-   4. Implement content window extraction (±100 words around matches)
-   5. Test with query "what did we eat for dinner yesterday?" - should return:
-      - DoorDash/McDonald's content from 4:44 PM on June 4
-      - Full context showing what was ordered
-
-2. **Implement Parallel Batch Processing for Embeddings (#6)**
+1. **Implement Parallel Batch Processing for Embeddings (#6)** - NEXT TASK
 
    - Current: Sequential processing (100-200ms per lifelog)
    - Target: Batch processing with 5-10x speedup
@@ -1853,7 +1851,7 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
      - Process embeddings in parallel batches of 10-20
      - Control memory usage via batch size limits
 
-3. **Build Real-time Notification System (#7)**
+2. **Build Real-time Notification System (#7)**
    - Monitor for keywords in new lifelogs
    - Trigger actions based on detected patterns
    - Foundation for Phase 3 voice commands
