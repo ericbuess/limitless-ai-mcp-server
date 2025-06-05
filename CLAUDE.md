@@ -682,6 +682,49 @@ npm run test:preprocessing
 node scripts/utilities/test-preprocessing.js
 ```
 
+## Local Search Architecture
+
+### IMPORTANT: Search is ALWAYS Local
+
+- **Search NEVER makes API calls** - it only uses locally downloaded files
+- **No API key is required for search operations**
+- **There is no "local-only mode"** - search is inherently local by design
+- **API is used ONLY for initial download and continuous monitoring**
+
+### How It Works
+
+1. **Data Download**: Sync service downloads lifelogs via API to local storage
+2. **Local Indexing**: Fast pattern matcher builds index from local files
+3. **Search Execution**: All searches run against local data only
+4. **No Network Dependency**: Search works offline once data is downloaded
+
+### Code Example
+
+```typescript
+// Search initialization - NO API client needed
+const fileManager = new FileManager({ baseDir: './data' });
+const searchHandler = new UnifiedSearchHandler(
+  null, // No client needed - search is always local
+  fileManager
+);
+await searchHandler.initialize();
+const results = await searchHandler.search('your query');
+```
+
+### Why This Design?
+
+- **Performance**: Local search is 59x faster than API calls
+- **Reliability**: Works offline, no network latency
+- **Privacy**: Your data stays on your machine
+- **Scalability**: Can handle millions of lifelogs efficiently
+
+### Common Misconceptions
+
+- ❌ "I need to set a flag for local-only search" - No, search is always local
+- ❌ "Search requires API credentials" - No, only sync requires API key
+- ❌ "Search queries hit the Limitless API" - No, all queries run locally
+- ✅ "I need to sync data first before searching" - Yes, this is correct!
+
 ## Phase 2: Intelligent Search & Voice Keywords Implementation
 
 > ⚡ **Phase 2 Status**: Complete ✅  
