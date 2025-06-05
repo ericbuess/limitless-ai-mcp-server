@@ -6,6 +6,94 @@
 
 This is a Model Context Protocol (MCP) server that enables AI assistants to interact with the Limitless AI API, specifically for accessing Pendant recordings (lifelogs). The server provides structured tools for searching, listing, and retrieving recording data.
 
+## Important AI Assistant Guidelines
+
+### Using Sub-Agents to Preserve Context
+
+Since CLAUDE.md is comprehensive (~45KB), use sub-agents strategically to preserve context:
+
+**When to use sub-agents:**
+
+- **File Analysis**: When examining multiple files or large codebases
+- **Documentation Research**: When gathering information from multiple sources
+- **Complex Refactoring**: When planning large-scale changes
+- **Testing & Debugging**: When running multiple test scenarios
+- **Performance Analysis**: When collecting metrics from various sources
+
+**How to use sub-agents effectively:**
+
+```typescript
+// Example: Instead of reading 10 files directly, use a sub-agent
+await Task({
+  description: 'Analyze search implementation',
+  prompt:
+    'Review all files in src/search/ and summarize the search architecture, key patterns, and potential improvements. Focus on the query routing logic.',
+});
+
+// The sub-agent reads all files and returns only the summary, preserving your context
+```
+
+**Benefits:**
+
+- Sub-agent reads files and returns summaries only
+- Preserves main context for decision-making
+- Allows parallel analysis of multiple areas
+- Reduces context usage by 80-90%
+
+### Documentation & Planning Rules
+
+**CRITICAL: CLAUDE.md is the ONLY place for documentation and planning**
+
+1. **Never create new .md files** for:
+
+   - Planning documents
+   - Status updates
+   - Implementation notes
+   - TODO lists
+   - Architecture decisions
+   - Meeting notes
+
+2. **Always update CLAUDE.md** with:
+
+   - New implementation details
+   - Changed architecture
+   - Discovered limitations
+   - Performance metrics
+   - Future plans
+
+3. **Why this matters:**
+
+   - CLAUDE.md persists across context resets
+   - Used for `/compact` command summaries
+   - Single source of truth
+   - Prevents documentation sprawl
+
+4. **If tempted to create a new .md file:**
+   - Add a new section to CLAUDE.md instead
+   - Use comments in code for implementation-specific notes
+   - Update existing sections rather than creating new files
+
+### Compact Command Preparation
+
+This file is critical for context preservation. When context gets full:
+
+- The `/compact` command (automatic or user-initiated) uses CLAUDE.md
+- Keep all important discoveries, decisions, and plans here
+- Remove outdated information during updates
+- Maintain clear section organization
+
+**Example update pattern:**
+
+```typescript
+// When discovering something new
+// ❌ WRONG: Create PERFORMANCE_FINDINGS.md
+// ✅ RIGHT: Update the "Performance Metrics" section in CLAUDE.md
+
+// When planning a feature
+// ❌ WRONG: Create FEATURE_PLAN.md
+// ✅ RIGHT: Add to "Phase 3" or "Future Enhancements" in CLAUDE.md
+```
+
 ## Project Structure
 
 ```
@@ -998,6 +1086,70 @@ await Task({
 // Avoid: Direct searches that fill up context
 // await WebSearch(...) // Full results enter context
 ```
+
+### Practical Sub-Agent Patterns
+
+**Pattern 1: Multi-File Analysis**
+
+```typescript
+// Instead of reading 20 test files individually
+await Task({
+  description: 'Analyze test coverage',
+  prompt:
+    'Review all files in tests/ directory. Identify which features lack tests, testing patterns used, and priority areas for new tests. Summarize findings.',
+});
+```
+
+**Pattern 2: Codebase Exploration**
+
+```typescript
+// When searching for implementation details
+await Task({
+  description: 'Find authentication logic',
+  prompt:
+    'Search the codebase for how API authentication is implemented. Look for API key handling, header configuration, and error handling. Report file locations and key patterns.',
+});
+```
+
+**Pattern 3: Parallel Information Gathering**
+
+```typescript
+// Launch multiple sub-agents for different aspects
+const [searchAnalysis, performanceData, errorPatterns] = await Promise.all([
+  Task({ description: 'Analyze search', prompt: 'Review search implementation...' }),
+  Task({ description: 'Gather metrics', prompt: 'Extract performance metrics...' }),
+  Task({ description: 'Find errors', prompt: 'Identify error handling patterns...' }),
+]);
+```
+
+**Pattern 4: Documentation Consolidation**
+
+```typescript
+// When consolidating multiple docs (like we just did!)
+await Task({
+  description: 'Consolidate documentation',
+  prompt:
+    'Read all .md files in root directory. Extract unique information from each. Organize by topic: setup, architecture, development, troubleshooting. Preserve all technical details.',
+});
+```
+
+**Pattern 5: Large-Scale Refactoring Planning**
+
+```typescript
+// When planning major changes
+await Task({
+  description: 'Plan refactoring',
+  prompt:
+    'Analyze src/vector-store/* files. Identify: 1) Current architecture, 2) Tight couplings, 3) Potential breaking changes, 4) Migration strategy. Create step-by-step refactoring plan.',
+});
+```
+
+**When NOT to use sub-agents:**
+
+- Simple file reads (1-2 files)
+- Quick searches with Grep/Glob
+- Direct code editing
+- Running simple commands
 
 ### Scalability Considerations
 
