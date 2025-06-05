@@ -183,6 +183,64 @@ export class FileManager {
     return results;
   }
 
+  /**
+   * Load all lifelogs from local storage
+   * Used by search to build fast index from local files instead of API
+   */
+  async loadAllLifelogs(): Promise<Phase2Lifelog[]> {
+    const allLifelogs: Phase2Lifelog[] = [];
+
+    try {
+      // Get all years
+      const years = await fs.readdir(this.lifelogsDir);
+
+      for (const year of years) {
+        const yearPath = path.join(this.lifelogsDir, year);
+        const yearStat = await fs.stat(yearPath);
+        if (!yearStat.isDirectory()) continue;
+
+        const months = await fs.readdir(yearPath);
+
+        for (const month of months) {
+          const monthPath = path.join(yearPath, month);
+          const monthStat = await fs.stat(monthPath);
+          if (!monthStat.isDirectory()) continue;
+
+          const days = await fs.readdir(monthPath);
+
+          for (const day of days) {
+            const dayPath = path.join(monthPath, day);
+            const dayStat = await fs.stat(dayPath);
+            if (!dayStat.isDirectory()) continue;
+
+            // Construct date for this directory
+            const date = new Date(`${year}-${month}-${day}`);
+
+            // Get all lifelogs for this day
+            const ids = await this.listLifelogsByDate(date);
+
+            // Load each lifelog
+            for (const id of ids) {
+              const lifelog = await this.loadLifelog(id, date);
+              if (lifelog) {
+                allLifelogs.push(lifelog);
+              }
+            }
+          }
+        }
+      }
+
+      // Sort by date (newest first)
+      allLifelogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      logger.info(`Loaded ${allLifelogs.length} lifelogs from local storage`);
+      return allLifelogs;
+    } catch (error) {
+      logger.error('Error loading all lifelogs', { error });
+      return [];
+    }
+  }
+
   async getStorageStats(): Promise<{
     totalLifelogs: number;
     totalEmbeddings: number;

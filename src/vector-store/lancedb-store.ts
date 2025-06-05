@@ -120,6 +120,11 @@ export class LanceDBStore extends BaseVectorStore {
       contexts.push(`Tags: ${metadata.tags.join(', ')}`);
     }
 
+    // Add keywords for better semantic matching
+    if (metadata?.keywords && Array.isArray(metadata.keywords) && metadata.keywords.length > 0) {
+      contexts.push(`Keywords: ${metadata.keywords.join(', ')}`);
+    }
+
     // This is the key: prepend context before content
     const contextString = contexts.length > 0 ? contexts.join('. ') + '\n\n' : '';
     return contextString + content;

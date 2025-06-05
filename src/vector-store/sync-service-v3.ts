@@ -411,6 +411,26 @@ export class SyncServiceV3 {
                   const existingEmbedding = await this.fileManager.loadEmbedding(id, currentDate);
 
                   if (!existingEmbedding) {
+                    // Load metadata to get keywords
+                    let keywords: string[] = [];
+                    try {
+                      const metaPath = path.join(
+                        this.fileManager['lifelogsDir'],
+                        currentDate.getFullYear().toString(),
+                        (currentDate.getMonth() + 1).toString().padStart(2, '0'),
+                        currentDate.getDate().toString().padStart(2, '0'),
+                        `${lifelog.id}.meta.json`
+                      );
+                      const metaContent = await fs.readFile(metaPath, 'utf8');
+                      const metadata = JSON.parse(metaContent);
+                      keywords = metadata.keywords || [];
+                    } catch (error) {
+                      logger.debug('Could not load keywords from metadata', {
+                        id: lifelog.id,
+                        error,
+                      });
+                    }
+
                     // Add to vector store
                     await this.vectorStore.addDocuments([
                       {
@@ -421,6 +441,7 @@ export class SyncServiceV3 {
                           date: lifelog.createdAt,
                           duration: lifelog.duration,
                           headings: lifelog.headings,
+                          keywords: keywords,
                         },
                       },
                     ]);
@@ -516,24 +537,66 @@ export class SyncServiceV3 {
           checkTime: new Date().toISOString(),
         });
 
-        // Get recent lifelogs (last 2 days to ensure we don't miss anything)
-        const twoDaysAgo = new Date();
-        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+        // Get recent lifelogs - check today and yesterday to ensure we don't miss anything
+        // Using day-by-day queries to work around API limitation of 25 items per range query
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
 
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        const recentLifelogs = await this.client.listLifelogsByRange({
-          start: twoDaysAgo.toISOString().split('T')[0],
-          end: tomorrow.toISOString().split('T')[0],
-          limit: 200,
-          includeMarkdown: true,
-          includeHeadings: true,
+        logger.info('Starting monitoring check for recent days', {
+          todayDate: today.toISOString().split('T')[0],
+          yesterdayDate: yesterday.toISOString().split('T')[0],
+          lastProcessedTimestamp: this.progress.lastProcessedTimestamp,
         });
 
-        logger.info('Monitoring API response', {
+        // Query each day separately to avoid API limitation
+        const recentLifelogs: any[] = [];
+
+        // Check yesterday first
+        try {
+          const yesterdayLogs = await this.client.listLifelogsByDate(
+            yesterday.toISOString().split('T')[0],
+            {
+              limit: 1000,
+              includeMarkdown: true,
+              includeHeadings: true,
+            }
+          );
+          logger.info(
+            `Found ${yesterdayLogs.length} lifelogs for yesterday (${yesterday.toISOString().split('T')[0]})`
+          );
+          recentLifelogs.push(...yesterdayLogs);
+        } catch (error) {
+          logger.error("Failed to fetch yesterday's lifelogs", {
+            date: yesterday.toISOString().split('T')[0],
+            error,
+          });
+        }
+
+        // Check today
+        try {
+          const todayLogs = await this.client.listLifelogsByDate(
+            today.toISOString().split('T')[0],
+            {
+              limit: 1000,
+              includeMarkdown: true,
+              includeHeadings: true,
+            }
+          );
+          logger.info(
+            `Found ${todayLogs.length} lifelogs for today (${today.toISOString().split('T')[0]})`
+          );
+          recentLifelogs.push(...todayLogs);
+        } catch (error) {
+          logger.error("Failed to fetch today's lifelogs", {
+            date: today.toISOString().split('T')[0],
+            error,
+          });
+        }
+
+        logger.info('Monitoring API response summary', {
           totalFound: recentLifelogs.length,
-          dateRange: `${twoDaysAgo.toISOString().split('T')[0]} to ${tomorrow.toISOString().split('T')[0]}`,
+          datesChecked: [yesterday.toISOString().split('T')[0], today.toISOString().split('T')[0]],
           lastProcessedTimestamp: this.progress.lastProcessedTimestamp,
         });
 
@@ -547,7 +610,7 @@ export class SyncServiceV3 {
 
         logger.info(`Processing ${sortedLifelogs.length} lifelogs from monitoring check`);
 
-        // Log first few lifelogs for debugging
+        // Log all lifelogs for debugging
         if (sortedLifelogs.length > 0) {
           logger.info('First lifelog in response', {
             id: sortedLifelogs[0].id,
@@ -558,6 +621,18 @@ export class SyncServiceV3 {
             id: sortedLifelogs[sortedLifelogs.length - 1].id,
             startTime: sortedLifelogs[sortedLifelogs.length - 1].startTime,
             createdAt: new Date(sortedLifelogs[sortedLifelogs.length - 1].startTime).toISOString(),
+          });
+
+          // Log all timestamps to debug what we're getting
+          logger.info('All lifelog timestamps from API:', {
+            count: sortedLifelogs.length,
+            timestamps: sortedLifelogs.map((l) => ({
+              id: l.id,
+              startTime: l.startTime,
+              localTime: new Date(l.startTime).toLocaleString('en-US', {
+                timeZone: 'America/Chicago',
+              }),
+            })),
           });
         }
 
@@ -613,6 +688,23 @@ export class SyncServiceV3 {
 
             // Add to vector store if available
             if (this.vectorStore) {
+              // Load metadata to get keywords
+              let keywords: string[] = [];
+              try {
+                const metaPath = path.join(
+                  this.fileManager['lifelogsDir'],
+                  new Date(lifelog.createdAt).getFullYear().toString(),
+                  (new Date(lifelog.createdAt).getMonth() + 1).toString().padStart(2, '0'),
+                  new Date(lifelog.createdAt).getDate().toString().padStart(2, '0'),
+                  `${lifelog.id}.meta.json`
+                );
+                const metaContent = await fs.readFile(metaPath, 'utf8');
+                const metadata = JSON.parse(metaContent);
+                keywords = metadata.keywords || [];
+              } catch (error) {
+                logger.debug('Could not load keywords from metadata', { id: lifelog.id, error });
+              }
+
               await this.vectorStore.addDocuments([
                 {
                   id: lifelog.id,
@@ -622,6 +714,7 @@ export class SyncServiceV3 {
                     date: lifelog.createdAt,
                     duration: lifelog.duration,
                     headings: lifelog.headings,
+                    keywords: keywords,
                   },
                 },
               ]);

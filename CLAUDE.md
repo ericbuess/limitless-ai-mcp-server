@@ -1739,14 +1739,53 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 
 ### Next Up (In Order)
 
-1. **Create parallel batch processing for embeddings (#6)** - HIGH PRIORITY
+**✅ Search System Issues Fixed (2025-06-05)**
+
+Successfully resolved all critical search issues:
+
+1. **Fixed Fast-Search to Use Local Files** - COMPLETED
+
+   - Added `loadAllLifelogs()` method to FileManager
+   - Updated `buildFastSearchIndex()` to load from local storage
+   - Now loads 185 lifelogs from local files (not limited to API's 30 days)
+
+2. **Enhanced Contextual RAG Implementation** - COMPLETED
+
+   - Keywords are now included in vector store metadata during sync
+   - `addContext()` method now prepends keywords to embeddings
+   - Both monitoring and vectorization phases include keywords
+
+3. **Verified No API Usage in Search** - COMPLETED
+   - All search strategies now use local files exclusively
+   - Fast-keyword uses local index, vector uses LanceDB
+   - API calls only occur in sync service as intended
+
+### High Priority Tasks
+
+1. **Test and Improve Parallel Search with Context Sharing** - NEXT
+
+   - Current performance: 5.2x speedup (5ms parallel vs 26ms sequential)
+   - Test with various query types to identify improvement opportunities
+   - Potential improvements to explore:
+     - Better keyword extraction from high-scoring results
+     - Smarter date discovery patterns
+     - Enhanced consensus scoring algorithms
+     - Query preprocessing (temporal normalization, intent detection)
+     - Content window extraction (±100 words around matches)
+     - BM25 scoring for better relevance
+     - Time-decay scoring (recent = more relevant)
+
+2. **Implement Parallel Batch Processing for Embeddings (#6)** - AFTER SEARCH TESTING
 
    - Current: Sequential processing (100-200ms per lifelog)
    - Target: Batch processing with 5-10x speedup
    - Benefits: Faster initial sync, better CPU utilization
-   - Implementation: Worker threads or batch pipeline
+   - Implementation approach:
+     - Use worker threads or batch pipeline
+     - Process embeddings in parallel batches of 10-20
+     - Control memory usage via batch size limits
 
-2. **Build real-time notification system for new lifelogs (#7)** - HIGH PRIORITY
+3. **Build Real-time Notification System (#7)** - FUTURE
    - Monitor for keywords in new lifelogs
    - Trigger actions based on detected patterns
    - Foundation for Phase 3 voice commands

@@ -7,7 +7,7 @@ import { ClaudeOrchestrator } from './claude-orchestrator.js';
 import { IntelligentCache } from '../cache/intelligent-cache.js';
 import { ParallelSearchExecutor } from './parallel-search-executor.js';
 import { logger } from '../utils/logger.js';
-import { Phase2Lifelog, toPhase2Lifelog } from '../types/phase2.js';
+import type { Phase2Lifelog } from '../types/phase2.js';
 import type {
   VectorSearchResult,
   BaseVectorStore,
@@ -504,25 +504,20 @@ export class UnifiedSearchHandler {
     logger.info('Building fast search index');
 
     try {
-      // Get recent lifelogs (last 30 days)
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
+      // Load ALL lifelogs from local storage instead of using API
+      const localLifelogs = await this.fileManager.loadAllLifelogs();
 
-      const apiLifelogs = await this.client.listLifelogsByRange({
-        start: startDate.toISOString().split('T')[0],
-        end: endDate.toISOString().split('T')[0],
-        limit: 1000,
+      // No need to convert - loadAllLifelogs() already returns Phase2Lifelog[]
+      await this.fastMatcher.buildIndex(localLifelogs);
+      logger.info('Fast search index built from local files', {
+        lifelogCount: localLifelogs.length,
+        source: 'local',
       });
 
-      const phase2Lifelogs = apiLifelogs.map(toPhase2Lifelog);
-      await this.fastMatcher.buildIndex(phase2Lifelogs);
-      logger.info('Fast search index built', { lifelogCount: phase2Lifelogs.length });
-
       // Also populate vector store if available
-      if (this.vectorStore && phase2Lifelogs.length > 0) {
+      if (this.vectorStore && localLifelogs.length > 0) {
         try {
-          const vectorDocs = phase2Lifelogs.map((log) => ({
+          const vectorDocs = localLifelogs.map((log) => ({
             id: log.id,
             content: log.content,
             metadata: {
