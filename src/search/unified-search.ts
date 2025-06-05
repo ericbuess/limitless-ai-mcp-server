@@ -49,6 +49,11 @@ export interface UnifiedSearchResult {
   };
   strategyTimings?: Record<string, number>;
   failedStrategies?: string[];
+  contextInsights?: {
+    hotDocuments: number;
+    discoveredDates: number;
+    relevantKeywords: number;
+  };
 }
 
 export class UnifiedSearchHandler {
@@ -238,7 +243,25 @@ export class UnifiedSearchHandler {
       switch (strategy) {
         case 'parallel':
           if (this.parallelExecutor) {
-            result = await this.parallelExecutor.search(query, classification, options);
+            const parallelResult = await this.parallelExecutor.executeParallelSearch(
+              query,
+              preprocessed,
+              options
+            );
+            result = {
+              query,
+              results: parallelResult.results,
+              strategy: 'parallel',
+              performance: {
+                ...parallelResult.performance,
+                searchTime: parallelResult.performance.totalTime,
+                strategy: 'parallel',
+                cacheHit: false,
+              },
+              strategyTimings: parallelResult.performance.strategyTimings,
+              failedStrategies: parallelResult.performance.failedStrategies,
+              contextInsights: parallelResult.contextInsights,
+            };
           } else {
             // Fallback to hybrid search
             result = await this.executeHybridSearch(query, classification, options);

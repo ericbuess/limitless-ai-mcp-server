@@ -1,419 +1,702 @@
+import { Phase2Lifelog } from '../types/phase2.js';
+import { FastPatternMatcher } from './fast-patterns.js';
 import { logger } from '../utils/logger.js';
-import type { Phase2Lifelog } from '../types/phase2.js';
-import type { UnifiedSearchOptions, UnifiedSearchResult } from './unified-search.js';
-import type { FastPatternMatcher } from './fast-patterns.js';
-import type { BaseVectorStore } from '../vector-store/vector-store.interface.js';
-import type { QueryClassification } from './query-router.js';
+import { BaseVectorStore } from '../vector-store/vector-store.interface.js';
+import { FileManager } from '../storage/file-manager.js';
 
-/**
- * Shared context for inter-strategy communication
- */
-export interface SearchContext {
-  // Discovered date ranges from any strategy
-  discoveredDates: Set<string>;
-  // High-scoring document IDs that other strategies should prioritize
+// Define local types
+interface LifelogSearchResult {
+  id: string;
+  score: number;
+  lifelog: Phase2Lifelog;
+  highlights?: string[];
+  metadata?: Record<string, any>;
+}
+
+interface SearchContext {
   hotDocumentIds: Set<string>;
-  // Keywords found to be particularly relevant
+  discoveredDates: Set<string>;
   relevantKeywords: Set<string>;
-  // Confidence scores from each strategy
   strategyConfidence: Map<string, number>;
-  // Lock for thread-safe updates
   updateContext: (updates: Partial<SearchContext>) => void;
 }
 
-export interface EnhancedSearchStrategy {
+// Import the real interface
+import { PreprocessedQuery as ActualPreprocessedQuery } from './query-preprocessor.js';
+
+// Create adapter interface for compatibility
+interface InternalPreprocessedQuery extends ActualPreprocessedQuery {
+  temporalRefs?: Array<{
+    text: string;
+    date: Date;
+    confidence: number;
+  }>;
+}
+
+interface SearchStrategy {
   name: string;
-  execute: (context: SearchContext) => Promise<any>;
   weight: number;
-  enabled: boolean;
-  // Strategies can subscribe to context updates
-  onContextUpdate?: (context: SearchContext) => void;
+  execute: (query: string, context: SearchContext, options: any) => Promise<LifelogSearchResult[]>;
 }
 
-export interface ParallelSearchResult extends UnifiedSearchResult {
-  strategyTimings: Record<string, number>;
-  failedStrategies: string[];
-  searchContext?: SearchContext;
+interface StrategyTiming {
+  strategy: string;
+  duration: number;
+  resultCount: number;
+  success: boolean;
 }
 
-/**
- * Enhanced parallel search executor with inter-strategy communication
- */
 export class ParallelSearchExecutor {
-  private searchContext!: SearchContext;
+  private strategies: Map<string, SearchStrategy> = new Map();
+  private fileManager: FileManager;
 
   constructor(
     private fastMatcher: FastPatternMatcher,
     private vectorStore: BaseVectorStore | null,
-    _fileManager: any // Future use for metadata search
-  ) {}
-
-  /**
-   * Create a shared context with thread-safe update mechanism
-   */
-  private createSearchContext(): SearchContext {
-    const context: SearchContext = {
-      discoveredDates: new Set(),
-      hotDocumentIds: new Set(),
-      relevantKeywords: new Set(),
-      strategyConfidence: new Map(),
-      updateContext: (updates: Partial<SearchContext>) => {
-        // Thread-safe updates
-        if (updates.discoveredDates) {
-          updates.discoveredDates.forEach((date) => context.discoveredDates.add(date));
-        }
-        if (updates.hotDocumentIds) {
-          updates.hotDocumentIds.forEach((id) => context.hotDocumentIds.add(id));
-        }
-        if (updates.relevantKeywords) {
-          updates.relevantKeywords.forEach((kw) => context.relevantKeywords.add(kw));
-        }
-        if (updates.strategyConfidence) {
-          updates.strategyConfidence.forEach((conf, strategy) =>
-            context.strategyConfidence.set(strategy, conf)
-          );
-        }
-      },
-    };
-    return context;
+    fileManager: FileManager
+  ) {
+    this.fileManager = fileManager;
+    this.initializeStrategies();
   }
 
-  /**
-   * Execute all search strategies with inter-strategy communication
-   */
-  async search(
-    query: string,
-    classification: QueryClassification,
-    options: UnifiedSearchOptions = {}
-  ): Promise<ParallelSearchResult> {
-    const startTime = Date.now();
-    const limit = options.limit || 20;
-    this.searchContext = this.createSearchContext();
-
-    // Define enhanced search strategies
-    const strategies: EnhancedSearchStrategy[] = [
-      {
-        name: 'fast-keyword',
-        execute: async (context) => {
-          const results = await this.fastMatcher.search(query, {
-            maxResults: limit * 2, // Get more results to filter
-            scoreThreshold: options.scoreThreshold || 0.1,
-          });
-
-          // Share high-scoring results with other strategies
-          if (results.length > 0) {
-            const topResults = results.slice(0, 5);
-            const hotIds = new Set(topResults.map((r) => r.lifelog.id));
-            const dates = new Set(
-              topResults.map((r) => new Date(r.lifelog.createdAt).toISOString().split('T')[0])
-            );
-
-            context.updateContext({
-              hotDocumentIds: hotIds,
-              discoveredDates: dates,
-              strategyConfidence: new Map([['fast-keyword', results[0].score]]),
-            });
-          }
-
-          // Boost scores for documents that vector search also found
-          return results.map((result) => ({
-            ...result,
-            score: context.hotDocumentIds.has(result.lifelog.id)
-              ? result.score * 1.2
-              : result.score,
-          }));
-        },
-        weight: 0.3,
-        enabled: true,
-      },
-      {
-        name: 'vector-semantic',
-        execute: async (context) => {
-          if (!this.vectorStore) return [];
-
-          // Use discovered keywords to enhance vector search
-          const enhancedQuery =
-            context.relevantKeywords.size > 0
-              ? `${query} ${Array.from(context.relevantKeywords).join(' ')}`
-              : query;
-
-          const results = await this.vectorStore.searchByText(enhancedQuery, {
-            topK: limit * 2,
-            includeContent: options.includeContent,
-            includeMetadata: options.includeMetadata,
-            scoreThreshold: options.scoreThreshold,
-            // Prefer documents from discovered dates
-            filter:
-              context.discoveredDates.size > 0
-                ? {
-                    date: { $in: Array.from(context.discoveredDates) },
-                  }
-                : undefined,
-          });
-
-          // Share semantic insights
-          if (results.length > 0) {
-            const topResults = results.slice(0, 5);
-            const hotIds = new Set(topResults.map((r) => r.id));
-
-            // Extract keywords from top semantic matches
-            const keywords = new Set<string>();
-            topResults.forEach((r) => {
-              if (r.metadata?.keywords) {
-                r.metadata.keywords.forEach((kw: string) => keywords.add(kw));
-              }
-            });
-
-            context.updateContext({
-              hotDocumentIds: hotIds,
-              relevantKeywords: keywords,
-              strategyConfidence: new Map([['vector-semantic', results[0].score]]),
-            });
-          }
-
-          return results;
-        },
-        weight: 0.4,
-        enabled: this.vectorStore !== null,
-      },
-      {
-        name: 'smart-date',
-        execute: async (context) => {
-          // Use discovered dates from other strategies
-          const datesToSearch = new Set([
-            ...(classification.extractedEntities.dates || []),
-            ...context.discoveredDates,
-          ]);
-
-          if (datesToSearch.size === 0) return [];
-
-          const allResults = [];
-          for (const date of datesToSearch) {
-            const dateObj = date instanceof Date ? date : new Date(date);
-            const results = await this.fastMatcher.searchByDateRange(dateObj, dateObj, query, {
-              maxResults: limit,
-            });
-            allResults.push(...results);
-          }
-
-          // Boost scores for hot documents
-          return allResults.map((result) => ({
-            ...result,
-            score: context.hotDocumentIds.has(result.lifelog.id)
-              ? result.score * 1.3
-              : result.score,
-          }));
-        },
-        weight: 0.2,
-        enabled:
-          (classification.extractedEntities.dates?.length ?? 0) > 0 ||
-          this.searchContext.discoveredDates.size > 0,
-      },
-      {
-        name: 'context-aware-filter',
-        execute: async (context) => {
-          // This strategy specifically looks for documents that multiple strategies agree on
-          if (context.hotDocumentIds.size === 0) return [];
-
-          // Get metadata for hot documents
-          const hotDocResults: any[] = [];
-          // In a real implementation, fetch metadata for hot documents from fileManager
-          logger.debug('Context-aware filtering for hot documents', {
-            hotDocs: context.hotDocumentIds.size,
-            keywords: context.relevantKeywords.size,
-          });
-
-          return hotDocResults;
-        },
-        weight: 0.1,
-        enabled: true,
-      },
-    ];
-
-    // Filter enabled strategies
-    const enabledStrategies = strategies.filter((s) => s.enabled);
-    logger.info(`Executing ${enabledStrategies.length} search strategies with context sharing`, {
-      query,
-      strategies: enabledStrategies.map((s) => s.name),
-    });
-
-    // Execute all strategies in parallel with shared context
-    const strategyPromises = enabledStrategies.map((strategy) => ({
-      name: strategy.name,
-      weight: strategy.weight,
-      promise: strategy
-        .execute(this.searchContext)
-        .then((result) => ({
-          success: true,
-          result,
-          timing: Date.now() - startTime,
-        }))
-        .catch((error) => {
-          logger.warn(`Search strategy ${strategy.name} failed`, { error });
-          return {
-            success: false,
-            error,
-            timing: Date.now() - startTime,
-          };
-        }),
-    }));
-
-    // Wait for all strategies to complete
-    const results = await Promise.allSettled(strategyPromises.map((sp) => sp.promise));
-
-    // Process results
-    const strategyTimings: Record<string, number> = {};
-    const failedStrategies: string[] = [];
-    const successfulResults: Array<{
-      name: string;
-      weight: number;
-      results: any[];
-    }> = [];
-
-    results.forEach((result, index) => {
-      const strategy = strategyPromises[index];
-
-      if (result.status === 'fulfilled' && result.value.success) {
-        strategyTimings[strategy.name] = result.value.timing;
-        successfulResults.push({
-          name: strategy.name,
-          weight: strategy.weight,
-          results: Array.isArray((result.value as any).result) ? (result.value as any).result : [],
+  private initializeStrategies() {
+    // Phase 1 strategies (fast discovery)
+    this.strategies.set('fast-keyword', {
+      name: 'fast-keyword',
+      weight: 0.3,
+      execute: async (query, context, options) => {
+        const results = await this.fastMatcher.search(query, {
+          maxResults: options.limit || 50,
         });
-      } else {
-        failedStrategies.push(strategy.name);
-        strategyTimings[strategy.name] =
-          result.status === 'fulfilled' ? result.value.timing : Date.now() - startTime;
-      }
+
+        // Extract keywords and dates from top results
+        const keywords = new Set<string>();
+        const dates = new Set<string>();
+        const hotIds = new Set<string>();
+
+        // Convert FastSearchResult to LifelogSearchResult
+        const searchResults: LifelogSearchResult[] = results.map((r) => ({
+          id: r.lifelog.id,
+          score: r.score,
+          lifelog: r.lifelog,
+          highlights: r.matches.map((m) => m.context),
+          metadata: {
+            source: 'fast-keyword',
+            matchType: r.matches[0]?.type || 'partial',
+          },
+        }));
+
+        // Process top 10 results for context
+        searchResults.slice(0, 10).forEach((result) => {
+          hotIds.add(result.id);
+
+          // Extract dates from content
+          const dateMatches = result.lifelog.content.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/g);
+          if (dateMatches) {
+            dateMatches.forEach((date) => dates.add(date));
+          }
+
+          // Extract significant keywords from matched content
+          const queryWords = query
+            .toLowerCase()
+            .split(/\s+/)
+            .filter((w) => w.length > 2);
+          const content = result.lifelog.content.toLowerCase();
+
+          // Extract multi-word phrases from content (domain-agnostic)
+          const phrasePatterns = [
+            // Numbered items (e.g., "version 2", "chapter 3")
+            /\b\w+\s+\d+\b/gi,
+            // Capitalized multi-word phrases (likely proper nouns)
+            /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+\b/g,
+            // Common bigrams/trigrams around query words
+            new RegExp(`\\b\\w+\\s+(?:${queryWords.join('|')})\\s+\\w+\\b`, 'gi'),
+          ];
+
+          phrasePatterns.forEach((pattern) => {
+            const matches = content.match(pattern);
+            if (matches) {
+              matches.forEach((match) => {
+                if (match.length > 3 && match.split(/\s+/).length <= 3) {
+                  keywords.add(match.toLowerCase());
+                }
+              });
+            }
+          });
+
+          queryWords.forEach((word) => {
+            // Find word boundaries around matches
+            const regex = new RegExp(`\\b(\\w*${word}\\w*)\\b`, 'gi');
+            const matches = content.match(regex);
+            if (matches) {
+              matches.forEach((match) => {
+                if (match.length > 3) keywords.add(match);
+              });
+            }
+          });
+        });
+
+        // Update context for other strategies
+        context.updateContext({
+          hotDocumentIds: hotIds,
+          discoveredDates: dates,
+          relevantKeywords: keywords,
+          strategyConfidence: new Map([['fast-keyword', searchResults[0]?.score || 0]]),
+        });
+
+        logger.debug('Fast-keyword strategy completed', {
+          resultCount: searchResults.length,
+          hotDocs: hotIds.size,
+          keywords: Array.from(keywords),
+          dates: Array.from(dates),
+        });
+
+        return searchResults;
+      },
     });
 
-    // Merge results with context-aware scoring
-    const mergedResults = this.mergeResultsWithContext(
-      successfulResults,
-      limit,
-      this.searchContext
+    this.strategies.set('smart-date', {
+      name: 'smart-date',
+      weight: 0.2,
+      execute: async (_query, context, options) => {
+        const preprocessed = options.preprocessed as InternalPreprocessedQuery;
+
+        // Convert temporal info to temporalRefs
+        if (preprocessed && preprocessed.temporalInfo.dates.length > 0) {
+          preprocessed.temporalRefs = preprocessed.temporalInfo.dates.map((dateStr) => ({
+            text: dateStr,
+            date: new Date(dateStr),
+            confidence: 1.0,
+          }));
+        }
+        if (!preprocessed?.temporalRefs || preprocessed.temporalRefs.length === 0) {
+          return [];
+        }
+
+        const dateRanges = preprocessed.temporalRefs.map((ref) => {
+          const date = new Date(ref.date);
+          const start = new Date(date);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(date);
+          end.setHours(23, 59, 59, 999);
+          return { start, end, confidence: ref.confidence };
+        });
+
+        const results: LifelogSearchResult[] = [];
+
+        for (const range of dateRanges) {
+          const dayResults = await this.fileManager.listLifelogsByDateRange(range.start, range.end);
+
+          for (const { id, date } of dayResults) {
+            const lifelog = await this.fileManager.loadLifelog(id, date);
+            if (lifelog) {
+              results.push({
+                id,
+                lifelog,
+                score: 0.8 * range.confidence,
+                highlights: [`Date match: ${date.toLocaleDateString()}`],
+                metadata: {
+                  source: 'smart-date',
+                  matchedDate: date.toISOString(),
+                },
+              });
+            }
+          }
+        }
+
+        // Add discovered dates to context
+        const discoveredDates = new Set(context.discoveredDates);
+        results.forEach((r) => {
+          if (r.lifelog.createdAt) {
+            discoveredDates.add(new Date(r.lifelog.createdAt).toLocaleDateString());
+          }
+        });
+        context.updateContext({ discoveredDates });
+
+        return results;
+      },
+    });
+
+    // Phase 2 strategies (enhanced with context)
+    this.strategies.set('vector-semantic', {
+      name: 'vector-semantic',
+      weight: 0.35,
+      execute: async (query, context, options) => {
+        if (!this.vectorStore) return [];
+
+        // Enhance query with discovered keywords
+        let enhancedQuery = query;
+        if (context.relevantKeywords.size > 0) {
+          const keywords = Array.from(context.relevantKeywords).slice(0, 5);
+          enhancedQuery = `${query} ${keywords.join(' ')}`;
+          logger.debug('Enhanced vector query with keywords', {
+            original: query,
+            enhanced: enhancedQuery,
+            keywords,
+          });
+        }
+
+        const vectorResults = await this.vectorStore.searchByText(enhancedQuery, {
+          topK: options.limit || 50,
+          scoreThreshold: 0.5,
+        });
+
+        // Convert vector results to LifelogSearchResult
+        const searchResults: LifelogSearchResult[] = [];
+        for (const r of vectorResults) {
+          // Need to fetch the actual lifelog from file manager
+          if (r.metadata?.date && r.metadata?.id) {
+            const lifelog = await this.fileManager.loadLifelog(
+              r.metadata.id,
+              new Date(r.metadata.date)
+            );
+            if (lifelog) {
+              searchResults.push({
+                id: r.id,
+                score: r.score,
+                lifelog: lifelog,
+                highlights: [],
+                metadata: { source: 'vector-semantic', ...r.metadata },
+              });
+            }
+          }
+        }
+
+        // Extract keywords from top vector results
+        const newKeywords = new Set<string>();
+        searchResults.slice(0, 5).forEach((result) => {
+          // Extract nouns and important words from content
+          const words = result.lifelog.content
+            .split(/\s+/)
+            .filter((w: string) => w.length > 4 && /^[a-zA-Z]+$/.test(w))
+            .map((w: string) => w.toLowerCase());
+
+          words.forEach((word: string) => {
+            if (!['about', 'there', 'which', 'would', 'could', 'should'].includes(word)) {
+              newKeywords.add(word);
+            }
+          });
+        });
+
+        // Update context with new keywords
+        if (newKeywords.size > 0) {
+          const updatedKeywords = new Set([...context.relevantKeywords, ...newKeywords]);
+          context.updateContext({ relevantKeywords: updatedKeywords });
+        }
+
+        return searchResults;
+      },
+    });
+
+    this.strategies.set('context-aware-filter', {
+      name: 'context-aware-filter',
+      weight: 0.15,
+      execute: async (query, context, _options) => {
+        const results: LifelogSearchResult[] = [];
+
+        // Fetch hot documents that other strategies found
+        if (context.hotDocumentIds.size > 0) {
+          logger.debug('Fetching hot documents', { count: context.hotDocumentIds.size });
+
+          for (const docId of Array.from(context.hotDocumentIds)) {
+            try {
+              // Find the document in our file system
+              const allLifelogs = await this.fileManager.loadAllLifelogs();
+              const lifelog = allLifelogs.find((l) => l.id === docId);
+
+              if (lifelog) {
+                // Check if content matches any keywords or phrases
+                const contentLower = lifelog.content.toLowerCase();
+                const queryWords = query
+                  .toLowerCase()
+                  .split(/\s+/)
+                  .filter((w) => w.length > 2);
+
+                // Check for multi-word phrase matches
+                // Extract potential phrases from the query (2-3 word sequences)
+                const queryPhrases: string[] = [];
+                const words = query.toLowerCase().split(/\s+/);
+
+                // Extract 2-word phrases
+                for (let i = 0; i < words.length - 1; i++) {
+                  queryPhrases.push(`${words[i]} ${words[i + 1]}`);
+                }
+
+                // Extract 3-word phrases
+                for (let i = 0; i < words.length - 2; i++) {
+                  queryPhrases.push(`${words[i]} ${words[i + 1]} ${words[i + 2]}`);
+                }
+
+                let phraseMatchCount = 0;
+                const matchedPhrases: string[] = [];
+                for (const phrase of queryPhrases) {
+                  if (phrase.length > 3 && contentLower.includes(phrase)) {
+                    phraseMatchCount++;
+                    matchedPhrases.push(phrase);
+                  }
+                }
+
+                // Check individual keywords
+                const keywordMatches = queryWords.filter((word) => contentLower.includes(word));
+
+                if (keywordMatches.length > 0 || phraseMatchCount > 0) {
+                  // Higher score for phrase matches
+                  const baseScore = phraseMatchCount > 0 ? 0.85 : 0.7;
+                  const keywordBonus = (0.1 * keywordMatches.length) / queryWords.length;
+                  const phraseBonus = 0.15 * phraseMatchCount;
+
+                  results.push({
+                    id: docId,
+                    lifelog,
+                    score: Math.min(baseScore + keywordBonus + phraseBonus, 1.0),
+                    highlights: [
+                      phraseMatchCount > 0 ? `Phrase matches: ${matchedPhrases.join(', ')}` : '',
+                      keywordMatches.length > 0
+                        ? `Keyword matches: ${keywordMatches.join(', ')}`
+                        : '',
+                    ].filter((h) => h),
+                    metadata: {
+                      source: 'context-aware-filter',
+                      consensusStrategies: ['fast-keyword', 'vector-semantic'],
+                      keywordMatches: keywordMatches.length,
+                      phraseMatches: phraseMatchCount,
+                    },
+                  });
+                }
+              }
+            } catch (error) {
+              logger.debug('Failed to fetch hot document', { docId, error });
+            }
+          }
+        }
+
+        // Search within discovered date ranges
+        if (context.discoveredDates.size > 0 && results.length < 10) {
+          logger.debug('Searching within discovered dates', {
+            dates: Array.from(context.discoveredDates),
+          });
+
+          for (const dateStr of Array.from(context.discoveredDates)) {
+            try {
+              const date = new Date(dateStr as string);
+              const dayResults = await this.fileManager.listLifelogsByDate(date);
+
+              for (const id of dayResults.slice(0, 5)) {
+                if (!results.find((r) => r.id === id)) {
+                  const lifelog = await this.fileManager.loadLifelog(id, date);
+                  if (lifelog && lifelog.content.toLowerCase().includes(query.toLowerCase())) {
+                    results.push({
+                      id,
+                      lifelog,
+                      score: 0.6,
+                      highlights: [`Date context: ${dateStr}`],
+                      metadata: { source: 'context-aware-filter', dateContext: dateStr },
+                    });
+                  }
+                }
+              }
+            } catch (error) {
+              logger.debug('Failed to search date context', { dateStr, error });
+            }
+          }
+        }
+
+        return results;
+      },
+    });
+  }
+
+  async executeParallelSearch(
+    query: string,
+    preprocessed: ActualPreprocessedQuery,
+    options: any
+  ): Promise<{
+    results: LifelogSearchResult[];
+    performance: {
+      totalTime: number;
+      strategyTimings: Record<string, number>;
+      failedStrategies: string[];
+    };
+    contextInsights: {
+      hotDocuments: number;
+      discoveredDates: number;
+      relevantKeywords: number;
+    };
+  }> {
+    const startTime = Date.now();
+    const context = this.createSearchContext();
+    const timings: StrategyTiming[] = [];
+
+    // Determine which strategies to use
+    const strategiesToUse = this.selectStrategies(preprocessed, options);
+
+    logger.info('Executing parallel search with context sharing', {
+      query,
+      strategies: strategiesToUse,
+    });
+
+    // Execute Phase 1: Discovery strategies
+    const phase1Strategies = strategiesToUse.filter((s) =>
+      ['fast-keyword', 'smart-date'].includes(s)
     );
 
+    const phase1Results = await this.executePhase(
+      phase1Strategies,
+      query,
+      context,
+      { ...options, preprocessed },
+      timings
+    );
+
+    // Wait a bit for context to propagate
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    // Execute Phase 2: Enhanced strategies using context
+    const phase2Strategies = strategiesToUse.filter((s) =>
+      ['vector-semantic', 'context-aware-filter'].includes(s)
+    );
+
+    const phase2Results = await this.executePhase(
+      phase2Strategies,
+      query,
+      context,
+      { ...options, preprocessed },
+      timings
+    );
+
+    // Merge all results
+    const allResults = [...phase1Results, ...phase2Results];
+    const mergedResults = this.mergeResultsWithContext(allResults, context);
+
+    const totalTime = Date.now() - startTime;
+
+    const strategyTimings = timings.reduce(
+      (acc, t) => {
+        acc[t.strategy] = t.duration;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+    const failedStrategies = timings.filter((t) => !t.success).map((t) => t.strategy);
+
     logger.info('Parallel search with context sharing completed', {
-      totalTime: Date.now() - startTime,
+      totalTime,
       strategyTimings,
       failedStrategies,
       resultCount: mergedResults.length,
       contextInsights: {
-        hotDocuments: this.searchContext.hotDocumentIds.size,
-        discoveredDates: this.searchContext.discoveredDates.size,
-        relevantKeywords: this.searchContext.relevantKeywords.size,
+        hotDocuments: context.hotDocumentIds.size,
+        discoveredDates: context.discoveredDates.size,
+        relevantKeywords: context.relevantKeywords.size,
       },
     });
 
     return {
-      query,
-      strategy: 'parallel',
       results: mergedResults,
       performance: {
-        totalTime: Date.now() - startTime,
-        searchTime: Math.max(...Object.values(strategyTimings)),
-        strategy: 'parallel',
-        cacheHit: false,
+        totalTime,
+        strategyTimings,
+        failedStrategies,
       },
-      strategyTimings,
-      failedStrategies,
-      searchContext: this.searchContext,
+      contextInsights: {
+        hotDocuments: context.hotDocumentIds.size,
+        discoveredDates: context.discoveredDates.size,
+        relevantKeywords: context.relevantKeywords.size,
+      },
     };
   }
 
-  /**
-   * Merge results with context-aware scoring adjustments
-   */
-  private mergeResultsWithContext(
-    strategyResults: Array<{
-      name: string;
-      weight: number;
-      results: any[];
-    }>,
-    limit: number,
-    context: SearchContext
-  ): UnifiedSearchResult['results'] {
-    const resultMap = new Map<
-      string,
-      {
-        id: string;
-        score: number;
-        lifelog?: Phase2Lifelog;
-        highlights?: string[];
-        metadata: Record<string, any>;
-        sources: string[];
-        strategyCount: number;
-      }
-    >();
+  private async executePhase(
+    strategies: string[],
+    query: string,
+    context: SearchContext,
+    options: any,
+    timings: StrategyTiming[]
+  ): Promise<LifelogSearchResult[]> {
+    const promises = strategies.map(async (strategyName) => {
+      const strategy = this.strategies.get(strategyName);
+      if (!strategy) return null;
 
-    // Process each strategy's results
-    for (const { name, weight, results } of strategyResults) {
-      for (const result of results) {
-        const id = result.id || result.lifelog?.id;
-        if (!id) continue;
+      const strategyStart = Date.now();
+      try {
+        const results = await strategy.execute(query, context, options);
+        const duration = Date.now() - strategyStart;
 
-        const existing = resultMap.get(id);
-        if (existing) {
-          // Document found by multiple strategies - boost score
-          existing.score += (result.score || 0) * weight * 1.1; // 10% boost for consensus
-          existing.sources.push(name);
-          existing.strategyCount++;
+        timings.push({
+          strategy: strategyName,
+          duration,
+          resultCount: results.length,
+          success: true,
+        });
 
-          // Merge highlights
-          if (result.matches) {
-            existing.highlights = [
-              ...(existing.highlights || []),
-              ...result.matches.map((m: any) => m.context),
-            ];
-          }
+        return results;
+      } catch (error) {
+        const duration = Date.now() - strategyStart;
+        logger.error(`Strategy ${strategyName} failed`, error);
 
-          // Merge metadata
-          existing.metadata = {
-            ...existing.metadata,
-            ...result.metadata,
-            matchingSources: existing.sources,
-            isHotDocument: context.hotDocumentIds.has(id),
-            consensusScore: existing.strategyCount / strategyResults.length,
-          };
-        } else {
-          // New result
-          resultMap.set(id, {
-            id,
-            score: (result.score || 0) * weight,
-            lifelog: result.lifelog,
-            highlights: result.matches?.map((m: any) => m.context),
-            metadata: {
-              ...result.metadata,
-              source: name,
-              matchingSources: [name],
-              isHotDocument: context.hotDocumentIds.has(id),
-              consensusScore: 1 / strategyResults.length,
-            },
-            sources: [name],
-            strategyCount: 1,
-          });
-        }
-      }
-    }
+        timings.push({
+          strategy: strategyName,
+          duration,
+          resultCount: 0,
+          success: false,
+        });
 
-    // Apply final context-based scoring adjustments
-    resultMap.forEach((result, id) => {
-      // Boost documents that multiple strategies found
-      if (result.strategyCount >= 2) {
-        result.score *= 1.2;
-      }
-
-      // Boost hot documents identified during search
-      if (context.hotDocumentIds.has(id)) {
-        result.score *= 1.15;
+        return null;
       }
     });
 
-    // Sort by combined score and return top results
-    return Array.from(resultMap.values())
-      .map(({ sources: _sources, strategyCount: _count, ...rest }) => rest)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
+    const results = await Promise.allSettled(promises);
+    const successfulResults = results
+      .filter(
+        (r): r is PromiseFulfilledResult<LifelogSearchResult[] | null> =>
+          r.status === 'fulfilled' && r.value !== null
+      )
+      .map((r) => r.value!)
+      .flat();
+
+    return successfulResults;
+  }
+
+  private selectStrategies(preprocessed: ActualPreprocessedQuery, _options: any): string[] {
+    const strategies: string[] = ['fast-keyword']; // Always use fast-keyword
+
+    // Add smart-date if temporal references exist
+    if (preprocessed.temporalInfo && preprocessed.temporalInfo.dates.length > 0) {
+      strategies.push('smart-date');
+    }
+
+    // Add vector search if available
+    if (this.vectorStore) {
+      strategies.push('vector-semantic');
+    }
+
+    // Always add context-aware filter for consensus
+    strategies.push('context-aware-filter');
+
+    return strategies;
+  }
+
+  private createSearchContext(): SearchContext {
+    const context: SearchContext = {
+      hotDocumentIds: new Set(),
+      discoveredDates: new Set(),
+      relevantKeywords: new Set(),
+      strategyConfidence: new Map(),
+      updateContext: (updates: Partial<SearchContext>) => {
+        if (updates.hotDocumentIds) {
+          updates.hotDocumentIds.forEach((id: string) => context.hotDocumentIds.add(id));
+        }
+        if (updates.discoveredDates) {
+          updates.discoveredDates.forEach((date: string) => context.discoveredDates.add(date));
+        }
+        if (updates.relevantKeywords) {
+          updates.relevantKeywords.forEach((kw: string) => context.relevantKeywords.add(kw));
+        }
+        if (updates.strategyConfidence) {
+          updates.strategyConfidence.forEach((conf: number, strategy: string) => {
+            context.strategyConfidence.set(strategy, conf);
+          });
+        }
+      },
+    };
+
+    return context;
+  }
+
+  private mergeResultsWithContext(
+    results: LifelogSearchResult[],
+    context: SearchContext
+  ): LifelogSearchResult[] {
+    const resultMap = new Map<string, LifelogSearchResult & { strategies: Set<string> }>();
+
+    // First pass: collect all results and track which strategies found them
+    for (const result of results) {
+      const existing = resultMap.get(result.id);
+      if (existing) {
+        // Merge result
+        existing.score = Math.max(existing.score, result.score);
+        existing.highlights = [...(existing.highlights || []), ...(result.highlights || [])];
+        existing.strategies.add(result.metadata?.source || 'unknown');
+
+        // Keep the metadata with more information
+        if (
+          result.metadata &&
+          Object.keys(result.metadata).length > Object.keys(existing.metadata || {}).length
+        ) {
+          existing.metadata = { ...existing.metadata, ...result.metadata };
+        }
+      } else {
+        resultMap.set(result.id, {
+          ...result,
+          strategies: new Set([result.metadata?.source || 'unknown']),
+        });
+      }
+    }
+
+    // Second pass: apply boosts based on context and consensus
+    const boostedResults = Array.from(resultMap.values()).map((result) => {
+      let finalScore = result.score;
+      const strategyCount = result.strategies.size;
+
+      // Consensus boost: exponential boost for multiple strategies
+      if (strategyCount >= 2) {
+        finalScore *= Math.pow(1.15, strategyCount - 1);
+        logger.debug('Applied consensus boost', {
+          id: result.id,
+          strategies: Array.from(result.strategies),
+          boost: Math.pow(1.15, strategyCount - 1),
+        });
+      }
+
+      // Hot document boost
+      if (context.hotDocumentIds.has(result.id)) {
+        finalScore *= 1.1;
+      }
+
+      // Temporal relevance boost
+      if (context.discoveredDates.size > 0 && result.lifelog.createdAt) {
+        const docDate = new Date(result.lifelog.createdAt);
+        const relevantDates = Array.from(context.discoveredDates).map((d) => new Date(d as string));
+        const closestDateDiff = Math.min(
+          ...relevantDates.map(
+            (d) => Math.abs(docDate.getTime() - d.getTime()) / (1000 * 60 * 60 * 24)
+          )
+        );
+
+        // Decay by 5% per day away from relevant date
+        const temporalBoost = Math.max(0.7, 1 - closestDateDiff * 0.05);
+        finalScore *= temporalBoost;
+      }
+
+      // Keyword density boost
+      const queryWords = Array.from(context.relevantKeywords);
+      if (queryWords.length > 0) {
+        const contentLower = result.lifelog.content.toLowerCase();
+        const matchedKeywords = queryWords.filter((kw: string) =>
+          contentLower.includes((kw as string).toLowerCase())
+        );
+        const keywordBoost = 1 + 0.05 * matchedKeywords.length;
+        finalScore *= keywordBoost;
+      }
+
+      return {
+        ...result,
+        score: finalScore,
+        metadata: {
+          ...result.metadata,
+          strategies: Array.from(result.strategies),
+          finalScore,
+          originalScore: result.score,
+        },
+      };
+    });
+
+    // Sort by final score
+    boostedResults.sort((a, b) => b.score - a.score);
+
+    // Remove the temporary strategies property
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    return boostedResults.map(({ strategies, ...result }) => result);
   }
 }

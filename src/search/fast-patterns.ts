@@ -78,7 +78,7 @@ export class FastPatternMatcher {
   }
 
   /**
-   * Perform a fast keyword search
+   * Perform a fast keyword search with phrase detection
    */
   search(query: string, options: FastSearchOptions = {}): FastSearchResult[] {
     const startTime = Date.now();
@@ -90,15 +90,30 @@ export class FastPatternMatcher {
       contextLength = 100,
     } = options;
 
-    const queryTokens = this.tokenize(query, !caseSensitive);
+    // First try to detect and extract phrases
+    const { phrases, remainingQuery } = this.extractPhrases(query);
+    const queryTokens = this.tokenize(remainingQuery, !caseSensitive);
     const results = new Map<string, FastSearchResult>();
 
-    // Find all lifelogs containing any query token
+    // Find all lifelogs containing any query token or phrase words
     const candidateIds = new Set<string>();
+
+    // Add candidates from individual tokens
     for (const token of queryTokens) {
       const ids = this.indexCache.get(token);
       if (ids) {
         ids.forEach((candidateId) => candidateIds.add(candidateId));
+      }
+    }
+
+    // Add candidates from phrase words
+    for (const phrase of phrases) {
+      const phraseTokens = this.tokenize(phrase, !caseSensitive);
+      for (const token of phraseTokens) {
+        const ids = this.indexCache.get(token);
+        if (ids) {
+          ids.forEach((candidateId) => candidateIds.add(candidateId));
+        }
       }
     }
 
@@ -107,7 +122,7 @@ export class FastPatternMatcher {
       const lifelog = this.lifelogCache.get(id);
       if (!lifelog) continue;
 
-      const result = this.scoreLifelog(lifelog, queryTokens, {
+      const result = this.scoreLifelogWithPhrases(lifelog, queryTokens, phrases, {
         caseSensitive,
         wholeWord,
         contextLength,
@@ -126,6 +141,7 @@ export class FastPatternMatcher {
     const searchTime = Date.now() - startTime;
     logger.debug('Fast pattern search completed', {
       query,
+      phrases,
       candidateCount: candidateIds.size,
       resultCount: sortedResults.length,
       searchTime,
@@ -275,6 +291,162 @@ export class FastPatternMatcher {
     }
 
     return Array.from(suggestions);
+  }
+
+  /**
+   * Extract known phrases and entities from query
+   */
+  private extractPhrases(query: string): { phrases: string[]; remainingQuery: string } {
+    const phrases: string[] = [];
+    let workingQuery = query;
+
+    // Common multi-word patterns (not domain-specific)
+    // These are general patterns that could apply to any domain
+    const commonPatterns = [
+      // Temporal phrases
+      /\b(lunch|dinner|breakfast|meeting|call|appointment)\s+(today|yesterday|tomorrow)\b/gi,
+      // Numbered sequences (like "version 2", "part 3", etc.)
+      /\b\w+\s+\d+\b/gi,
+      // Proper noun phrases (capitalized words together)
+      /\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/g,
+    ];
+
+    // Extract phrases using patterns
+    for (const pattern of commonPatterns) {
+      const matches = workingQuery.match(pattern);
+      if (matches) {
+        for (const match of matches) {
+          // Only add multi-word phrases (contains space)
+          if (match.includes(' ') && match.length > 3) {
+            phrases.push(match.toLowerCase());
+            workingQuery = workingQuery.replace(match, '').trim();
+          }
+        }
+      }
+    }
+
+    // Also extract quoted phrases
+    const quotedMatches = workingQuery.match(/"([^"]+)"/g);
+    if (quotedMatches) {
+      for (const match of quotedMatches) {
+        const phrase = match.replace(/"/g, '');
+        phrases.push(phrase);
+        workingQuery = workingQuery.replace(match, '').trim();
+      }
+    }
+
+    return { phrases, remainingQuery: workingQuery };
+  }
+
+  /**
+   * Score lifelog with phrase matching
+   */
+  private scoreLifelogWithPhrases(
+    lifelog: Phase2Lifelog,
+    queryTokens: string[],
+    phrases: string[],
+    options: {
+      caseSensitive?: boolean;
+      wholeWord?: boolean;
+      contextLength?: number;
+    }
+  ): FastSearchResult {
+    const { caseSensitive = false, wholeWord = false, contextLength = 100 } = options;
+
+    const content = caseSensitive ? lifelog.content : lifelog.content.toLowerCase();
+    const title = caseSensitive ? lifelog.title : lifelog.title.toLowerCase();
+    const fullText = `${title} ${content}`;
+
+    let totalScore = 0;
+    const matches: FastSearchResult['matches'] = [];
+
+    // Score phrase matches (higher weight)
+    for (const phrase of phrases) {
+      const searchPhrase = caseSensitive ? phrase : phrase.toLowerCase();
+      let phraseScore = 0;
+      let index = 0;
+
+      while ((index = fullText.indexOf(searchPhrase, index)) !== -1) {
+        // Exact phrase match gets high score
+        phraseScore += 3.0; // Triple weight for phrase matches
+        const start = Math.max(0, index - contextLength / 2);
+        const end = Math.min(fullText.length, index + searchPhrase.length + contextLength / 2);
+
+        matches.push({
+          type: 'exact',
+          context: fullText.substring(start, end),
+          position: index,
+        });
+
+        index += searchPhrase.length;
+      }
+
+      // Boost score for title matches
+      if (title.includes(searchPhrase)) {
+        phraseScore *= 2;
+      }
+
+      totalScore += phraseScore;
+    }
+
+    // Score individual token matches (lower weight)
+    for (const token of queryTokens) {
+      const searchToken = caseSensitive ? token : token.toLowerCase();
+      let tokenScore = 0;
+      let index = 0;
+
+      while ((index = fullText.indexOf(searchToken, index)) !== -1) {
+        // Check for whole word match if required
+        if (wholeWord) {
+          const before = index > 0 ? fullText[index - 1] : ' ';
+          const after =
+            index + searchToken.length < fullText.length
+              ? fullText[index + searchToken.length]
+              : ' ';
+
+          if (!/\w/.test(before) && !/\w/.test(after)) {
+            tokenScore += 1;
+            const start = Math.max(0, index - contextLength / 2);
+            const end = Math.min(fullText.length, index + searchToken.length + contextLength / 2);
+
+            matches.push({
+              type: 'exact',
+              context: fullText.substring(start, end),
+              position: index,
+            });
+          }
+        } else {
+          tokenScore += 1;
+          const start = Math.max(0, index - contextLength / 2);
+          const end = Math.min(fullText.length, index + searchToken.length + contextLength / 2);
+
+          matches.push({
+            type: 'partial',
+            context: fullText.substring(start, end),
+            position: index,
+          });
+        }
+
+        index += searchToken.length;
+      }
+
+      // Boost score for title matches
+      if (title.includes(searchToken)) {
+        tokenScore *= 2;
+      }
+
+      totalScore += tokenScore;
+    }
+
+    // Normalize score with phrase bonus
+    const normalizedScore =
+      totalScore / ((queryTokens.length + phrases.length * 3) * Math.log(fullText.length + 1));
+
+    return {
+      lifelog,
+      score: Math.min(normalizedScore, 1),
+      matches,
+    };
   }
 
   private tokenize(text: string, toLowerCase: boolean = true): string[] {

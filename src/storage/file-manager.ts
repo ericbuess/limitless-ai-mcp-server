@@ -213,8 +213,12 @@ export class FileManager {
             const dayStat = await fs.stat(dayPath);
             if (!dayStat.isDirectory()) continue;
 
-            // Construct date for this directory
-            const date = new Date(`${year}-${month}-${day}`);
+            // Construct date for this directory (ensure proper formatting)
+            // Month and day might have leading zeros, ensure they're parsed correctly
+            const yearNum = parseInt(year, 10);
+            const monthNum = parseInt(month, 10) - 1; // JavaScript months are 0-indexed
+            const dayNum = parseInt(day, 10);
+            const date = new Date(yearNum, monthNum, dayNum);
 
             // Get all lifelogs for this day
             const ids = await this.listLifelogsByDate(date);

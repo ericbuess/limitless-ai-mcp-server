@@ -1885,6 +1885,185 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 - `src/types/monitoring.ts` - Type definitions
 - `config/keywords.json` - Default keyword configurations
 
+## CRITICAL: AI Assistant Pipeline Architecture (MUST READ)
+
+**WARNING**: The AI assistant uses a sophisticated multi-stage pipeline with numbered iteration files. DO NOT bypass or recreate this system. Always work within it.
+
+### Three-Layer Architecture That Must Be Preserved
+
+1. **TriggerMonitor** (`src/monitoring/trigger-monitor.js`)
+
+   - Monitors lifelogs for "Claudius" keyword
+   - Creates task objects with trigger context
+   - Calls TaskExecutor.execute(task)
+
+2. **TaskExecutor** (`src/tasks/task-executor.js`)
+
+   - Routes tasks to appropriate handlers
+   - Currently supports "memory_search" type
+   - Entry point for ALL assistant functionality
+
+3. **IterativeMemorySearchTool** (`scripts/memory-search-iterative.js`)
+   - Multi-stage Claude CLI pipeline with numbered files
+   - Creates search-results-{iteration}-{variant}.json
+   - Iterations folders: 001-assessment/, 002-assessment/, 999-final-answer/
+   - Uses multiple Claude invocations per search:
+     - Assessment: Evaluates if results answer the query (confidence scoring)
+     - Refinement: Generates better search queries when confidence < 0.9
+     - Final Answer: Synthesizes all results into comprehensive answer
+
+### File Structure for Each Search Session
+
+```
+data/search-history/YYYY-MM-DD/session-{timestamp}-{uuid}/
+├── query.txt                    # Original user query
+├── context.json                 # Session context
+├── search-results-{iteration}-{query-variant}.json
+├── iterations/
+│   ├── 001-assessment/         # First Claude assessment
+│   │   ├── prompt.txt
+│   │   └── response.json
+│   ├── 002-assessment/         # Second iteration
+│   │   ├── prompt.txt
+│   │   └── response.json
+│   └── 999-final-answer/       # Final synthesis
+│       ├── prompt.txt
+│       └── response.json
+└── results.json                # Final answer with metadata
+```
+
+### Testing the Full Pipeline
+
+**NEVER** call search utilities directly. Always test through the full pipeline:
+
+```javascript
+// Create synthetic task object that mimics what TriggerMonitor creates
+const task = {
+  id: `test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+  type: 'memory_search',
+  trigger: {
+    text: 'Hey Claudius, what did I have for lunch?',
+    assessment: {
+      extractedRequest: 'what did I have for lunch?',
+    },
+  },
+  lifelog: {
+    id: 'synthetic-test',
+    date: new Date().toISOString(),
+    title: 'Test Trigger',
+  },
+  createdAt: new Date().toISOString(),
+};
+
+// Execute through TaskExecutor (NOT search utilities directly)
+const executor = new TaskExecutor();
+await executor.execute(task);
+```
+
+### Enhancement Plan: Conversational Continuity
+
+**Goal**: Support follow-up questions like "what else did we discuss?" without re-searching everything.
+
+#### 1. Session Linking (No Time Window Needed)
+
+- Add `previousSession` field to task objects
+- TaskExecutor checks for previous session and loads context
+- Pass previous Q&A pairs to IterativeMemorySearchTool
+- Explicit session references, not time-based
+
+#### 2. Follow-up Detection in Pipeline
+
+Enhance IterativeMemorySearchTool to detect:
+
+- "what else", "tell me more", "and then?"
+- Pronouns without clear antecedents ("it", "that", "they")
+- Questions referencing previous context
+
+#### 3. Context Integration for Assessment Claude
+
+```javascript
+// In assessment prompt when previousSession exists:
+Previous Q&A from session ${previousSession}:
+Q: ${previousQuery}
+A: ${previousAnswer}
+
+Current question: ${currentQuery}
+Is this a follow-up question? If yes, what additional information is being requested?
+Include previous context in your assessment.
+```
+
+#### 4. Testing Follow-up Questions
+
+```javascript
+// First question through pipeline
+const task1 = {
+  id: 'test-1',
+  type: 'memory_search',
+  trigger: {
+    text: 'Claudius, who did I meet today?',
+    assessment: { extractedRequest: 'who did I meet today?' },
+  },
+  lifelog: { id: 'synthetic', date: new Date().toISOString(), title: 'Test' },
+};
+await executor.execute(task1);
+// Get session ID from results
+
+// Follow-up with session reference
+const task2 = {
+  id: 'test-2',
+  type: 'memory_search',
+  trigger: {
+    text: 'Claudius, what did we discuss?',
+    assessment: { extractedRequest: 'what did we discuss?' },
+  },
+  previousSession: 'session-{timestamp}-{uuid}', // From task1 results
+  lifelog: { id: 'synthetic', date: new Date().toISOString(), title: 'Test' },
+};
+await executor.execute(task2);
+```
+
+### Integration Points for Recent Search Improvements
+
+The following improvements must be integrated into IterativeMemorySearchTool:
+
+1. **Phrase Detection** (fast-patterns.ts changes)
+
+   - Multi-word phrase recognition (e.g., "switch 2", "lunch today")
+   - 3x scoring weight for exact phrase matches
+   - Domain-agnostic patterns, not gaming-specific
+
+2. **Date Parsing Fix** (file-manager.ts)
+
+   - Fixed loading files from directories with leading zeros (01, 02, etc.)
+   - Now loads all 220 lifelogs including June 5 files
+
+3. **Better Score Filtering**
+   - Only send results with score > 0.7 to Claude assessment
+   - Prevent duplicate results across iterations
+   - Early termination if no high-scoring results
+
+### Testing Commands
+
+```bash
+# Test through monitoring service (full pipeline)
+npm run assistant:start
+
+# Test with synthetic task (for development)
+# Create test-task.js that calls TaskExecutor.execute()
+node test-task.js
+
+# View results in session directories
+ls -la data/search-history/YYYY-MM-DD/session-*/
+```
+
+### Critical Issues to Fix in Pipeline
+
+1. **Low-quality results** (scores < 0.5) being sent to Claude
+2. **Duplicate results** across iterations wasting Claude context
+3. **No minimum score threshold** before assessment
+4. **Poor query expansion** for meal/temporal queries
+5. **Excessive iterations** (6+ minutes for simple queries)
+
 ## Current TODO List (as of 2025-06-05)
 
 ### Recently Completed (2025-06-05)
