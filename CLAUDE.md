@@ -98,6 +98,17 @@ This file is critical for context preservation. When context gets full:
 
 ```
 limitless-ai-mcp-server/
+├── scripts/                # Utility scripts (organized 2025-06-04)
+│   ├── utilities/          # Main user utilities
+│   │   ├── search.js       # Search lifelogs
+│   │   └── monitor-sync.js # Monitor sync status
+│   ├── maintenance/        # Data maintenance scripts
+│   │   ├── rebuild-vectordb.js
+│   │   ├── fix-duplicates.js
+│   │   └── download-missing-days.js
+│   └── debug/              # Debug utilities
+│       ├── inspect-lancedb.js
+│       └── check-vectordb.js
 ├── src/                    # Source code
 │   ├── cache/              # Intelligent caching (Phase 2)
 │   │   └── intelligent-cache.ts
@@ -171,6 +182,8 @@ limitless-ai-mcp-server/
 │   ├── using-sampling.ts  # Content analysis demos
 │   ├── advanced-search.ts # Complex search patterns
 │   └── caching-strategies.ts # Performance optimization
+├── archive-tests/         # Archived test scripts
+│   └── (old test scripts for reference)
 ├── docs/                  # Documentation
 │   └── references/        # Reference documentation
 │       ├── llms-full_model-context-protocol_20250601.md
@@ -230,6 +243,25 @@ npm run sync:rebuild
 
 # Run sync with options
 npm run sync:all -- --years=5 --batch=30 --delay=3000
+```
+
+### Utility Commands
+
+```bash
+# Search lifelogs
+npm run search "your search query"
+
+# Monitor sync status
+npm run sync:monitor
+
+# Rebuild vector database
+npm run db:rebuild
+
+# Fix duplicate entries
+npm run db:fix-duplicates
+
+# Inspect database contents
+npm run db:inspect
 ```
 
 ### Git Commands
@@ -1374,6 +1406,17 @@ export DEBUG_SYNC_SERVICE=true
 **Last Updated:** 2025-06-04
 
 ⚠️ **Note**: Phase 2 intelligent search is now complete. While core features are implemented and tested, real-world usage testing is needed. Please report issues!
+
+### Recent Changes (2025-06-04)
+
+- **Documentation Consolidation**: Merged 23 .md files into single CLAUDE.md (1,600+ lines)
+- **Test Script Organization**: Moved 26 .js files from root to organized structure:
+  - `scripts/utilities/` - Main user tools (search.js, monitor-sync.js)
+  - `scripts/maintenance/` - Database maintenance (7 scripts)
+  - `scripts/debug/` - Debug utilities (3 scripts)
+  - `archive-tests/` - Archived test scripts (12 scripts)
+- **Clean Root Directory**: Only 1 .js file remains (jest.config.js)
+- **New npm Scripts**: Added convenient commands for common operations
 
 ### Performance Metrics
 
