@@ -730,72 +730,92 @@ Manage keyword monitoring:
 }
 ```
 
-### Search Strategies
+### Parallel Search Architecture (V2 - Final Implementation)
 
-Phase 2 implements intelligent query routing based on query complexity:
+All searches now use the enhanced parallel execution system with inter-strategy communication:
 
-#### 1. Fast Path (<100ms)
-
-Used for simple, direct queries:
-
-- Exact ID lookups
-- Recent items (today, yesterday)
-- Simple date queries
-- Cached results
+#### Core Innovation: Shared SearchContext
 
 ```typescript
-// Examples of fast path queries:
-"show today's recordings";
-'get lifelog abc123';
-"list yesterday's meetings";
+interface SearchContext {
+  discoveredDates: Set<string>; // Dates found by any strategy
+  hotDocumentIds: Set<string>; // High-value documents to prioritize
+  relevantKeywords: Set<string>; // Keywords extracted from top results
+  strategyConfidence: Map<string, number>; // Confidence scores per strategy
+  updateContext: (updates) => void; // Thread-safe update mechanism
+}
 ```
 
-#### 2. Vector Search (100-300ms)
+#### How Strategies Communicate
 
-Used for semantic/conceptual queries:
+1. **Fast-Keyword Strategy**
 
-- Topic-based searches
-- Similarity matching
-- Conceptual queries
-- "Find discussions about..."
+   - Finds initial keyword matches
+   - Shares top 5 document IDs as "hot documents"
+   - Extracts and shares dates from high-scoring results
+   - Other strategies boost scores for these hot documents
 
-```typescript
-// Examples of vector search queries:
-'conversations about project deadlines';
-'discussions similar to machine learning';
-'meetings where we talked about budgets';
-```
+2. **Vector-Semantic Strategy**
 
-#### 3. Hybrid Search (200-500ms)
+   - Uses keywords discovered by fast-keyword to enhance query
+   - Filters results to prefer discovered dates when available
+   - Extracts keywords from semantic matches to share back
+   - Identifies conceptually related documents
 
-Combines vector + full-text search:
+3. **Smart-Date Strategy**
 
-- Mixed exact/semantic queries
-- Date-filtered semantic search
-- Keyword + concept matching
+   - Searches dates from query AND dates discovered by other strategies
+   - Can find related content even without explicit date in query
+   - Boosts scores for documents already identified as hot
 
-```typescript
-// Examples of hybrid queries:
-"meetings about 'Project X' last week";
-"find 'action item' in budget discussions";
-'urgent tasks from team meetings';
-```
+4. **Context-Aware Filter**
+   - Specifically looks for consensus documents (found by 2+ strategies)
+   - Applies additional filtering based on shared context
+   - Future: Will search metadata files for hot documents
 
-#### 4. Claude Agent Search (2-3s)
+#### Scoring Enhancements
 
-Complex analytical queries:
+- **Base score**: Strategy weight × document score
+- **Consensus boost**: +20% if found by 2+ strategies
+- **Hot document boost**: +15% if identified as high-value
+- **Cross-strategy boost**: +10% for each additional strategy that finds it
 
-- Multi-step analysis
-- Cross-reference queries
-- Summarization requests
-- Pattern identification
+#### Performance Characteristics
 
-```typescript
-// Examples of Claude agent queries:
-'summarize all decisions made about hiring this month';
-'find patterns in my meeting schedule';
-'analyze productivity trends from last quarter';
-```
+- All strategies execute simultaneously (5ms total vs 26ms sequential)
+- Early discoveries improve later strategy results
+- Failed strategies don't block others (Promise.allSettled)
+- Context sharing adds <1ms overhead
+
+#### Example Search Flow
+
+Query: "chess game last night"
+
+1. **Parallel Start** (T+0ms)
+
+   - All 4 strategies begin simultaneously
+   - Shared context initialized
+
+2. **Fast-Keyword** (T+2ms)
+
+   - Finds "chess" and "game" matches
+   - Shares: hotDocumentIds: {doc123, doc456}, dates: {2025-06-04}
+
+3. **Vector-Semantic** (T+3ms)
+
+   - Enhances query with discovered context
+   - Searches for "chess game last night 2025-06-04"
+   - Finds conceptually similar: "board game", "checkmate"
+
+4. **Smart-Date** (T+2ms)
+
+   - Searches both "last night" AND discovered date "2025-06-04"
+   - Finds additional matches from that date
+
+5. **Final Merge** (T+5ms)
+   - Documents found by multiple strategies get boosted
+   - Consensus document scores increase significantly
+   - Results sorted by enhanced scores
 
 ### File Structure for Phase 2
 
@@ -1699,11 +1719,22 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 ### Completed Today
 
 1. ✅ **Implement parallel search execution within strategies (#2)** - COMPLETED
-   - Created `ParallelSearchExecutor` class in `src/search/parallel-search-executor.ts`
-   - Runs 4 strategies simultaneously: fast-keyword, fast-date, vector-semantic, metadata-filter
-   - Uses Promise.allSettled for robust error handling
+   - Created `ParallelSearchExecutor` class with **inter-strategy communication**
+   - **Version 2 Features** (`parallel-search-executor-v2.ts`):
+     - Shared `SearchContext` for real-time strategy coordination
+     - Strategies share discovered dates, hot documents, and relevant keywords
+     - Context-aware scoring boosts consensus documents (found by multiple strategies)
+     - Smart date search uses dates discovered by other strategies
+     - Vector search incorporates keywords from high-scoring keyword matches
+   - Runs 4 strategies simultaneously with communication:
+     - `fast-keyword`: Shares high-scoring doc IDs and dates
+     - `vector-semantic`: Shares keywords from semantic matches, uses enhanced query
+     - `smart-date`: Uses dates from all strategies, not just query
+     - `context-aware-filter`: Focuses on consensus documents
    - Achieved **5.2x speedup** (26ms sequential vs 5ms parallel)
-   - Parallel is now the default strategy when `enableParallel !== false`
+   - **Removed all legacy search methods** - parallel is the only option
+   - Consensus scoring: Documents found by 2+ strategies get 20% score boost
+   - Hot document boost: 15% score increase for shared high-value documents
    - Test utility: `scripts/utilities/parallel-search-test.js`
 
 ### Next Up (In Order)

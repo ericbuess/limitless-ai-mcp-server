@@ -211,11 +211,7 @@ export class UnifiedSearchHandler {
     switch (strategy) {
       case 'parallel':
         if (this.parallelExecutor) {
-          result = await this.parallelExecutor.executeParallelSearch(
-            query,
-            classification,
-            options
-          );
+          result = await this.parallelExecutor.search(query, classification, options);
         } else {
           // Fallback to hybrid search
           result = await this.executeHybridSearch(query, classification, options);

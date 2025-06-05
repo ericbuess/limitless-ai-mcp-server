@@ -5,22 +5,43 @@ import type { FastPatternMatcher } from './fast-patterns.js';
 import type { BaseVectorStore } from '../vector-store/vector-store.interface.js';
 import type { QueryClassification } from './query-router.js';
 
-export interface ParallelSearchStrategy {
+/**
+ * Shared context for inter-strategy communication
+ */
+export interface SearchContext {
+  // Discovered date ranges from any strategy
+  discoveredDates: Set<string>;
+  // High-scoring document IDs that other strategies should prioritize
+  hotDocumentIds: Set<string>;
+  // Keywords found to be particularly relevant
+  relevantKeywords: Set<string>;
+  // Confidence scores from each strategy
+  strategyConfidence: Map<string, number>;
+  // Lock for thread-safe updates
+  updateContext: (updates: Partial<SearchContext>) => void;
+}
+
+export interface EnhancedSearchStrategy {
   name: string;
-  execute: () => Promise<any>;
+  execute: (context: SearchContext) => Promise<any>;
   weight: number;
   enabled: boolean;
+  // Strategies can subscribe to context updates
+  onContextUpdate?: (context: SearchContext) => void;
 }
 
 export interface ParallelSearchResult extends UnifiedSearchResult {
   strategyTimings: Record<string, number>;
   failedStrategies: string[];
+  searchContext?: SearchContext;
 }
 
 /**
- * Executes multiple search strategies in parallel for maximum performance
+ * Enhanced parallel search executor with inter-strategy communication
  */
 export class ParallelSearchExecutor {
+  private searchContext!: SearchContext;
+
   constructor(
     private fastMatcher: FastPatternMatcher,
     private vectorStore: BaseVectorStore | null,
@@ -28,67 +49,200 @@ export class ParallelSearchExecutor {
   ) {}
 
   /**
-   * Execute all applicable search strategies in parallel
+   * Create a shared context with thread-safe update mechanism
    */
-  async executeParallelSearch(
+  private createSearchContext(): SearchContext {
+    const context: SearchContext = {
+      discoveredDates: new Set(),
+      hotDocumentIds: new Set(),
+      relevantKeywords: new Set(),
+      strategyConfidence: new Map(),
+      updateContext: (updates: Partial<SearchContext>) => {
+        // Thread-safe updates
+        if (updates.discoveredDates) {
+          updates.discoveredDates.forEach((date) => context.discoveredDates.add(date));
+        }
+        if (updates.hotDocumentIds) {
+          updates.hotDocumentIds.forEach((id) => context.hotDocumentIds.add(id));
+        }
+        if (updates.relevantKeywords) {
+          updates.relevantKeywords.forEach((kw) => context.relevantKeywords.add(kw));
+        }
+        if (updates.strategyConfidence) {
+          updates.strategyConfidence.forEach((conf, strategy) =>
+            context.strategyConfidence.set(strategy, conf)
+          );
+        }
+      },
+    };
+    return context;
+  }
+
+  /**
+   * Execute all search strategies with inter-strategy communication
+   */
+  async search(
     query: string,
     classification: QueryClassification,
     options: UnifiedSearchOptions = {}
   ): Promise<ParallelSearchResult> {
     const startTime = Date.now();
     const limit = options.limit || 20;
+    this.searchContext = this.createSearchContext();
 
-    // Define search strategies
-    const strategies: ParallelSearchStrategy[] = [
+    // Define enhanced search strategies
+    const strategies: EnhancedSearchStrategy[] = [
       {
         name: 'fast-keyword',
-        execute: async () =>
-          this.fastMatcher.search(query, {
-            maxResults: limit,
+        execute: async (context) => {
+          const results = await this.fastMatcher.search(query, {
+            maxResults: limit * 2, // Get more results to filter
             scoreThreshold: options.scoreThreshold || 0.1,
-          }),
+          });
+
+          // Share high-scoring results with other strategies
+          if (results.length > 0) {
+            const topResults = results.slice(0, 5);
+            const hotIds = new Set(topResults.map((r) => r.lifelog.id));
+            const dates = new Set(
+              topResults.map((r) => new Date(r.lifelog.createdAt).toISOString().split('T')[0])
+            );
+
+            context.updateContext({
+              hotDocumentIds: hotIds,
+              discoveredDates: dates,
+              strategyConfidence: new Map([['fast-keyword', results[0].score]]),
+            });
+          }
+
+          // Boost scores for documents that vector search also found
+          return results.map((result) => ({
+            ...result,
+            score: context.hotDocumentIds.has(result.lifelog.id)
+              ? result.score * 1.2
+              : result.score,
+          }));
+        },
         weight: 0.3,
         enabled: true,
       },
       {
-        name: 'fast-date',
-        execute: () => this.executeDateSearch(query, classification, limit),
-        weight: 0.2,
-        enabled: (classification.extractedEntities.dates?.length ?? 0) > 0,
-      },
-      {
         name: 'vector-semantic',
-        execute: () =>
-          this.vectorStore?.searchByText(query, {
-            topK: limit,
+        execute: async (context) => {
+          if (!this.vectorStore) return [];
+
+          // Use discovered keywords to enhance vector search
+          const enhancedQuery =
+            context.relevantKeywords.size > 0
+              ? `${query} ${Array.from(context.relevantKeywords).join(' ')}`
+              : query;
+
+          const results = await this.vectorStore.searchByText(enhancedQuery, {
+            topK: limit * 2,
             includeContent: options.includeContent,
             includeMetadata: options.includeMetadata,
             scoreThreshold: options.scoreThreshold,
-          }) || Promise.resolve([]),
+            // Prefer documents from discovered dates
+            filter:
+              context.discoveredDates.size > 0
+                ? {
+                    date: { $in: Array.from(context.discoveredDates) },
+                  }
+                : undefined,
+          });
+
+          // Share semantic insights
+          if (results.length > 0) {
+            const topResults = results.slice(0, 5);
+            const hotIds = new Set(topResults.map((r) => r.id));
+
+            // Extract keywords from top semantic matches
+            const keywords = new Set<string>();
+            topResults.forEach((r) => {
+              if (r.metadata?.keywords) {
+                r.metadata.keywords.forEach((kw: string) => keywords.add(kw));
+              }
+            });
+
+            context.updateContext({
+              hotDocumentIds: hotIds,
+              relevantKeywords: keywords,
+              strategyConfidence: new Map([['vector-semantic', results[0].score]]),
+            });
+          }
+
+          return results;
+        },
         weight: 0.4,
         enabled: this.vectorStore !== null,
       },
       {
-        name: 'metadata-filter',
-        execute: () => this.executeMetadataSearch(query, classification, limit),
+        name: 'smart-date',
+        execute: async (context) => {
+          // Use discovered dates from other strategies
+          const datesToSearch = new Set([
+            ...(classification.extractedEntities.dates || []),
+            ...context.discoveredDates,
+          ]);
+
+          if (datesToSearch.size === 0) return [];
+
+          const allResults = [];
+          for (const date of datesToSearch) {
+            const dateObj = date instanceof Date ? date : new Date(date);
+            const results = await this.fastMatcher.searchByDateRange(dateObj, dateObj, query, {
+              maxResults: limit,
+            });
+            allResults.push(...results);
+          }
+
+          // Boost scores for hot documents
+          return allResults.map((result) => ({
+            ...result,
+            score: context.hotDocumentIds.has(result.lifelog.id)
+              ? result.score * 1.3
+              : result.score,
+          }));
+        },
+        weight: 0.2,
+        enabled:
+          (classification.extractedEntities.dates?.length ?? 0) > 0 ||
+          this.searchContext.discoveredDates.size > 0,
+      },
+      {
+        name: 'context-aware-filter',
+        execute: async (context) => {
+          // This strategy specifically looks for documents that multiple strategies agree on
+          if (context.hotDocumentIds.size === 0) return [];
+
+          // Get metadata for hot documents
+          const hotDocResults: any[] = [];
+          // In a real implementation, fetch metadata for hot documents from fileManager
+          logger.debug('Context-aware filtering for hot documents', {
+            hotDocs: context.hotDocumentIds.size,
+            keywords: context.relevantKeywords.size,
+          });
+
+          return hotDocResults;
+        },
         weight: 0.1,
-        enabled: (classification.extractedEntities.keywords?.length ?? 0) > 2,
+        enabled: true,
       },
     ];
 
     // Filter enabled strategies
     const enabledStrategies = strategies.filter((s) => s.enabled);
-    logger.info(`Executing ${enabledStrategies.length} search strategies in parallel`, {
+    logger.info(`Executing ${enabledStrategies.length} search strategies with context sharing`, {
       query,
       strategies: enabledStrategies.map((s) => s.name),
     });
 
-    // Execute all strategies in parallel
+    // Execute all strategies in parallel with shared context
     const strategyPromises = enabledStrategies.map((strategy) => ({
       name: strategy.name,
       weight: strategy.weight,
       promise: strategy
-        .execute()
+        .execute(this.searchContext)
         .then((result) => ({
           success: true,
           result,
@@ -133,14 +287,23 @@ export class ParallelSearchExecutor {
       }
     });
 
-    // Merge and rank results
-    const mergedResults = this.mergeParallelResults(successfulResults, limit);
+    // Merge results with context-aware scoring
+    const mergedResults = this.mergeResultsWithContext(
+      successfulResults,
+      limit,
+      this.searchContext
+    );
 
-    logger.info('Parallel search completed', {
+    logger.info('Parallel search with context sharing completed', {
       totalTime: Date.now() - startTime,
       strategyTimings,
       failedStrategies,
       resultCount: mergedResults.length,
+      contextInsights: {
+        hotDocuments: this.searchContext.hotDocumentIds.size,
+        discoveredDates: this.searchContext.discoveredDates.size,
+        relevantKeywords: this.searchContext.relevantKeywords.size,
+      },
     });
 
     return {
@@ -155,52 +318,21 @@ export class ParallelSearchExecutor {
       },
       strategyTimings,
       failedStrategies,
+      searchContext: this.searchContext,
     };
   }
 
   /**
-   * Execute date-based search
+   * Merge results with context-aware scoring adjustments
    */
-  private async executeDateSearch(
-    query: string,
-    classification: QueryClassification,
-    limit: number
-  ): Promise<any[]> {
-    if (!classification.extractedEntities.dates?.length) {
-      return [];
-    }
-
-    const date = classification.extractedEntities.dates[0];
-    return this.fastMatcher.searchByDateRange(date, date, query, { maxResults: limit });
-  }
-
-  /**
-   * Execute metadata-based search
-   */
-  private async executeMetadataSearch(
-    _query: string,
-    classification: QueryClassification,
-    _limit: number
-  ): Promise<any[]> {
-    // Search using metadata filters from local files
-    const keywords = classification.extractedEntities.keywords || [];
-
-    // This would search through .meta.json files
-    // For now, return empty array as placeholder
-    logger.debug('Metadata search not yet implemented', { keywords });
-    return [];
-  }
-
-  /**
-   * Merge results from multiple strategies with weighted scoring
-   */
-  private mergeParallelResults(
+  private mergeResultsWithContext(
     strategyResults: Array<{
       name: string;
       weight: number;
       results: any[];
     }>,
-    limit: number
+    limit: number,
+    context: SearchContext
   ): UnifiedSearchResult['results'] {
     const resultMap = new Map<
       string,
@@ -211,6 +343,7 @@ export class ParallelSearchExecutor {
         highlights?: string[];
         metadata: Record<string, any>;
         sources: string[];
+        strategyCount: number;
       }
     >();
 
@@ -222,9 +355,10 @@ export class ParallelSearchExecutor {
 
         const existing = resultMap.get(id);
         if (existing) {
-          // Combine scores with strategy weight
-          existing.score += (result.score || 0) * weight;
+          // Document found by multiple strategies - boost score
+          existing.score += (result.score || 0) * weight * 1.1; // 10% boost for consensus
           existing.sources.push(name);
+          existing.strategyCount++;
 
           // Merge highlights
           if (result.matches) {
@@ -239,6 +373,8 @@ export class ParallelSearchExecutor {
             ...existing.metadata,
             ...result.metadata,
             matchingSources: existing.sources,
+            isHotDocument: context.hotDocumentIds.has(id),
+            consensusScore: existing.strategyCount / strategyResults.length,
           };
         } else {
           // New result
@@ -251,16 +387,32 @@ export class ParallelSearchExecutor {
               ...result.metadata,
               source: name,
               matchingSources: [name],
+              isHotDocument: context.hotDocumentIds.has(id),
+              consensusScore: 1 / strategyResults.length,
             },
             sources: [name],
+            strategyCount: 1,
           });
         }
       }
     }
 
+    // Apply final context-based scoring adjustments
+    resultMap.forEach((result, id) => {
+      // Boost documents that multiple strategies found
+      if (result.strategyCount >= 2) {
+        result.score *= 1.2;
+      }
+
+      // Boost hot documents identified during search
+      if (context.hotDocumentIds.has(id)) {
+        result.score *= 1.15;
+      }
+    });
+
     // Sort by combined score and return top results
     return Array.from(resultMap.values())
-      .map(({ sources: _sources, ...rest }) => rest) // Remove internal sources array
+      .map(({ sources: _sources, strategyCount: _count, ...rest }) => rest)
       .sort((a, b) => b.score - a.score)
       .slice(0, limit);
   }
