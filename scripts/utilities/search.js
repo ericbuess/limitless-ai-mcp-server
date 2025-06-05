@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { UnifiedSearchHandler } from '../../dist/search/unified-search.js';
-import { LimitlessClient } from '../../dist/core/limitless-client.js';
+// Removed LimitlessClient import - search is always local
 import { FileManager } from '../../dist/storage/file-manager.js';
 
 // ANSI color codes
@@ -68,15 +68,15 @@ async function search(query, options = {}) {
   console.log(`\n${colors.cyan}Searching for: "${query}"${colors.reset}\n`);
 
   try {
-    // Initialize components - use empty API key for local-only mode
-    const client = new LimitlessClient(process.env.LIMITLESS_API_KEY || '');
+    // Initialize components - search is always local, no API needed
     const fileManager = new FileManager({
       baseDir: './data',
       createIfMissing: false,
     });
 
-    const searchHandler = new UnifiedSearchHandler(client, fileManager, {
-      enableVectorStore: false, // Disable to avoid initialization issues
+    // Pass null for client since search should never use API
+    const searchHandler = new UnifiedSearchHandler(null, fileManager, {
+      enableVectorStore: true, // Enable vector store for better search
       enableClaude: false,
     });
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { LimitlessClient } from '../../dist/core/limitless-client.js';
+// Removed LimitlessClient import - search is always local
 import { FileManager } from '../../dist/storage/file-manager.js';
 import { UnifiedSearchHandler } from '../../dist/search/unified-search.js';
 import { logger } from '../../dist/utils/logger.js';
@@ -13,11 +13,11 @@ async function testContextSharing() {
     console.log('\n🔍 Testing Parallel Search with Context Sharing\n');
     console.log(`Query: "${query}"\n`);
 
-    // Initialize components
-    const client = new LimitlessClient({ apiKey: process.env.LIMITLESS_API_KEY || 'test' });
+    // Initialize components - search is always local, no API needed
     const fileManager = new FileManager({ basePath: './data/lifelogs' });
 
-    const searchHandler = new UnifiedSearchHandler(client, fileManager, {
+    // Pass null for client since search should never use API
+    const searchHandler = new UnifiedSearchHandler(null, fileManager, {
       enableVectorStore: true,
     });
 

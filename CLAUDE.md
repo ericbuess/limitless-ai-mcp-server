@@ -263,7 +263,7 @@ npm run sync:all -- --years=5 --batch=30 --delay=3000
 ### Utility Commands
 
 ```bash
-# Search lifelogs
+# Search lifelogs (ALWAYS LOCAL - no API key required)
 npm run search "your search query"
 
 # Monitor sync status
@@ -370,8 +370,11 @@ claude mcp list
 ### Direct Testing
 
 ```bash
-# Set API key and run
+# Set API key and run (API key only needed for sync, not search)
 LIMITLESS_API_KEY="your-key" node dist/index.js
+
+# Test search without API key
+npm run search "your query"
 ```
 
 ## Important Implementation Details
@@ -390,7 +393,30 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 
 3. **Rate Limiting**: Be mindful of API rate limits. The retry logic handles 429 errors.
 
-4. **Search Functionality**: All searches are 100% local after initial sync. Phase 2 implements multi-strategy search with automatic query routing.
+4. **Search Functionality**: All searches are 100% local - no API key required for searching. Search uses local files downloaded during sync. Phase 2 implements multi-strategy search with automatic query routing.
+
+   **Key Points About Local Search:**
+
+   - **NO API calls during search** - UnifiedSearchHandler accepts null client
+   - **NO API key needed** - Search utilities work without LIMITLESS_API_KEY
+   - **Always uses local files** - FileManager.loadAllLifelogs() reads from disk
+   - **API only for sync** - API calls only happen in sync service for downloading
+
+   **Search Implementation Details:**
+
+   ```typescript
+   // Search handler accepts null client - no API dependency
+   const searchHandler = new UnifiedSearchHandler(null, fileManager, {
+     enableVectorStore: true,
+     enableClaude: false,
+   });
+
+   // Fast search uses local index built from FileManager
+   await this.fastMatcher.buildIndex(localLifelogs);
+
+   // Vector search uses LanceDB with local embeddings
+   await this.vectorStore.searchByText(query);
+   ```
 
 5. **Pagination**: The client handles pagination automatically when fetching multiple records.
 
@@ -1892,9 +1918,17 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
    - Both monitoring and vectorization phases include keywords
 
 5. ✅ **Verified No API Usage in Search**
+
    - All search strategies now use local files exclusively
    - Fast-keyword uses local index, vector uses LanceDB
    - API calls only occur in sync service as intended
+
+6. ✅ **Fixed Search Implementation to Remove API Dependency**
+   - Updated UnifiedSearchHandler to accept null client parameter
+   - Removed LimitlessClient imports from all search utilities
+   - Updated search.js, parallel-search-test.js, and context-sharing-demo.js
+   - Search now works completely without LIMITLESS_API_KEY environment variable
+   - Verified all search utilities work with local files only
 
 ### Previously Completed
 

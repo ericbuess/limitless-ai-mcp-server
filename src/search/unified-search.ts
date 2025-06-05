@@ -1,4 +1,5 @@
-import { LimitlessClient } from '../core/limitless-client.js';
+// LimitlessClient removed - search is always local
+import type { LimitlessClient } from '../core/limitless-client.js'; // Keep type for backward compatibility
 import { FileManager } from '../storage/file-manager.js';
 import { ChromaVectorStore } from '../vector-store/chroma-manager.js';
 import { QueryRouter, QueryType } from './query-router.js';
@@ -52,7 +53,6 @@ export interface UnifiedSearchResult {
 }
 
 export class UnifiedSearchHandler {
-  private client: LimitlessClient;
   private fileManager: FileManager;
   private vectorStore: BaseVectorStore | null = null;
   private queryRouter: QueryRouter;
@@ -64,7 +64,7 @@ export class UnifiedSearchHandler {
   private isInitialized: boolean = false;
 
   constructor(
-    client: LimitlessClient,
+    _client: LimitlessClient | null, // Keep parameter for backward compatibility
     fileManager: FileManager,
     options: {
       enableVectorStore?: boolean;
@@ -72,7 +72,7 @@ export class UnifiedSearchHandler {
       cacheOptions?: any;
     } = {}
   ) {
-    this.client = client;
+    // Client parameter kept for backward compatibility but not used
     this.fileManager = fileManager;
     this.queryRouter = new QueryRouter();
     this.queryPreprocessor = new QueryPreprocessor();
@@ -110,8 +110,8 @@ export class UnifiedSearchHandler {
     // Initialize components
     await this.fileManager.initialize();
 
-    // Initialize LanceDB if needed
-    if (!this.vectorStore && this.client) {
+    // Initialize LanceDB if needed - no client dependency for vector store
+    if (!this.vectorStore && this.fileManager) {
       const { LanceDBStore } = await import('../vector-store/lancedb-store.js');
       this.vectorStore = new LanceDBStore({
         collectionName: 'limitless-lifelogs',
