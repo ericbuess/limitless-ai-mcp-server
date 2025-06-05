@@ -32,7 +32,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc && cp src/tools/*.js src/tools/*.sh dist/tools/ 2>/dev/null || true && chmod +x dist/tools/*.js dist/tools/*.sh 2>/dev/null || true",
+    "build": "tsc && mkdir -p dist/monitoring dist/tasks dist/utils && cp src/tools/*.js src/tools/*.sh dist/tools/ 2>/dev/null || true && cp src/monitoring/*.js dist/monitoring/ 2>/dev/null || true && cp src/tasks/*.js dist/tasks/ 2>/dev/null || true && cp src/utils/*.js dist/utils/ 2>/dev/null || true && chmod +x dist/tools/*.js dist/tools/*.sh 2>/dev/null || true",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "sync:all": "tsx src/tools/sync-all-data-v3.ts",
@@ -48,6 +48,9 @@
     "test:watch": "jest --watch",
     "test:integration": "jest tests/integration --runInBand",
     "test:coverage": "jest --coverage",
+    "assistant:start": "node scripts/start-assistant.js",
+    "assistant:test": "node scripts/test-trigger.js",
+    "assistant:status": "node scripts/assistant-status.js",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
@@ -62,10 +65,12 @@
   "dependencies": {
     "@lancedb/lancedb": "^0.19.1",
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "@types/uuid": "^10.0.0",
     "@xenova/transformers": "^2.17.2",
     "chromadb": "^2.4.6",
     "chromadb-default-embed": "^2.14.0",
     "date-fns": "^4.1.0",
+    "uuid": "^11.1.0",
     "zod": "^3.25.48"
   },
   "devDependencies": {

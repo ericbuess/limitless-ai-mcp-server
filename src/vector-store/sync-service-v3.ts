@@ -6,6 +6,29 @@ import type { VectorStore } from './vector-store.interface.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
+/**
+ * Deduplicate transcript by removing duplicate lines
+ * This helps clean up repeated content in lifelogs
+ */
+function deduplicateTranscript(transcript: string): string {
+  const lines = transcript.split('\n');
+  const uniqueLines = new Set<string>();
+  const deduplicatedLines: string[] = [];
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (trimmedLine && !uniqueLines.has(trimmedLine)) {
+      uniqueLines.add(trimmedLine);
+      deduplicatedLines.push(line);
+    } else if (!trimmedLine) {
+      // Preserve empty lines for formatting
+      deduplicatedLines.push(line);
+    }
+  }
+
+  return deduplicatedLines.join('\n');
+}
+
 export interface SyncOptions {
   downloadOnly?: boolean;
   apiDelayMs?: number;
@@ -247,6 +270,11 @@ export class SyncServiceV3 {
 
             for (const apiLifelog of lifelogs) {
               const lifelog = toPhase2Lifelog(apiLifelog);
+
+              // Deduplicate transcript content before saving
+              if (lifelog.content) {
+                lifelog.content = deduplicateTranscript(lifelog.content);
+              }
 
               try {
                 // Check if already exists
@@ -638,6 +666,11 @@ export class SyncServiceV3 {
 
         for (const apiLifelog of sortedLifelogs) {
           const lifelog = toPhase2Lifelog(apiLifelog);
+
+          // Deduplicate transcript content before saving
+          if (lifelog.content) {
+            lifelog.content = deduplicateTranscript(lifelog.content);
+          }
 
           // Log every lifelog for debugging
           logger.debug('Processing lifelog', {

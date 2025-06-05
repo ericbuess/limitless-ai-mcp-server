@@ -1,0 +1,37 @@
+{
+  "trigger": {
+    "keyword": "Claudius",
+    "caseSensitive": false,
+    "contextWindow": 100,
+    "preAssessment": {
+      "enabled": true,
+      "maxTokens": 500
+    }
+  },
+  "tasks": {
+    "memory_search": {
+      "enabled": true,
+      "maxIterations": 3,
+      "confidenceThreshold": 0.8,
+      "cacheAnswers": true
+    },
+    "create_reminder": {
+      "enabled": false,
+      "integration": "todoist"
+    },
+    "send_message": {
+      "enabled": false,
+      "integration": "slack"
+    }
+  },
+  "monitoring": {
+    "pollInterval": 30000,
+    "lookbackMinutes": 5,
+    "batchSize": 10
+  },
+  "claude": {
+    "maxTurns": 5,
+    "temperature": 0.3,
+    "timeout": 120000
+  }
+}

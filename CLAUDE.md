@@ -1892,7 +1892,20 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 
 ### Recently Completed (2025-06-05)
 
-1. ✅ **Enable Local-Only Mode for Search** - COMPLETED
+1. ✅ **Build AI-Powered Task System with Memory Search** - COMPLETED
+
+   - Implemented transcript deduplication to clean duplicate lines from API responses
+   - Created ClaudeInvoker utility for headless Claude CLI integration with session management
+   - Built TriggerMonitor service to detect "Claudius" keyword and process requests
+   - Developed TaskExecutor system with extensible task type architecture
+   - Implemented MemorySearchTool with iterative search using Claude -p for better results
+   - Added pre-assessment to filter out non-actionable trigger detections
+   - Created complete audit trail system with session directories and iteration tracking
+   - Implemented answer caching to avoid redundant searches for same queries
+   - Added npm scripts: `assistant:start`, `assistant:test`, `assistant:status`
+   - Designed for future expansion with reminder, message, and other task types
+
+2. ✅ **Enable Local-Only Mode for Search** - COMPLETED
 
    - Created LOCAL_ONLY_MODE environment variable
    - Modified LimitlessClient to allow empty API key
@@ -1901,7 +1914,7 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
    - Search performance: 5-14ms for parallel searches
    - Documentation updated in README.md
 
-2. ✅ **Fix Search System to Find Exact Matches** - COMPLETED
+3. ✅ **Fix Search System to Find Exact Matches** - COMPLETED
    - Fixed `search.js` to use `UnifiedSearchHandler` instead of direct vector store
    - Now finds exact keyword matches using fast pattern matcher
    - Shows content windows around matches with highlighting
@@ -1910,7 +1923,46 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 
 ### High Priority Tasks (Next Up)
 
-1. **Implement Parallel Batch Processing for Embeddings (#6)** - NEXT TASK
+1. **Improve Search Query Understanding and Result Ranking** - HIGHEST PRIORITY (NEXT TASK)
+
+   Current Issues:
+
+   - Search for "lunch yesterday" didn't find "Smoothie King" even though it's in the transcripts
+   - Query expansion is too limited - doesn't try semantic variations
+   - Single query approach - should automatically try multiple query strategies
+   - Result ranking doesn't prioritize temporal matches well
+
+   Test Case: "what did I eat for lunch yesterday" should find:
+
+   - Smoothie King discussion at 5:16 PM on June 4
+   - Should understand "lunch" could be any meal/food/drink around midday
+   - Should expand "yesterday" to the actual date
+
+   Implementation Plan:
+
+   - Enhance query expansion to include semantic variations:
+     - "lunch" → ["lunch", "meal", "food", "eat", "drink", "smoothie", "midday"]
+     - "ate" → ["ate", "had", "got", "ordered", "bought"]
+   - Implement automatic multi-query strategy:
+     - Run multiple search variations in parallel automatically
+     - Don't require user to try different searches
+     - Merge results with smart deduplication
+   - Improve temporal understanding:
+     - When searching for meals, look at appropriate time windows
+     - Lunch = roughly 11am-2pm
+     - Better ranking for temporal matches
+   - Fix result ranking to consider:
+     - Time of day relevance for meal queries
+     - Keyword density in context
+     - Conversation continuity (multiple mentions = higher relevance)
+
+   Expected Outcome:
+
+   - Single search "what did I eat for lunch yesterday" returns Smoothie King as top result
+   - No need for user to try multiple search terms
+   - System automatically explores variations
+
+2. **Implement Parallel Batch Processing for Embeddings (#6)**
 
    - Current: Sequential processing (100-200ms per lifelog)
    - Target: Batch processing with 5-10x speedup
@@ -1920,7 +1972,7 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
      - Process embeddings in parallel batches of 10-20
      - Control memory usage via batch size limits
 
-2. **Build Real-time Notification System (#7)**
+3. **Build Real-time Notification System (#7)**
    - Monitor for keywords in new lifelogs
    - Trigger actions based on detected patterns
    - Foundation for Phase 3 voice commands
@@ -2049,3 +2101,10 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 - [Project Repository](https://github.com/ericbuess/limitless-ai-mcp-server)
 - [Issue Tracker](https://github.com/ericbuess/limitless-ai-mcp-server/issues)
 - [Claude Code CLI](https://claude.ai/code)
+
+# important-instruction-reminders
+
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.
