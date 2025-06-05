@@ -1,5 +1,5 @@
-import { LanceDBStore } from './dist/vector-store/lancedb-store.js';
-import { LimitlessClient } from './dist/core/limitless-client.js';
+import { LanceDBStore } from '../../dist/vector-store/lancedb-store.js';
+import { LimitlessClient } from '../../dist/core/limitless-client.js';
 
 // Set API key
 process.env.LIMITLESS_API_KEY = 'sk-a740f4f7-fb38-4a20-8286-43549ab21157';
