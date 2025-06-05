@@ -6,6 +6,7 @@ import { FastPatternMatcher } from './fast-patterns.js';
 import { ClaudeOrchestrator } from './claude-orchestrator.js';
 import { IntelligentCache } from '../cache/intelligent-cache.js';
 import { ParallelSearchExecutor } from './parallel-search-executor.js';
+import { QueryPreprocessor, PreprocessedQuery } from './query-preprocessor.js';
 import { logger } from '../utils/logger.js';
 import type { Phase2Lifelog } from '../types/phase2.js';
 import type {
@@ -24,6 +25,7 @@ export interface UnifiedSearchOptions {
   enableCache?: boolean;
   enableLearning?: boolean;
   enableParallel?: boolean;
+  enableQueryExpansion?: boolean;
 }
 
 export interface UnifiedSearchResult {
@@ -54,6 +56,7 @@ export class UnifiedSearchHandler {
   private fileManager: FileManager;
   private vectorStore: BaseVectorStore | null = null;
   private queryRouter: QueryRouter;
+  private queryPreprocessor: QueryPreprocessor;
   private fastMatcher: FastPatternMatcher;
   private claudeOrchestrator: ClaudeOrchestrator | null = null;
   private cache: IntelligentCache;
@@ -72,6 +75,7 @@ export class UnifiedSearchHandler {
     this.client = client;
     this.fileManager = fileManager;
     this.queryRouter = new QueryRouter();
+    this.queryPreprocessor = new QueryPreprocessor();
     this.fastMatcher = new FastPatternMatcher();
     this.cache = new IntelligentCache(options.cacheOptions);
 
@@ -180,8 +184,18 @@ export class UnifiedSearchHandler {
       }
     }
 
-    // Classify query
-    const classification = await this.queryRouter.classifyQuery(query);
+    // Preprocess query
+    const preprocessed = this.queryPreprocessor.preprocess(query);
+    logger.debug('Query preprocessing complete', {
+      original: query,
+      normalized: preprocessed.normalized,
+      expandedCount: preprocessed.expandedQueries.length,
+      intent: preprocessed.intent,
+      entities: preprocessed.entities,
+    });
+
+    // Classify query with preprocessed data
+    const classification = await this.queryRouter.classifyQuery(preprocessed.normalized);
 
     // Get suggested strategy from cache if learning is enabled
     let strategy = options.strategy || 'auto';
@@ -208,44 +222,61 @@ export class UnifiedSearchHandler {
     let result: UnifiedSearchResult;
     const searchStartTime = Date.now();
 
-    switch (strategy) {
-      case 'parallel':
-        if (this.parallelExecutor) {
-          result = await this.parallelExecutor.search(query, classification, options);
-        } else {
-          // Fallback to hybrid search
-          result = await this.executeHybridSearch(query, classification, options);
-        }
-        break;
+    // Check if we should use query expansion
+    const shouldUseQueryExpansion =
+      options.enableQueryExpansion !== false &&
+      preprocessed.expandedQueries.length > 1 &&
+      strategy !== 'parallel'; // Don't expand if already using parallel executor
 
-      case 'fast':
-        result = await this.executeFastSearch(query, classification, options);
-        break;
+    if (shouldUseQueryExpansion) {
+      // Use parallel query expansion
+      result = await this.executeParallelQueryExpansion(
+        preprocessed,
+        classification,
+        strategy,
+        options
+      );
+    } else {
+      // Regular search execution
+      switch (strategy) {
+        case 'parallel':
+          if (this.parallelExecutor) {
+            result = await this.parallelExecutor.search(query, classification, options);
+          } else {
+            // Fallback to hybrid search
+            result = await this.executeHybridSearch(query, classification, options);
+          }
+          break;
 
-      case 'vector':
-        if (this.vectorStore) {
-          result = await this.executeVectorSearch(query, classification, options);
-        } else {
-          // Fallback to fast search
+        case 'fast':
           result = await this.executeFastSearch(query, classification, options);
-        }
-        break;
+          break;
 
-      case 'hybrid':
-        result = await this.executeHybridSearch(query, classification, options);
-        break;
+        case 'vector':
+          if (this.vectorStore) {
+            result = await this.executeVectorSearch(query, classification, options);
+          } else {
+            // Fallback to fast search
+            result = await this.executeFastSearch(query, classification, options);
+          }
+          break;
 
-      case 'claude':
-        if (this.claudeOrchestrator && this.claudeOrchestrator.isClaudeAvailable()) {
-          result = await this.executeClaudeSearch(query, classification, options);
-        } else {
-          // Fallback to hybrid search
+        case 'hybrid':
           result = await this.executeHybridSearch(query, classification, options);
-        }
-        break;
+          break;
 
-      default:
-        result = await this.executeFastSearch(query, classification, options);
+        case 'claude':
+          if (this.claudeOrchestrator && this.claudeOrchestrator.isClaudeAvailable()) {
+            result = await this.executeClaudeSearch(query, classification, options);
+          } else {
+            // Fallback to hybrid search
+            result = await this.executeHybridSearch(query, classification, options);
+          }
+          break;
+
+        default:
+          result = await this.executeFastSearch(query, classification, options);
+      }
     }
 
     const searchTime = Date.now() - searchStartTime;
@@ -265,6 +296,137 @@ export class UnifiedSearchHandler {
     this.queryRouter.updatePerformanceMetrics(classification.type, searchTime);
 
     return result;
+  }
+
+  /**
+   * Execute parallel query expansion
+   * Runs multiple query variations in parallel for better recall
+   */
+  private async executeParallelQueryExpansion(
+    preprocessed: PreprocessedQuery,
+    classification: any,
+    strategy: string,
+    options: UnifiedSearchOptions
+  ): Promise<UnifiedSearchResult> {
+    const startTime = Date.now();
+    const limit = options.limit || 20;
+
+    // Get query variations (max 5 to avoid too many parallel requests)
+    const queries = preprocessed.expandedQueries.slice(0, 5);
+    logger.debug(`Running parallel query expansion with ${queries.length} variations`, { queries });
+
+    // Execute searches for all variations in parallel
+    const searchPromises = queries.map(async (queryVariation) => {
+      try {
+        // Use the underlying strategy for each variation
+        switch (strategy) {
+          case 'fast':
+            return await this.executeFastSearch(queryVariation, classification, {
+              ...options,
+              enableCache: false, // Don't cache individual variations
+            });
+          case 'vector':
+            return await this.executeVectorSearch(queryVariation, classification, {
+              ...options,
+              enableCache: false,
+            });
+          case 'hybrid':
+            return await this.executeHybridSearch(queryVariation, classification, {
+              ...options,
+              enableCache: false,
+            });
+          default:
+            return await this.executeFastSearch(queryVariation, classification, {
+              ...options,
+              enableCache: false,
+            });
+        }
+      } catch (error) {
+        logger.warn(`Query variation failed: ${queryVariation}`, error);
+        return null;
+      }
+    });
+
+    // Wait for all searches to complete
+    const results = await Promise.all(searchPromises);
+    const validResults = results.filter((r) => r !== null) as UnifiedSearchResult[];
+
+    // Merge results with consensus scoring
+    const mergedResults = this.mergeParallelResults(validResults, preprocessed);
+
+    return {
+      query: preprocessed.original,
+      strategy: strategy as any,
+      results: mergedResults.slice(0, limit),
+      performance: {
+        totalTime: Date.now() - startTime,
+        searchTime: Date.now() - startTime,
+        strategy: `${strategy}-parallel`,
+        cacheHit: false,
+      },
+      insights: `Searched ${queries.length} query variations in parallel`,
+    };
+  }
+
+  /**
+   * Merge results from parallel query expansion with consensus scoring
+   */
+  private mergeParallelResults(
+    results: UnifiedSearchResult[],
+    preprocessed: PreprocessedQuery
+  ): UnifiedSearchResult['results'] {
+    // Track how many queries found each document
+    const documentScores = new Map<
+      string,
+      {
+        score: number;
+        count: number;
+        lifelog?: Phase2Lifelog;
+        highlights: Set<string>;
+        metadata?: Record<string, any>;
+      }
+    >();
+
+    // Aggregate results
+    for (const result of results) {
+      for (const item of result.results) {
+        const existing = documentScores.get(item.id);
+        if (existing) {
+          // Document found by multiple queries - boost score
+          existing.count++;
+          existing.score = Math.max(existing.score, item.score) * (1 + 0.2 * existing.count); // 20% boost per additional query
+          if (item.highlights) {
+            item.highlights.forEach((h) => existing.highlights.add(h));
+          }
+        } else {
+          // First time seeing this document
+          documentScores.set(item.id, {
+            score: item.score,
+            count: 1,
+            lifelog: item.lifelog,
+            highlights: new Set(item.highlights || []),
+            metadata: item.metadata,
+          });
+        }
+      }
+    }
+
+    // Convert to array and sort by score
+    const sortedResults = Array.from(documentScores.entries())
+      .map(([id, data]) => ({
+        id,
+        score: data.score,
+        lifelog: data.lifelog,
+        highlights: Array.from(data.highlights),
+        metadata: {
+          ...data.metadata,
+          consensusCount: data.count,
+          queryVariations: preprocessed.expandedQueries.slice(0, 5),
+        },
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    return sortedResults;
   }
 
   /**

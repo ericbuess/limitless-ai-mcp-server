@@ -277,6 +277,9 @@ npm run db:fix-duplicates
 
 # Inspect database contents
 npm run db:inspect
+
+# Test query preprocessing
+npm run test:preprocessing
 ```
 
 ### Git Commands
@@ -421,8 +424,6 @@ LIMITLESS_API_KEY="your-key" node dist/index.js
 - **All 5 MCP features + 4 Phase 2 enhancements implemented**
 - **Performance**: 59x faster search, semantic capabilities added
 
-See @PROJECT_STATUS.md for detailed metrics and @ROADMAP.md for future plans.
-
 ## Publishing to NPM
 
 ### Pre-Publish Verification
@@ -526,10 +527,8 @@ See @PROJECT_STATUS.md for detailed metrics and @ROADMAP.md for future plans.
 
 ## Future Development
 
-See @ROADMAP.md for planned enhancements:
-
-- **Phase 2**: Local Vector Store & Voice-Activated Keywords
-- **Phase 3**: Additional features and integrations
+- **Phase 3**: Voice-Activated Keywords (Next Milestone)
+- **Phase 4+**: Advanced Analytics, Integrations, CLI Tool
 
 ## Security Considerations
 
@@ -600,15 +599,65 @@ This will show:
 - **MCP Protocol Specification**: `docs/references/llms-full_model-context-protocol_20250601.md`
 - **Limitless API Documentation**: `docs/references/limitless-api-docs_20250601.md`
 
-## Critical Implementation Notes
+## Query Preprocessing (Implemented 2025-06-05)
 
-- **Next Steps & Cleanup**: @NEXT_STEPS_INSTRUCTIONS.md
-- **Project Status**: @PROJECT_STATUS.md
-- **Development Roadmap**: @ROADMAP.md
+### Overview
+
+The `ParallelSearchExecutor` now includes advanced query preprocessing that significantly improves search accuracy:
+
+1. **Temporal Normalization**: Converts relative time expressions to absolute dates
+2. **Intent Detection**: Identifies query type (search, question, command, navigation)
+3. **Named Entity Recognition**: Extracts person names, locations, and entities
+4. **Query Expansion**: Generates variations for comprehensive results
+
+### Implementation Details
+
+```typescript
+// In parallel-search-executor.ts
+private preprocessQuery(query: string): PreprocessedQuery {
+  const processed = {
+    originalQuery: query,
+    normalizedQuery: query,
+    temporalRefs: [],
+    intent: this.detectIntent(query),
+    entities: this.extractEntities(query),
+    expansions: this.generateQueryVariations(query)
+  };
+
+  // Temporal normalization with chrono-node
+  const parsedDates = chrono.parse(query);
+  if (parsedDates.length > 0) {
+    processed.temporalRefs = parsedDates.map(d => ({
+      text: d.text,
+      date: d.start.date(),
+      confidence: d.start.isCertain() ? 1.0 : 0.7
+    }));
+  }
+
+  return processed;
+}
+```
+
+### Features
+
+- **Relative Date Handling**: "yesterday", "last week", "2 days ago" → absolute dates
+- **Intent Classification**: Determines if query is seeking information, navigation, or action
+- **Entity Extraction**: Identifies names ("Sarah", "John"), locations, organizations
+- **Smart Variations**: Creates semantically similar queries for better recall
+
+### Testing
+
+Use the test utility to verify preprocessing:
+
+```bash
+npm run test:preprocessing
+# or directly:
+node scripts/utilities/test-preprocessing.js
+```
 
 ## Phase 2: Intelligent Search & Voice Keywords Implementation
 
-> ⚡ **Phase 2 Status**: In Development  
+> ⚡ **Phase 2 Status**: Complete ✅  
 > Phase 2 enhances the MCP server with AI-powered search capabilities and voice-activated keyword monitoring.
 
 ### Phase 2 Architecture Overview
@@ -1499,8 +1548,8 @@ export DEBUG_SYNC_SERVICE=true
 ## Current Status
 
 **Version:** 0.2.0  
-**Status:** Phase 2 Complete / Beta 🚧  
-**Last Updated:** 2025-06-04
+**Status:** Phase 2 Complete ✅  
+**Last Updated:** 2025-06-05
 
 ⚠️ **Note**: Phase 2 intelligent search is now complete. While core features are implemented and tested, real-world usage testing is needed. Please report issues!
 
@@ -1514,6 +1563,30 @@ export DEBUG_SYNC_SERVICE=true
   - `archive-tests/` - Archived test scripts (12 scripts)
 - **Clean Root Directory**: Organized all files appropriately
 - **New npm Scripts**: Added convenient commands for common operations
+
+### Recent Changes (2025-06-05)
+
+- **Query Preprocessing with Temporal Normalization**: Implemented advanced query preprocessing in `ParallelSearchExecutor`
+  - Converts relative time expressions ("yesterday", "last week") to absolute dates
+  - Handles various temporal formats with chrono-node library
+  - Automatically extracts and normalizes dates from queries
+- **Intent Detection and Named Entity Recognition**: Added intelligent query analysis
+  - Detects query intent (search, question, command, navigation)
+  - Identifies person names using NLP patterns
+  - Extracts locations and other entities
+  - Enhances search accuracy by understanding query context
+- **Parallel Query Expansion with Consensus Scoring**: Implemented query rewriting system
+  - Generates multiple query variations automatically
+  - Runs variations in parallel for comprehensive results
+  - Uses consensus scoring (documents found by multiple variations score higher)
+  - Examples:
+    - "meeting with Sarah" → ["meeting Sarah", "Sarah meeting", "discussion with Sarah"]
+    - "budget proposal" → ["budget plan", "financial proposal", "budget document"]
+- **Test Utility Created**: Added `scripts/utilities/test-preprocessing.js`
+  - Tests temporal normalization with various date formats
+  - Validates query expansion and variation generation
+  - Demonstrates intent detection capabilities
+  - Shows named entity extraction results
 
 ### Root Directory Files (All Appropriate)
 
@@ -1741,88 +1814,9 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 
 ## Current TODO List (as of 2025-06-05)
 
-### Completed Today
+### High Priority Tasks (Next Up)
 
-1. ✅ **Implement parallel search execution within strategies (#2)** - COMPLETED
-   - Created `ParallelSearchExecutor` class with **inter-strategy communication**
-   - **Version 2 Features** (`parallel-search-executor-v2.ts`):
-     - Shared `SearchContext` for real-time strategy coordination
-     - Strategies share discovered dates, hot documents, and relevant keywords
-     - Context-aware scoring boosts consensus documents (found by multiple strategies)
-     - Smart date search uses dates discovered by other strategies
-     - Vector search incorporates keywords from high-scoring keyword matches
-   - Runs 4 strategies simultaneously with communication:
-     - `fast-keyword`: Shares high-scoring doc IDs and dates
-     - `vector-semantic`: Shares keywords from semantic matches, uses enhanced query
-     - `smart-date`: Uses dates from all strategies, not just query
-     - `context-aware-filter`: Focuses on consensus documents
-   - Achieved **5.2x speedup** (26ms sequential vs 5ms parallel)
-   - **Removed all legacy search methods** - parallel is the only option
-   - Consensus scoring: Documents found by 2+ strategies get 20% score boost
-   - Hot document boost: 15% score increase for shared high-value documents
-   - Test utility: `scripts/utilities/parallel-search-test.js`
-
-### Next Up (In Order)
-
-**✅ Search System Issues Fixed (2025-06-05)**
-
-Successfully resolved all critical search issues:
-
-1. **Fixed Fast-Search to Use Local Files** - COMPLETED
-
-   - Added `loadAllLifelogs()` method to FileManager
-   - Updated `buildFastSearchIndex()` to load from local storage
-   - Now loads 185 lifelogs from local files (not limited to API's 30 days)
-
-2. **Enhanced Contextual RAG Implementation** - COMPLETED
-
-   - Keywords are now included in vector store metadata during sync
-   - `addContext()` method now prepends keywords to embeddings
-   - Both monitoring and vectorization phases include keywords
-
-3. **Verified No API Usage in Search** - COMPLETED
-   - All search strategies now use local files exclusively
-   - Fast-keyword uses local index, vector uses LanceDB
-   - API calls only occur in sync service as intended
-
-### Recently Completed (2025-06-05)
-
-4. **Tested Parallel Search Performance** - COMPLETED
-
-   - Confirmed 3.17x - 5.2x speedup with parallel execution
-   - Inter-strategy communication working correctly
-   - Context sharing enables better results through collaboration
-   - Test utility verified: `scripts/utilities/parallel-search-test.js`
-
-5. **Created Test Suite Structure** - COMPLETED
-   - Identified correct constructor signatures and dependencies
-   - Note: Full test implementation requires refactoring to support proper mocking
-   - Constructor analysis:
-     - `FileManager` needs `StorageOptions` with 3 required fields
-     - `UnifiedSearchHandler` expects `LimitlessClient`, not raw mocks
-     - `ParallelSearchExecutor` expects `FastPatternMatcher` instance
-   - Recommendation: Create integration tests instead of unit tests for search system
-
-### High Priority Tasks
-
-1. **Implement Query Preprocessing Improvements** - NEXT
-
-   - Temporal normalization (convert "yesterday", "last week" to dates)
-   - Intent detection (question vs. command vs. search)
-   - Query expansion with synonyms
-   - Named entity recognition for people/places
-
-2. **Add Query Rewriting/Expansion (Parallel Queries)** - HIGH PRIORITY
-
-   - Generate multiple query variations from original query
-   - Run all variations in parallel for better recall
-   - Examples:
-     - "meeting with Sarah" → ["meeting Sarah", "Sarah meeting", "discussion with Sarah"]
-     - "budget proposal" → ["budget plan", "financial proposal", "budget document"]
-   - Merge and deduplicate results from all variations
-   - Use consensus scoring (documents found by multiple queries rank higher)
-
-3. **Implement Parallel Batch Processing for Embeddings (#6)**
+1. **Implement Parallel Batch Processing for Embeddings (#6)**
 
    - Current: Sequential processing (100-200ms per lifelog)
    - Target: Batch processing with 5-10x speedup
@@ -1832,33 +1826,69 @@ Successfully resolved all critical search issues:
      - Process embeddings in parallel batches of 10-20
      - Control memory usage via batch size limits
 
-4. **Build Real-time Notification System (#7)** - FUTURE
+2. **Build Real-time Notification System (#7)**
    - Monitor for keywords in new lifelogs
    - Trigger actions based on detected patterns
    - Foundation for Phase 3 voice commands
 
-### Pending Medium Priority
+### Medium Priority Tasks
 
 - [ ] Add content window extraction (±100 words around matches)
 - [ ] Implement BM25 scoring for better relevance
 - [ ] Add time-decay scoring (recent = more relevant)
 - [ ] Implement AI-powered automatic summaries (#8)
+- [ ] Full test suite implementation (requires refactoring for proper mocking)
 
-### In Progress
+### Completed Today (2025-06-05)
 
-- [ ] Clean up and reorganize documentation (#9) - Mostly complete
+1. ✅ **Implement Query Preprocessing Improvements**
 
-### Completed
+   - Temporal normalization (convert "yesterday", "last week" to dates)
+   - Intent detection (question vs. command vs. search)
+   - Query expansion with synonyms
+   - Named entity recognition for people/places
 
+2. ✅ **Add Query Rewriting/Expansion (Parallel Queries)**
+
+   - Generate multiple query variations from original query
+   - Run all variations in parallel for better recall
+   - Merge and deduplicate results from all variations
+   - Use consensus scoring (documents found by multiple queries rank higher)
+
+3. ✅ **Fixed Search System to Use Local Files Only**
+
+   - Added `loadAllLifelogs()` method to FileManager
+   - Updated `buildFastSearchIndex()` to load from local storage
+   - Now loads 185 lifelogs from local files (not limited to API's 30 days)
+
+4. ✅ **Enhanced Contextual RAG Implementation**
+
+   - Keywords are now included in vector store metadata during sync
+   - `addContext()` method now prepends keywords to embeddings
+   - Both monitoring and vectorization phases include keywords
+
+5. ✅ **Verified No API Usage in Search**
+   - All search strategies now use local files exclusively
+   - Fast-keyword uses local index, vector uses LanceDB
+   - API calls only occur in sync service as intended
+
+### Previously Completed
+
+#### Phase 2 Core Features
+
+- [x] Implement parallel search execution (#2) - 5.2x speedup achieved
 - [x] Enable background sync service (#1)
 - [x] Add initial bulk download of ALL historical lifelogs (#3)
 - [x] Implement incremental sync for new lifelogs only (#4)
 - [x] Add sync status monitoring and progress tracking (#5)
+
+#### Bug Fixes & Improvements
+
 - [x] Fix sync service batch processing bug (#10)
 - [x] Download missing June 1st and 2nd data (#11)
-- [x] Implement parallel search execution (#2)
 - [x] Test parallel search performance (3.17x-5.2x speedup confirmed)
 - [x] Create test suite structure (identified refactoring needs)
+- [x] Clean up and reorganize documentation (#9)
 
 ## Success Metrics
 
