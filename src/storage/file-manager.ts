@@ -320,7 +320,7 @@ export class FileManager {
         if (typeof heading === 'string') {
           lines.push(`- ${heading}`);
         } else if (heading && typeof heading === 'object' && 'content' in heading) {
-          lines.push(`- ${(heading as any).content}`);
+          lines.push(`- ${(heading as { content: string }).content}`);
         } else {
           lines.push(`- ${JSON.stringify(heading)}`);
         }
@@ -340,9 +340,28 @@ export class FileManager {
     const durationMatch = content.match(/\*\*Duration:\*\* (\d+) minutes/);
 
     const id = idMatch ? idMatch[1] : metadata?.id || 'unknown';
-    const createdAt = dateMatch
-      ? new Date(dateMatch[1]).toISOString()
-      : metadata?.date || new Date().toISOString();
+
+    // Parse the date more robustly
+    let createdAt: string;
+    if (dateMatch) {
+      try {
+        // The date format in files is like "5/29/2025, 6:02:12 PM"
+        // Try to parse it directly first
+        const parsedDate = new Date(dateMatch[1]);
+        if (!isNaN(parsedDate.getTime())) {
+          createdAt = parsedDate.toISOString();
+        } else {
+          // If that fails, try replacing the date format
+          const dateStr = dateMatch[1].replace(/(\d+)\/(\d+)\/(\d+)/, '$3-$1-$2');
+          createdAt = new Date(dateStr).toISOString();
+        }
+      } catch {
+        createdAt = metadata?.date || new Date().toISOString();
+      }
+    } else {
+      createdAt = metadata?.date || new Date().toISOString();
+    }
+
     const duration = durationMatch ? parseInt(durationMatch[1]) * 60 : metadata?.duration || 0;
 
     // Extract content (everything after the --- separator)

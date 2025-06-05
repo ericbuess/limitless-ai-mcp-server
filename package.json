@@ -43,6 +43,7 @@
     "sync:monitor": "node scripts/utilities/monitor-sync.js",
     "db:rebuild": "node scripts/maintenance/rebuild-vectordb.js",
     "db:fix-duplicates": "node scripts/maintenance/fix-duplicates.js",
+    "db:deduplicate": "node scripts/maintenance/deduplicate-transcripts.js",
     "db:inspect": "node scripts/debug/inspect-lancedb.js",
     "test": "jest",
     "test:watch": "jest --watch",

@@ -1,4 +1,4 @@
-import { LanceDBStore } from './dist/vector-store/lancedb-store.js';
+import { LanceDBStore } from '../../dist/vector-store/lancedb-store.js';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -24,10 +24,20 @@ async function parseLifelogFile(filePath) {
   const durationMatch = durationStr.match(/(\d+)/);
   const duration = durationMatch ? parseInt(durationMatch[1]) * 60 : 0;
 
+  // Extract the actual content (everything after the --- separator)
+  const separatorIndex = lines.findIndex((line) => line === '---');
+  const actualContent =
+    separatorIndex >= 0
+      ? lines
+          .slice(separatorIndex + 2)
+          .join('\n')
+          .trim()
+      : content;
+
   return {
     id,
     title,
-    content,
+    content: actualContent,
     createdAt: new Date(dateStr).toISOString(),
     duration,
     headings: [],
@@ -90,7 +100,7 @@ async function rebuildVectorDB() {
 
           batch.push({
             id: lifelog.id,
-            content: `${lifelog.title}\\n\\n${lifelog.content}`,
+            content: `${lifelog.title}\n\n${lifelog.content}`,
             metadata: {
               title: lifelog.title,
               date: lifelog.createdAt,
@@ -114,13 +124,13 @@ async function rebuildVectorDB() {
     // Get final stats
     const stats = await vectorStore.getStats();
 
-    console.log('\\n--- Rebuild Complete ---');
+    console.log('\n--- Rebuild Complete ---');
     console.log(`Total files found: ${allFiles.length}`);
     console.log(`Successfully indexed: ${totalProcessed}`);
     console.log(`Documents in vector DB: ${stats.documentCount}`);
 
     // Test search
-    console.log('\\n--- Testing Search ---');
+    console.log('\n--- Testing Search ---');
     const results = await vectorStore.searchByText('meeting', { topK: 3 });
     console.log(`Search for "meeting" returned ${results.length} results`);
     if (results.length > 0) {

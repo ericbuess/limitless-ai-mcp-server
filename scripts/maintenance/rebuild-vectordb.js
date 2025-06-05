@@ -1,6 +1,6 @@
-import { LanceDBStore } from './dist/vector-store/lancedb-store.js';
-import { FileManager } from './dist/storage/file-manager.js';
-import { toPhase2Lifelog } from './dist/types/phase2.js';
+import { LanceDBStore } from '../../dist/vector-store/lancedb-store.js';
+import { FileManager } from '../../dist/storage/file-manager.js';
+import { toPhase2Lifelog } from '../../dist/types/phase2.js';
 import fs from 'fs/promises';
 import path from 'path';
 
