@@ -51,6 +51,7 @@
     "test:coverage": "jest --coverage",
     "assistant:start": "node scripts/start-assistant.js",
     "assistant:test": "node scripts/test-trigger.js",
+    "assistant:test:search": "node scripts/test-memory-search.js",
     "assistant:status": "node scripts/assistant-status.js",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",

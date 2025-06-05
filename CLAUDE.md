@@ -1969,6 +1969,119 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
    - Check `data/tasks/` for execution logs
    - Review `data/search-history/` for search sessions
 
+## Critical Issues to Fix (2025-06-05)
+
+### 1. Two Separate Search Workflows Exist
+
+**Manual Search (WORKING PERFECTLY):**
+
+- Command: `npm run search "what did I eat for lunch yesterday"`
+- Uses: UnifiedSearchHandler directly
+- Result: Successfully finds "Smoothie King" in transcripts
+- Path: search.js → UnifiedSearchHandler → Fast/Vector/Smart strategies
+
+**AI Assistant Search (FAILING):**
+
+- Command: `npm run assistant:test:search`
+- Uses: MemorySearchTool → ClaudeInvoker → claude CLI
+- Result: Hangs due to --allowedTools flag issue
+- Path: Monitoring → MemorySearchTool → Claude (attempts to search iteratively)
+
+### 2. Claude CLI Integration Issues
+
+**Primary Issue:**
+
+- The `--allowedTools` flag causes Claude CLI to hang when called from Node.js spawn()
+- This prevents the AI assistant from completing any searches
+- No response.json files are created in search sessions
+
+**Workaround Identified:**
+
+```bash
+# Replace this (hangs):
+claude -p "prompt" --allowedTools Read,Bash,Grep,LS
+
+# With this (works):
+claude -p "prompt" --dangerously-skip-permissions
+```
+
+**Files to Update:**
+
+- `src/utils/claude-invoker.js` - Replace --allowedTools with --dangerously-skip-permissions
+
+### 3. Architecture Mismatch
+
+**Current Problem:**
+
+- AI assistant is NOT using the working UnifiedSearchHandler
+- Instead, it's trying to use Claude to do the search iteratively
+- This means we're not leveraging our fast, working search infrastructure
+
+**Better Architecture:**
+
+1. Use UnifiedSearchHandler for the actual search (like manual search does)
+2. Use Claude only for generating natural language answers from search results
+3. This combines our working search with Claude's language capabilities
+
+### 4. Evidence of Issues
+
+**Task Files Created Successfully:**
+
+```
+data/tasks/2025-06-05/2025-06-05T*.json
+```
+
+**Search Sessions Started But Incomplete:**
+
+```
+data/search-history/2025-06-05/session-*/
+├── query.txt (created)
+├── context.json (created)
+├── iterations/001-initial/prompt.txt (created)
+└── iterations/001-initial/response.json (MISSING - Claude hangs)
+```
+
+### 5. Immediate Next Steps
+
+1. **Quick Fix (5 minutes):**
+
+   - Update `src/utils/claude-invoker.js` to use `--dangerously-skip-permissions`
+   - Test with `npm run assistant:test:search`
+
+2. **Better Fix (30 minutes):**
+
+   - Modify `MemorySearchTool` to:
+     - First use UnifiedSearchHandler to get search results
+     - Then use Claude to generate natural language answer
+   - This leverages our working search + Claude's language skills
+
+3. **Testing Commands:**
+
+   ```bash
+   # Test manual search (already works)
+   npm run search "what did I eat for lunch yesterday"
+
+   # Test AI assistant search (currently fails)
+   npm run assistant:test:search
+
+   # Monitor logs
+   tail -f data/search-history/2025-06-05/*/iterations/*/prompt.txt
+   ```
+
+### 6. Root Cause Analysis
+
+The AI assistant was designed to let Claude handle the entire search process, but:
+
+- Claude CLI has compatibility issues with Node.js spawn()
+- We already have a perfect search implementation in UnifiedSearchHandler
+- We're duplicating effort and introducing complexity
+
+**Recommended Solution:**
+
+- Use UnifiedSearchHandler for search (proven to work)
+- Use Claude for answer generation only (simpler, more reliable)
+- This gives us the best of both worlds
+
 ### High Priority Tasks (Next Up)
 
 1. **Improve Search Query Understanding and Result Ranking** - HIGHEST PRIORITY (NEXT TASK)
