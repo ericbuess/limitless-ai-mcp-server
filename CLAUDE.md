@@ -1898,7 +1898,9 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
    - Created ClaudeInvoker utility for headless Claude CLI integration with session management
    - Built TriggerMonitor service to detect "Claudius" keyword and process requests
    - Developed TaskExecutor system with extensible task type architecture
-   - Implemented MemorySearchTool with iterative search using Claude -p for better results
+   - ~~Implemented MemorySearchTool with iterative search using Claude -p for better results~~ REPLACED with HybridMemorySearchTool
+   - Fixed Claude CLI hanging issue: use `--print` with stdin, not `-p` with args
+   - Implemented hybrid approach: UnifiedSearchHandler for search, Claude for answers
    - Added pre-assessment to filter out non-actionable trigger detections
    - Created complete audit trail system with session directories and iteration tracking
    - Implemented answer caching to avoid redundant searches for same queries
@@ -1923,150 +1925,158 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 
 ## Testing the AI-Powered Assistant
 
-### Data Preparation Complete (2025-06-05)
+### System Status (2025-06-05) ✅ FIXED
 
-1. **Transcript Deduplication Completed**
+1. **Transcript Deduplication** ✅ Complete
 
    - Successfully cleaned 109 duplicate transcript files
    - Removed repeated lines caused by API response issues
    - All lifelogs now contain clean, deduplicated content
 
-2. **Vector Database Rebuilt**
+2. **Vector Database** ✅ Rebuilt
 
-   - Rebuilt vector store with clean data
    - Successfully indexed 198 documents
    - LanceDB embeddings regenerated from deduplicated transcripts
    - Ready for improved search accuracy
 
-3. **Assistant Ready for Testing**
+3. **Hybrid Memory Search** ✅ Working
+   - Fixed Claude CLI hanging issue (use `--print` with stdin, not `-p` with args)
+   - Removed problematic `--dangerously-skip-permissions` flag
+   - Now uses hybrid approach: UnifiedSearchHandler for search, Claude for answers
+   - Successfully tested: Found "turkey lunch" info from lifelogs
 
-   - All components implemented and initialized
-   - Monitoring service configured with 30-second polling
-   - Trigger detection ready for "Claudius" keyword
-   - Memory search tool connected to Claude CLI
+### Architecture: Hybrid Memory Search
 
-4. **Test Plan**
-
-   - User will say: "Claudius what did I have for lunch yesterday"
-   - This phrase should be captured in next lifelog sync
-   - Assistant will detect trigger and execute memory search
-   - Expected to find Smoothie King discussion from June 4
-
-5. **Expected Behavior**
-
-   - Monitor detects "Claudius" in new lifelog (within 30-60s)
-   - Pre-assessment confirms it's a valid memory query
-   - Claude executes iterative search for lunch information
-   - Returns answer about Smoothie King from yesterday's transcripts
-   - Creates full audit trail in `data/search-history/`
-
-6. **Monitoring Results**
-   - Run `npm run assistant:status` to check:
-     - Current monitoring status
-     - Last processed timestamp
-     - Recent trigger detections
-     - Task execution results
-   - Check `data/tasks/` for execution logs
-   - Review `data/search-history/` for search sessions
-
-## Critical Issues to Fix (2025-06-05)
-
-### 1. Two Separate Search Workflows Exist
-
-**Manual Search (WORKING PERFECTLY):**
-
-- Command: `npm run search "what did I eat for lunch yesterday"`
-- Uses: UnifiedSearchHandler directly
-- Result: Successfully finds "Smoothie King" in transcripts
-- Path: search.js → UnifiedSearchHandler → Fast/Vector/Smart strategies
-
-**AI Assistant Search (FAILING):**
-
-- Command: `npm run assistant:test:search`
-- Uses: MemorySearchTool → ClaudeInvoker → claude CLI
-- Result: Hangs due to --allowedTools flag issue
-- Path: Monitoring → MemorySearchTool → Claude (attempts to search iteratively)
-
-### 2. Claude CLI Integration Issues
-
-**Primary Issue:**
-
-- The `--allowedTools` flag causes Claude CLI to hang when called from Node.js spawn()
-- This prevents the AI assistant from completing any searches
-- No response.json files are created in search sessions
-
-**Workaround Identified:**
-
-```bash
-# Replace this (hangs):
-claude -p "prompt" --allowedTools Read,Bash,Grep,LS
-
-# With this (works):
-claude -p "prompt" --dangerously-skip-permissions
-```
-
-**Files to Update:**
-
-- `src/utils/claude-invoker.js` - Replace --allowedTools with --dangerously-skip-permissions
-
-### 3. Architecture Mismatch
-
-**Current Problem:**
-
-- AI assistant is NOT using the working UnifiedSearchHandler
-- Instead, it's trying to use Claude to do the search iteratively
-- This means we're not leveraging our fast, working search infrastructure
-
-**Better Architecture:**
-
-1. Use UnifiedSearchHandler for the actual search (like manual search does)
-2. Use Claude only for generating natural language answers from search results
-3. This combines our working search with Claude's language capabilities
-
-### 4. Evidence of Issues
-
-**Task Files Created Successfully:**
+The AI assistant now uses a hybrid approach that combines our fast local search with Claude's answer generation:
 
 ```
-data/tasks/2025-06-05/2025-06-05T*.json
+User says "Claudius, what did I have for lunch?"
+    ↓
+TriggerMonitor detects keyword
+    ↓
+TaskExecutor creates task
+    ↓
+HybridMemorySearchTool:
+    1. UnifiedSearchHandler searches local files (15ms)
+    2. Top 5 results passed to Claude
+    3. Claude generates natural language answer
+    ↓
+Answer returned to user with session ID
 ```
 
-**Search Sessions Started But Incomplete:**
+**Key Fix**: Claude CLI requires `--print` flag with prompt via stdin, not `-p` with command line args:
 
+```javascript
+// ❌ WRONG (hangs):
+spawn('claude', ['-p', prompt, '--output-format', 'json']);
+
+// ✅ CORRECT:
+const child = spawn('claude', ['--print', '--output-format', 'json']);
+child.stdin.write(prompt);
+child.stdin.end();
 ```
-data/search-history/2025-06-05/session-*/
-├── query.txt (created)
-├── context.json (created)
-├── iterations/001-initial/prompt.txt (created)
-└── iterations/001-initial/response.json (MISSING - Claude hangs)
-```
 
-### 5. Immediate Next Steps
+### Running the AI Assistant
 
-1. **Quick Fix (5 minutes):**
-
-   - Update `src/utils/claude-invoker.js` to use `--dangerously-skip-permissions`
-   - Test with `npm run assistant:test:search`
-
-2. **Better Fix (30 minutes):**
-
-   - Modify `MemorySearchTool` to:
-     - First use UnifiedSearchHandler to get search results
-     - Then use Claude to generate natural language answer
-   - This leverages our working search + Claude's language skills
-
-3. **Testing Commands:**
+1. **Start Monitoring Service**
 
    ```bash
-   # Test manual search (already works)
-   npm run search "what did I eat for lunch yesterday"
-
-   # Test AI assistant search (currently fails)
-   npm run assistant:test:search
-
-   # Monitor logs
-   tail -f data/search-history/2025-06-05/*/iterations/*/prompt.txt
+   npm run assistant:start
    ```
+
+   - Polls for new lifelogs every 30 seconds
+   - Detects "Claudius" keyword triggers
+   - Executes tasks automatically
+
+2. **Test Memory Search Directly**
+
+   ```bash
+   npm run assistant:test:search
+   ```
+
+   - Tests the memory search without monitoring
+   - Good for debugging and development
+
+3. **Check Status**
+
+   ```bash
+   npm run assistant:status
+   ```
+
+   - Shows monitoring status
+   - Lists recent triggers
+   - Displays task results
+
+4. **Monitor Logs**
+   - Task files: `data/tasks/YYYY-MM-DD/`
+   - Search sessions: `data/search-history/YYYY-MM-DD/`
+   - Answer cache: `data/answers/`
+
+### Testing Plan (Next Steps)
+
+#### Phase 1: Direct Testing (No Monitoring)
+
+Test the memory search functionality directly:
+
+```bash
+# Test with various queries
+npm run assistant:test:search
+
+# Examples to test:
+- "what did I have for lunch yesterday?"
+- "who did I meet with last week?"
+- "what did we discuss about the project?"
+- "when was my last doctor appointment?"
+```
+
+#### Phase 2: Live Monitoring Testing
+
+Test the full workflow with trigger detection:
+
+1. **Start monitoring**: `npm run assistant:start`
+2. **Create test triggers** by saying during recording:
+   - "Claudius, what did I eat for breakfast?"
+   - "Hey Claudius, when did I last talk to Sarah?"
+   - "Claudius, remind me what we decided in the meeting"
+3. **Verify detection** within 30-60 seconds
+4. **Check results** in task files and search sessions
+
+#### Phase 3: Edge Case Testing
+
+- Multiple triggers in one transcript
+- Ambiguous queries ("what was that thing?")
+- No results scenarios
+- Cache hit testing (repeat same query)
+- Long queries with multiple questions
+- Non-English or mixed language queries
+
+### Expected Test Results
+
+1. **Successful Query**
+
+   ```json
+   {
+     "answer": "Based on your lifelogs from yesterday...",
+     "confidence": 0.85,
+     "resultCount": 20,
+     "sessionId": "session-xxxxx"
+   }
+   ```
+
+2. **No Results**
+
+   ```json
+   {
+     "answer": "I couldn't find any information about that in your lifelogs.",
+     "confidence": 0,
+     "resultCount": 0
+   }
+   ```
+
+3. **Monitoring Detection**
+   - Task file created in `data/tasks/`
+   - Search session in `data/search-history/`
+   - Answer cached if confidence >= 0.7
 
 ### 6. Root Cause Analysis
 
@@ -2084,7 +2094,40 @@ The AI assistant was designed to let Claude handle the entire search process, bu
 
 ### High Priority Tasks (Next Up)
 
-1. **Improve Search Query Understanding and Result Ranking** - HIGHEST PRIORITY (NEXT TASK)
+1. **Test AI Assistant with Live Monitoring** - HIGHEST PRIORITY (NEXT TASK)
+
+   Now that the hybrid memory search is working, we need comprehensive testing:
+
+   **Phase 1: Direct Testing (No Monitoring)**
+
+   - Test various query types with `npm run assistant:test:search`
+   - Verify answer quality and relevance
+   - Test cache behavior (repeat queries)
+   - Edge cases: no results, ambiguous queries, multiple questions
+
+   **Phase 2: Live Monitoring Testing**
+
+   - Start monitoring: `npm run assistant:start`
+   - Create test recordings with trigger phrases
+   - Verify detection within 30-60 seconds
+   - Test multiple triggers in one transcript
+   - Test non-memory search requests (should be filtered out)
+
+   **Phase 3: Performance & Reliability**
+
+   - Measure end-to-end latency
+   - Test with large result sets
+   - Verify error handling and recovery
+   - Test concurrent triggers
+
+   **Expected Outcomes:**
+
+   - Reliable trigger detection
+   - Accurate, contextual answers
+   - Consistent performance <5s per query
+   - Proper audit trail for all queries
+
+2. **Improve Search Query Understanding and Result Ranking**
 
    Current Issues:
 
@@ -2123,7 +2166,7 @@ The AI assistant was designed to let Claude handle the entire search process, bu
    - No need for user to try multiple search terms
    - System automatically explores variations
 
-2. **Implement Parallel Batch Processing for Embeddings (#6)**
+3. **Implement Parallel Batch Processing for Embeddings (#6)**
 
    - Current: Sequential processing (100-200ms per lifelog)
    - Target: Batch processing with 5-10x speedup
@@ -2133,7 +2176,7 @@ The AI assistant was designed to let Claude handle the entire search process, bu
      - Process embeddings in parallel batches of 10-20
      - Control memory usage via batch size limits
 
-3. **Build Real-time Notification System (#7)**
+4. **Build Real-time Notification System (#7)**
    - Monitor for keywords in new lifelogs
    - Trigger actions based on detected patterns
    - Foundation for Phase 3 voice commands
