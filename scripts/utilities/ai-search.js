@@ -61,16 +61,18 @@ async function main() {
     const executor = new TaskExecutor(config);
     const result = await executor.execute(task);
 
-    if (result.success && result.result) {
+    if (result && result.answer) {
       console.log('\n✅ Answer found:\n');
-      console.log(result.result.answer);
-      console.log(`\n📊 Confidence: ${(result.result.confidence * 100).toFixed(0)}%`);
+      console.log(result.answer);
+      console.log(`\n📊 Confidence: ${(result.confidence * 100).toFixed(0)}%`);
       console.log(`📁 Session: ${result.sessionId}`);
-      if (result.result.sources?.length > 0) {
-        console.log(`📚 Sources: ${result.result.sources.length} lifelogs analyzed`);
-      }
+      console.log(`🔄 Iterations: ${result.iterations}`);
+      console.log(`📄 Results analyzed: ${result.resultCount}`);
     } else {
-      console.error('\n❌ Search failed:', result.error || 'Unknown error');
+      console.error('\n❌ No answer found');
+      if (result) {
+        console.error(`Confidence too low: ${(result.confidence * 100).toFixed(0)}%`);
+      }
     }
   } catch (error) {
     console.error('\n❌ Error:', error.message);
