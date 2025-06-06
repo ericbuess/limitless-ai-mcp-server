@@ -961,6 +961,8 @@ If `npm run search` times out after finding results:
 
 ### Search Improvements Summary (December 2024)
 
+For a detailed summary of all search improvements, see: @SEARCH_IMPROVEMENTS_SUMMARY.md
+
 #### Completed Improvements
 
 1. **Removed hardcoded meal-related query expansions** that were injecting random restaurant names
