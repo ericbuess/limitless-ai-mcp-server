@@ -957,6 +957,18 @@ If `npm run search` times out after finding results:
   - Claude can request specific refined searches, triggering more local iterations
   - Dramatically reduces noise passed to Claude and improves answer quality
 
+## Known Search Issues to Fix
+
+### Consensus Scoring Needs Rebalancing
+
+The current consensus scoring is giving too much weight to "context-aware-filter" results and not enough to direct keyword matches. Example: searching for "where did the kids go this afternoon?" returned AI coding discussions as top results, while the actual answer (kids went to Mimi's house) was ranked 7th despite containing exact keyword matches.
+
+**Fix needed**: Adjust consensus scoring to:
+
+- Give more weight to fast-keyword strategy matches when query contains specific terms
+- Reduce the dominance of context-aware-filter scores
+- Consider keyword density and exact phrase matches more heavily
+
 ## Current TODO List
 
 ### High Priority: Test Recent Improvements

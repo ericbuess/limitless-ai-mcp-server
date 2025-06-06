@@ -339,14 +339,29 @@ export class IterativeMemorySearchTool {
         const avgScore = result.scores.reduce((a, b) => a + b, 0) / result.scores.length;
         const maxScore = Math.max(...result.scores);
         const occurrenceBoost = Math.min(result.occurrences * 0.1, 0.3);
-        const strategyBoost = result.strategies.size * 0.1;
 
-        // Vector results get extra weight
-        const vectorBoost = result.strategies.has('vector-semantic') ? 0.15 : 0;
+        // Strategy-specific weighting
+        let strategyWeight = 0;
+        if (result.strategies.has('fast-keyword')) {
+          strategyWeight += 0.35; // Boost keyword matches significantly
+        }
+        if (result.strategies.has('vector-semantic')) {
+          strategyWeight += 0.15; // Vector still valuable but not dominant
+        }
+        if (result.strategies.has('smart-date')) {
+          strategyWeight += 0.1; // Date matches are good signals
+        }
 
-        // Consensus score formula
+        // Bonus for multiple strategy agreement
+        const multiStrategyBonus = result.strategies.size >= 2 ? 0.2 : 0;
+
+        // Consensus score formula - rebalanced
         result.consensusScore =
-          avgScore * 0.4 + maxScore * 0.4 + occurrenceBoost + strategyBoost + vectorBoost;
+          avgScore * 0.3 + // Reduced from 0.4
+          maxScore * 0.3 + // Reduced from 0.4
+          occurrenceBoost +
+          strategyWeight +
+          multiStrategyBonus;
 
         return result;
       })
