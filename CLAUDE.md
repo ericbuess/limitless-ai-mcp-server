@@ -990,6 +990,24 @@ The system was experiencing "No vector column found" errors due to a dimension m
 
 **Result**: Vector search now works correctly even when Ollama is unavailable.
 
+### Adjusted: Confidence Thresholds
+
+The AI pipeline confidence thresholds were adjusted for better performance:
+
+**Changes made**:
+
+- Reduced confidence threshold from 0.9 to 0.8 for skipping Claude
+- Improved local confidence calculation to better reflect result quality
+- Added early termination for good keyword matches (0.7+ with fast-keyword)
+- Adjusted confidence formula to give more weight to strategy combinations
+
+**Files modified**:
+
+- `scripts/memory-search-iterative.js`
+- `config/assistant.json`
+
+**Result**: Reduces unnecessary Claude iterations while maintaining answer quality.
+
 ## Vector Database Upgrade Plan
 
 A comprehensive plan for upgrading the vector database and semantic retrieval capabilities has been developed. The plan focuses on using LOCAL models that work on the M4 MacBook Pro Max with 128GB RAM, avoiding the need to send data to external APIs.

@@ -96,7 +96,7 @@ export class IterativeMemorySearchTool {
       // Phase 1: Local Strategy Iterations (Fast, no Claude)
       const localResults = await this.performLocalIterations(query, sessionDir);
 
-      if (localResults.confidence >= 0.9) {
+      if (localResults.confidence >= 0.8) {
         // High confidence from local search alone
         logger.info('Local search achieved high confidence', {
           confidence: localResults.confidence,
@@ -222,8 +222,18 @@ export class IterativeMemorySearchTool {
         break;
       }
 
-      if (bestResults.length >= 10 && bestResults[0].consensusScore > 0.85) {
+      if (bestResults.length >= 10 && bestResults[0].consensusScore > 0.8) {
         logger.info('High quality results found, terminating local search');
+        break;
+      }
+
+      // Also terminate if we have good keyword matches with reasonable scores
+      if (
+        bestResults.length >= 5 &&
+        bestResults[0].consensusScore > 0.7 &&
+        bestResults[0].strategies?.has('fast-keyword')
+      ) {
+        logger.info('Good keyword matches found, terminating local search');
         break;
       }
     }
@@ -382,13 +392,17 @@ export class IterativeMemorySearchTool {
     const topScore = results[0].consensusScore;
     const hasMultipleStrategies = results[0].strategies.size >= 2;
     const hasVectorMatch = results[0].strategies.has('vector-semantic');
+    const hasKeywordMatch = results[0].strategies.has('fast-keyword');
 
-    let confidence = topScore * 0.6;
+    // Base confidence on top score (adjusted for better scaling)
+    let confidence = topScore * 0.7;
 
-    if (hasMultipleStrategies) confidence += 0.2;
-    if (hasVectorMatch) confidence += 0.15;
+    // Strategy bonuses
+    if (hasMultipleStrategies) confidence += 0.15;
+    if (hasKeywordMatch && hasVectorMatch) confidence += 0.1; // Both keyword AND vector
     if (results.length >= 5) confidence += 0.05;
 
+    // Cap at 0.95 to leave room for Claude enhancement
     return Math.min(confidence, 0.95);
   }
 
@@ -438,7 +452,7 @@ export class IterativeMemorySearchTool {
     let finalAnswer = null;
     let confidence = localResults.confidence;
 
-    while (claudeIterations < maxClaudeIterations && confidence < 0.9) {
+    while (claudeIterations < maxClaudeIterations && confidence < 0.8) {
       claudeIterations++;
       logger.info(`Claude iteration ${claudeIterations}/${maxClaudeIterations}`);
 
