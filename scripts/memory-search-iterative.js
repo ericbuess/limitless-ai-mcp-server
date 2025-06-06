@@ -13,7 +13,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { createHash } from 'crypto';
+import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { UnifiedSearchHandler } from '../dist/search/unified-search.js';
 import { FileManager } from '../dist/storage/file-manager.js';
