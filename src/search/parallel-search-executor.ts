@@ -340,15 +340,23 @@ export class ParallelSearchExecutor {
                 const keywordMatches = queryWords.filter((word) => contentLower.includes(word));
 
                 if (keywordMatches.length > 0 || phraseMatchCount > 0) {
-                  // Higher score for phrase matches
-                  const baseScore = phraseMatchCount > 0 ? 0.85 : 0.7;
-                  const keywordBonus = (0.1 * keywordMatches.length) / queryWords.length;
-                  const phraseBonus = 0.15 * phraseMatchCount;
+                  // Reduced base scores - require stronger evidence
+                  let baseScore = 0.5; // Start lower
+
+                  // Scale up based on match quality
+                  if (phraseMatchCount > 0) {
+                    baseScore = 0.65 + 0.1 * phraseMatchCount; // Phrase matches are valuable
+                  } else if (keywordMatches.length >= queryWords.length * 0.5) {
+                    baseScore = 0.6; // At least half the keywords matched
+                  }
+
+                  const keywordBonus = (0.05 * keywordMatches.length) / queryWords.length; // Reduced from 0.1
+                  const phraseBonus = 0.1 * phraseMatchCount; // Reduced from 0.15
 
                   results.push({
                     id: docId,
                     lifelog,
-                    score: Math.min(baseScore + keywordBonus + phraseBonus, 1.0),
+                    score: Math.min(baseScore + keywordBonus + phraseBonus, 0.9), // Cap at 0.9 instead of 1.0
                     highlights: [
                       phraseMatchCount > 0 ? `Phrase matches: ${matchedPhrases.join(', ')}` : '',
                       keywordMatches.length > 0
@@ -388,7 +396,7 @@ export class ParallelSearchExecutor {
                     results.push({
                       id,
                       lifelog,
-                      score: 0.6,
+                      score: 0.4, // Reduced from 0.6 - date context alone is weak evidence
                       highlights: [`Date context: ${dateStr}`],
                       metadata: { source: 'context-aware-filter', dateContext: dateStr },
                     });

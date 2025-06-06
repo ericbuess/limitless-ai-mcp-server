@@ -340,10 +340,10 @@ export class IterativeMemorySearchTool {
         const maxScore = Math.max(...result.scores);
         const occurrenceBoost = Math.min(result.occurrences * 0.1, 0.3);
 
-        // Strategy-specific weighting
+        // Strategy-specific weighting - PRIORITIZE KEYWORD MATCHES
         let strategyWeight = 0;
         if (result.strategies.has('fast-keyword')) {
-          strategyWeight += 0.35; // Boost keyword matches significantly
+          strategyWeight += 0.5; // Significantly boost keyword matches
         }
         if (result.strategies.has('vector-semantic')) {
           strategyWeight += 0.15; // Vector still valuable but not dominant
@@ -353,15 +353,23 @@ export class IterativeMemorySearchTool {
         }
 
         // Bonus for multiple strategy agreement
-        const multiStrategyBonus = result.strategies.size >= 2 ? 0.2 : 0;
+        const multiStrategyBonus = result.strategies.size >= 2 ? 0.15 : 0;
 
-        // Consensus score formula - rebalanced
+        // Penalty if NO keyword match but found by other strategies
+        const keywordPenalty =
+          !result.strategies.has('fast-keyword') && result.strategies.size > 0 ? -0.2 : 0;
+
+        // Consensus score formula - rebalanced to prioritize keywords
         result.consensusScore =
-          avgScore * 0.3 + // Reduced from 0.4
-          maxScore * 0.3 + // Reduced from 0.4
+          avgScore * 0.2 + // Reduced weight for average
+          maxScore * 0.25 + // Reduced weight for max
           occurrenceBoost +
           strategyWeight +
-          multiStrategyBonus;
+          multiStrategyBonus +
+          keywordPenalty; // New penalty for non-keyword matches
+
+        // Ensure score stays in valid range
+        result.consensusScore = Math.max(0, Math.min(1, result.consensusScore));
 
         return result;
       })

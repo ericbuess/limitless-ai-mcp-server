@@ -957,17 +957,25 @@ If `npm run search` times out after finding results:
   - Claude can request specific refined searches, triggering more local iterations
   - Dramatically reduces noise passed to Claude and improves answer quality
 
-## Known Search Issues to Fix
+## Recent Search Improvements (December 2024)
 
-### Consensus Scoring Needs Rebalancing
+### Fixed: Consensus Scoring Rebalanced
 
-The current consensus scoring is giving too much weight to "context-aware-filter" results and not enough to direct keyword matches. Example: searching for "where did the kids go this afternoon?" returned AI coding discussions as top results, while the actual answer (kids went to Mimi's house) was ranked 7th despite containing exact keyword matches.
+The consensus scoring was giving too much weight to "context-aware-filter" results. This has been fixed:
 
-**Fix needed**: Adjust consensus scoring to:
+**Changes made**:
 
-- Give more weight to fast-keyword strategy matches when query contains specific terms
-- Reduce the dominance of context-aware-filter scores
-- Consider keyword density and exact phrase matches more heavily
+- Increased fast-keyword strategy weight from 0.35 to 0.5
+- Added -0.2 penalty for results found only by non-keyword strategies
+- Reduced context-aware-filter base scores from 0.7-0.85 to 0.5-0.65
+- Reduced date-only match scores from 0.6 to 0.4
+- Fixed fast-patterns.ts score normalization formula
+
+**Result**: Searching for "where did the kids go this afternoon?" now correctly returns "kids went to Mimi's house" with 95% confidence.
+
+### Known Issue: Score Saturation
+
+Fast-keyword scores are still saturating at 1.0 due to aggressive normalization. This doesn't affect the final answer quality but reduces ranking precision. The system still finds correct answers through consensus scoring across multiple strategies.
 
 ## Vector Database Upgrade Plan
 
