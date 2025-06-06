@@ -28,13 +28,13 @@ export class PaddingEmbeddingProvider implements EmbeddingProvider {
     }
   }
 
-  async embedSingle(text: string): Promise<number[]> {
-    const embedding = await this.innerProvider.embedSingle(text);
+  async embedSingle(text: string, metadata?: any): Promise<number[]> {
+    const embedding = await this.innerProvider.embedSingle(text, metadata);
     return this.padVector(embedding);
   }
 
-  async embed(texts: string[]): Promise<number[][]> {
-    const embeddings = await this.innerProvider.embed(texts);
+  async embed(texts: string[], metadata?: any[]): Promise<number[][]> {
+    const embeddings = await this.innerProvider.embed(texts, metadata);
     return embeddings.map((e) => this.padVector(e));
   }
 

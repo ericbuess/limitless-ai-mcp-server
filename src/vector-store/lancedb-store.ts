@@ -9,6 +9,7 @@ import {
 } from './vector-store.interface.js';
 import { createBestEmbeddingProvider } from './ollama-embeddings.js';
 import { createDimensionFixedProvider } from './lancedb-dimension-fix.js';
+import { ContextualEmbeddingProvider } from './contextual-embeddings.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -45,8 +46,21 @@ export class LanceDBStore extends BaseVectorStore {
       if (!this.embeddingProvider) {
         logger.info('Creating best available embedding provider...');
         const baseProvider = await createBestEmbeddingProvider();
+
+        // Wrap with contextual embeddings for better semantic understanding
+        const contextualProvider = new ContextualEmbeddingProvider(baseProvider, {
+          includeEntities: true,
+          includeTemporal: true,
+          includeRelationships: true,
+        });
+
         // Apply dimension fix if needed (pad 384 to 768)
-        this.embeddingProvider = await createDimensionFixedProvider(baseProvider);
+        this.embeddingProvider = await createDimensionFixedProvider(contextualProvider);
+
+        logger.info('Initialized contextual embedding provider', {
+          model: contextualProvider.getModelName(),
+          dimensions: this.embeddingProvider.getDimension(),
+        });
       }
 
       // Initialize embedding provider
@@ -80,7 +94,10 @@ export class LanceDBStore extends BaseVectorStore {
   /**
    * Add contextual information to content before embedding (Contextual RAG)
    * This improves retrieval accuracy by up to 49% according to Anthropic's research
+   * NOTE: This is now handled by ContextualEmbeddingProvider
+   * @deprecated Use ContextualEmbeddingProvider instead
    */
+  /*
   private addContext(content: string, metadata?: any): string {
     const contexts: string[] = [];
 
@@ -143,6 +160,7 @@ export class LanceDBStore extends BaseVectorStore {
     const contextString = contexts.length > 0 ? contexts.join('. ') + '\n\n' : '';
     return contextString + content;
   }
+  */
 
   async addDocuments(documents: VectorDocument[]): Promise<void> {
     if (!this.db) throw new Error('LanceDB not initialized');
@@ -168,32 +186,19 @@ export class LanceDBStore extends BaseVectorStore {
       return;
     }
 
-    // Apply Contextual RAG: enrich documents with context before embedding
-    const contextualDocs = documentsToAdd.map((doc) => ({
-      ...doc,
-      // Prepend context to content before embedding
-      content: this.addContext(doc.content, doc.metadata),
-    }));
+    // The ContextualEmbeddingProvider now handles context addition internally
+    // So we don't need to modify content here - just pass documents as-is
+    // This prevents double context application
 
-    // Log sample of contextual enrichment for debugging
-    if (contextualDocs.length > 0) {
-      const sample = contextualDocs[0].content.substring(0, 200);
-      logger.debug('Sample contextual content:', { sample });
-    }
-
-    // Ensure all documents have embeddings (now with context)
-    const docsWithEmbeddings = await this.ensureEmbeddings(contextualDocs);
+    // Ensure all documents have embeddings (context will be added by provider)
+    const docsWithEmbeddings = await this.ensureEmbeddings(documentsToAdd);
 
     // Convert to LanceDB format with proper field names
-    // Store original content in metadata for retrieval
-    const records = docsWithEmbeddings.map((doc, index) => ({
+    const records = docsWithEmbeddings.map((doc) => ({
       id: doc.id,
-      content: documentsToAdd[index].content, // Store original content without context
+      content: doc.content, // Store original content
       vector: doc.embedding, // LanceDB expects 'vector' not 'embedding'
-      metadata: JSON.stringify({
-        ...doc.metadata,
-        contextualContent: doc.content, // Store contextual content for debugging
-      }),
+      metadata: JSON.stringify(doc.metadata),
     }));
 
     try {
@@ -222,12 +227,9 @@ export class LanceDBStore extends BaseVectorStore {
     const threshold = options.scoreThreshold || 0.0;
 
     try {
-      // Apply contextual enrichment to query as well for better matching
-      const enrichedQuery = this.enrichQuery(queryText);
-      logger.debug('Enriched query:', { original: queryText, enriched: enrichedQuery });
-
-      // Generate query embedding with enriched context
-      const queryEmbedding = await this.embeddingProvider.embedSingle(enrichedQuery);
+      // Generate query embedding with contextual enhancement
+      // The ContextualEmbeddingProvider will add entity and temporal context
+      const queryEmbedding = await this.embeddingProvider.embedSingle(queryText);
 
       // Perform vector search
       const results = await this.table
@@ -268,8 +270,43 @@ export class LanceDBStore extends BaseVectorStore {
   }
 
   /**
-   * Enrich search queries with temporal context for better matching
+   * Override ensureEmbeddings to pass metadata to embedding provider
    */
+  protected async ensureEmbeddings(documents: VectorDocument[]): Promise<VectorDocument[]> {
+    const toEmbed: { index: number; content: string; metadata?: any }[] = [];
+
+    documents.forEach((doc, index) => {
+      if (!doc.embedding) {
+        toEmbed.push({ index, content: doc.content, metadata: doc.metadata });
+      }
+    });
+
+    if (toEmbed.length === 0) {
+      return documents;
+    }
+
+    // Pass metadata to embedding provider for contextual enhancement
+    const embeddings = await this.embeddingProvider.embed(
+      toEmbed.map((item) => item.content),
+      toEmbed.map((item) => item.metadata)
+    );
+
+    const result = [...documents];
+    toEmbed.forEach((item, i) => {
+      result[item.index] = {
+        ...result[item.index],
+        embedding: embeddings[i],
+      };
+    });
+
+    return result;
+  }
+
+  /**
+   * Enrich search queries with temporal context for better matching
+   * @deprecated Now handled by ContextualEmbeddingProvider
+   */
+  /*
   private enrichQuery(query: string): string {
     const enrichments: string[] = [];
 
@@ -306,6 +343,7 @@ export class LanceDBStore extends BaseVectorStore {
       enrichments.length > 0 ? enrichments.join('. ') + '\n\nSearch query: ' : '';
     return enrichmentString + query;
   }
+  */
 
   async searchByVector(
     embedding: number[],

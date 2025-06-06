@@ -103,13 +103,17 @@ export interface VectorStore {
 export interface EmbeddingProvider {
   /**
    * Generate embeddings for text
+   * @param texts Array of text to embed
+   * @param metadata Optional metadata for each text to enhance embeddings
    */
-  embed(texts: string[]): Promise<number[][]>;
+  embed(texts: string[], metadata?: any[]): Promise<number[][]>;
 
   /**
    * Generate a single embedding
+   * @param text Text to embed
+   * @param metadata Optional metadata to enhance embedding
    */
-  embedSingle(text: string): Promise<number[]>;
+  embedSingle(text: string, metadata?: any): Promise<number[]>;
 
   /**
    * Get the dimension of embeddings

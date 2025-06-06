@@ -114,14 +114,14 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
     }
   }
 
-  async embedSingle(text: string): Promise<number[]> {
+  async embedSingle(text: string, metadata?: any): Promise<number[]> {
     if (!this.initialized) {
       await this.initialize();
     }
 
     // Use fallback if Ollama is not available
     if (!this.ollamaAvailable && this.fallbackProvider) {
-      return this.fallbackProvider.embedSingle(text);
+      return this.fallbackProvider.embedSingle(text, metadata);
     }
 
     if (!this.ollamaAvailable) {
@@ -153,14 +153,14 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
       // Try fallback if available
       if (this.fallbackProvider) {
         logger.info('Falling back to alternative embedding provider');
-        return this.fallbackProvider.embedSingle(text);
+        return this.fallbackProvider.embedSingle(text, metadata);
       }
 
       throw error;
     }
   }
 
-  async embed(texts: string[]): Promise<number[][]> {
+  async embed(texts: string[], metadata?: any[]): Promise<number[][]> {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -172,7 +172,10 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
 
     for (let i = 0; i < texts.length; i += batchSize) {
       const batch = texts.slice(i, i + batchSize);
-      const batchEmbeddings = await Promise.all(batch.map((text) => this.embedSingle(text)));
+      const batchMetadata = metadata?.slice(i, i + batchSize);
+      const batchEmbeddings = await Promise.all(
+        batch.map((text, j) => this.embedSingle(text, batchMetadata?.[j]))
+      );
       embeddings.push(...batchEmbeddings);
 
       // Log progress for large batches

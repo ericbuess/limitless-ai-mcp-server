@@ -49,7 +49,7 @@ export class TransformerEmbeddingProvider implements EmbeddingProvider {
     }
   }
 
-  async embedSingle(text: string): Promise<number[]> {
+  async embedSingle(text: string, _metadata?: any): Promise<number[]> {
     if (!this.pipe) {
       await this.initialize();
     }
@@ -69,7 +69,7 @@ export class TransformerEmbeddingProvider implements EmbeddingProvider {
     }
   }
 
-  async embed(texts: string[]): Promise<number[][]> {
+  async embed(texts: string[], _metadata?: any[]): Promise<number[][]> {
     if (!this.pipe) {
       await this.initialize();
     }
@@ -118,7 +118,7 @@ export class TFIDFEmbeddingProvider implements EmbeddingProvider {
     logger.info('TF-IDF embeddings initialized (fallback mode)');
   }
 
-  async embedSingle(text: string): Promise<number[]> {
+  async embedSingle(text: string, _metadata?: any): Promise<number[]> {
     // Simple TF-IDF inspired approach
     const words = text.toLowerCase().split(/\s+/);
     const embedding = new Array(this.dimension).fill(0);
@@ -139,8 +139,8 @@ export class TFIDFEmbeddingProvider implements EmbeddingProvider {
     return embedding;
   }
 
-  async embed(texts: string[]): Promise<number[][]> {
-    return Promise.all(texts.map((text) => this.embedSingle(text)));
+  async embed(texts: string[], _metadata?: any[]): Promise<number[][]> {
+    return Promise.all(texts.map((text, i) => this.embedSingle(text, _metadata?.[i])));
   }
 
   getDimension(): number {
