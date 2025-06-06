@@ -10,23 +10,17 @@
 
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 import { FastPatternMatcher } from '../../src/search/fast-patterns.js';
-import { ParallelSearchExecutor } from '../../src/search/parallel-search-executor.js';
 import { FileManager } from '../../src/storage/file-manager.js';
 import { LanceDBStore } from '../../src/vector-store/lancedb-store.js';
-import { TransformerEmbeddings } from '../../src/vector-store/transformer-embeddings.js';
+import { TransformerEmbeddingProvider } from '../../src/vector-store/transformer-embeddings.js';
 import { PaddingEmbeddingProvider } from '../../src/vector-store/lancedb-dimension-fix.js';
-import { IterativeMemorySearchTool } from '../../scripts/memory-search-iterative.js';
 
 describe('Search Improvements Test Suite', () => {
-  let fileManager: FileManager;
   let fastMatcher: FastPatternMatcher;
   let vectorStore: LanceDBStore;
-  let searchExecutor: ParallelSearchExecutor;
-  let memorySearch: IterativeMemorySearchTool;
 
   beforeAll(async () => {
     // Initialize components
-    fileManager = new FileManager({ baseDir: './data' });
     fastMatcher = new FastPatternMatcher();
     vectorStore = new LanceDBStore({
       collectionName: 'limitless-lifelogs-test',
@@ -34,19 +28,6 @@ describe('Search Improvements Test Suite', () => {
     });
 
     await vectorStore.initialize();
-
-    searchExecutor = new ParallelSearchExecutor(fastMatcher, vectorStore, fileManager);
-
-    memorySearch = new IterativeMemorySearchTool({
-      tasks: {
-        memory_search: {
-          confidenceThreshold: 0.8,
-          maxIterations: 3,
-        },
-      },
-    });
-
-    await memorySearch.initialize();
   });
 
   afterAll(async () => {
@@ -57,19 +38,24 @@ describe('Search Improvements Test Suite', () => {
   describe('Consensus Scoring', () => {
     test('should prioritize keyword matches over other strategies', async () => {
       // Create test data
+      const now = new Date();
       const testLifelogs = [
         {
           id: 'test-1',
           title: 'Discussion about kids going to Mimi house',
           content: "The kids went to Mimi's house this afternoon for a playdate.",
-          createdAt: new Date().toISOString(),
+          createdAt: now.toISOString(),
+          startTime: now.toISOString(),
+          endTime: new Date(now.getTime() + 300000).toISOString(),
           duration: 300,
         },
         {
           id: 'test-2',
           title: 'Random AI discussion',
           content: 'We talked about artificial intelligence and machine learning.',
-          createdAt: new Date().toISOString(),
+          createdAt: now.toISOString(),
+          startTime: now.toISOString(),
+          endTime: new Date(now.getTime() + 600000).toISOString(),
           duration: 600,
         },
       ];
@@ -91,6 +77,13 @@ describe('Search Improvements Test Suite', () => {
     });
 
     test('should penalize results without keyword matches', async () => {
+      // Import IterativeMemorySearchTool for testing consensus scoring
+      const { default: IterativeMemorySearchTool } = await import(
+        '../../scripts/memory-search-iterative.js'
+      );
+      const memorySearch = new IterativeMemorySearchTool();
+      await memorySearch.initialize();
+
       // Mock results with different strategy combinations
       const mockResults = [
         {
@@ -128,7 +121,7 @@ describe('Search Improvements Test Suite', () => {
 
   describe('Vector Dimension Handling', () => {
     test('should pad 384-dim vectors to 768-dim', async () => {
-      const transformer = new TransformerEmbeddings();
+      const transformer = new TransformerEmbeddingProvider();
       await transformer.initialize();
 
       const paddingProvider = new PaddingEmbeddingProvider(transformer);
@@ -146,7 +139,7 @@ describe('Search Improvements Test Suite', () => {
     });
 
     test('should handle batch embeddings correctly', async () => {
-      const transformer = new TransformerEmbeddings();
+      const transformer = new TransformerEmbeddingProvider();
       await transformer.initialize();
 
       const paddingProvider = new PaddingEmbeddingProvider(transformer);
@@ -162,7 +155,14 @@ describe('Search Improvements Test Suite', () => {
   });
 
   describe('Confidence Thresholds', () => {
-    test('should achieve high confidence with good keyword matches', () => {
+    test('should achieve high confidence with good keyword matches', async () => {
+      // Import IterativeMemorySearchTool for testing confidence calculation
+      const { default: IterativeMemorySearchTool } = await import(
+        '../../scripts/memory-search-iterative.js'
+      );
+      const memorySearch = new IterativeMemorySearchTool();
+      await memorySearch.initialize();
+
       const mockResults = [
         {
           lifelog: { id: 'test', title: 'Test', content: 'Content' },
@@ -180,19 +180,31 @@ describe('Search Improvements Test Suite', () => {
     });
 
     test('should not over-iterate with reasonable results', async () => {
+      // Import IterativeMemorySearchTool for testing iterations
+      const { default: IterativeMemorySearchTool } = await import(
+        '../../scripts/memory-search-iterative.js'
+      );
+      const memorySearch = new IterativeMemorySearchTool();
+      await memorySearch.initialize();
+
       let iterationCount = 0;
 
       // Mock the search handler to count iterations
       const originalSearch = memorySearch.searchHandler.search;
-      memorySearch.searchHandler.search = jest.fn(async (query, options) => {
+      memorySearch.searchHandler.search = jest.fn(async () => {
         iterationCount++;
         return {
+          query: 'where did the kids go this afternoon?',
+          strategy: 'parallel' as const,
+          performance: { totalTime: 10 },
           results: [
             {
               lifelog: {
                 id: 'test',
                 title: 'Kids went to Mimi house',
                 content: "The kids went to Mimi's house this afternoon",
+                startTime: new Date().toISOString(),
+                endTime: new Date().toISOString(),
               },
               score: 0.82,
               metadata: { source: 'fast-keyword' },
@@ -214,11 +226,14 @@ describe('Search Improvements Test Suite', () => {
 
   describe('Score Normalization', () => {
     test('should not saturate all scores at 1.0', async () => {
+      const now = new Date();
       const testLifelogs = Array.from({ length: 10 }, (_, i) => ({
         id: `test-${i}`,
         title: `Document ${i}`,
         content: `This is test content ${i}. Some have kids, some don't.`,
-        createdAt: new Date().toISOString(),
+        createdAt: now.toISOString(),
+        startTime: now.toISOString(),
+        endTime: new Date(now.getTime() + 300000).toISOString(),
         duration: 300,
       }));
 
