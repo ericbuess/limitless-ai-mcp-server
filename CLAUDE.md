@@ -949,6 +949,14 @@ If `npm run search` times out after finding results:
 
 - **Removed hardcoded meal expansion** (Dec 2024): The system previously had overly specific hardcoded expansions for meal queries that would inject restaurant names and generic actions. This has been removed in favor of letting Claude intelligently generate refinements based on actual context.
 
+- **Enhanced local search iterations** (Dec 2024): Replaced the original search flow that went straight to Claude after each iteration. Now:
+  - Local strategies (fast-keyword, vector-semantic, smart-date) iterate up to 5 times building consensus
+  - Vector DB results get extra weight (15% boost) in consensus scoring
+  - Results must be found by multiple strategies to get high consensus scores
+  - Only passes refined, high-quality results to Claude after local convergence
+  - Claude can request specific refined searches, triggering more local iterations
+  - Dramatically reduces noise passed to Claude and improves answer quality
+
 ## Current TODO List
 
 ### High Priority: Test Recent Improvements
