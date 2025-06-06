@@ -360,62 +360,7 @@ Respond with JSON:
   }
 
   async generateRefinedQueries(query, hints, currentResults, sessionDir, iteration) {
-    // First try common query expansions for meal-related queries
-    const queryLower = query.toLowerCase();
-    const mealKeywords = ['breakfast', 'lunch', 'dinner', 'eat', 'ate', 'food', 'meal'];
-    const isMealQuery = mealKeywords.some((keyword) => queryLower.includes(keyword));
-
-    if (isMealQuery) {
-      // Generate meal-specific variations
-      const baseQuery = query.replace(/\b(breakfast|lunch|dinner)\b/i, '');
-      const variations = [
-        // Food/restaurant names
-        'smoothie king',
-        'mcdonald',
-        'subway',
-        'starbucks',
-        'chipotle',
-        // Food types
-        'sandwich',
-        'burger',
-        'salad',
-        'smoothie',
-        'coffee',
-        'pizza',
-        // Actions
-        'ordered',
-        'got',
-        'had',
-        'bought',
-        'picked up',
-        'delivered',
-      ];
-
-      const timeOfDay = queryLower.includes('breakfast')
-        ? 'morning'
-        : queryLower.includes('lunch')
-          ? 'afternoon'
-          : queryLower.includes('dinner')
-            ? 'evening'
-            : '';
-
-      const generatedQueries = [];
-      for (const variation of variations.slice(0, 5)) {
-        if (timeOfDay) {
-          generatedQueries.push(`${variation} ${timeOfDay}`);
-        }
-        generatedQueries.push(variation);
-      }
-
-      logger.info('Generated meal-specific query variations', {
-        originalQuery: query,
-        variations: generatedQueries.slice(0, 3),
-      });
-
-      return generatedQueries.slice(0, 3);
-    }
-
-    // Fall back to Claude for complex queries
+    // Let Claude handle all query refinement intelligently based on context
     const prompt = `Generate refined search queries based on:
 
 Original query: "${query}"
@@ -426,15 +371,17 @@ ${currentResults
   .map((r) => `- ${r.lifelog?.title || 'Untitled'}: ${(r.lifelog?.content || '').slice(0, 100)}...`)
   .join('\n')}
 
-Refinement hints:
+Refinement hints from previous assessment:
 ${hints.join('\n')}
 
 Generate 2-3 alternative search queries that might find missing information.
 Consider:
-- Related terms and synonyms (for meals: restaurant names, food types, "ordered", "delivered")
-- Different time periods mentioned in results
-- Names or topics mentioned in partial results
-- More specific or more general versions of the query
+- Terms and concepts mentioned in the partial results that might lead to more complete answers
+- Different time periods or date references if relevant
+- Names, places, or topics mentioned in current results
+- More specific versions if the query is too broad
+- More general versions if the query is too narrow
+- DO NOT add random unrelated terms
 
 Respond with JSON:
 {

@@ -945,6 +945,10 @@ If `npm run search` times out after finding results:
 - For AI assistants: YOU ARE Claude CLI - the timeout allows YOU time to think
 - The system sends top 10 results (or top 3 if scores are low) for assessment
 
+### Fixed Issues
+
+- **Removed hardcoded meal expansion** (Dec 2024): The system previously had overly specific hardcoded expansions for meal queries that would inject restaurant names and generic actions. This has been removed in favor of letting Claude intelligently generate refinements based on actual context.
+
 ## Current TODO List
 
 ### High Priority: Test Recent Improvements
