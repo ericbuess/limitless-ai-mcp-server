@@ -38,7 +38,7 @@
     "sync:all": "tsx src/tools/sync-all-data-v3.ts",
     "sync:download": "tsx src/tools/sync-all-data-v3.ts --download-only",
     "sync:rebuild": "tsx src/tools/rebuild-embeddings.ts",
-    "search": "node scripts/utilities/search.js",
+    "search": "node scripts/utilities/ai-search.js",
     "test:preprocessing": "node scripts/utilities/test-query-preprocessing.js",
     "sync:monitor": "node scripts/utilities/monitor-sync.js",
     "db:rebuild": "node scripts/maintenance/rebuild-vectordb.js",

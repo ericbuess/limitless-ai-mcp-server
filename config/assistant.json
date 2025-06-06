@@ -32,6 +32,6 @@
   "claude": {
     "maxTurns": 5,
     "temperature": 0.3,
-    "timeout": 120000
+    "timeout": 300000
   }
 }

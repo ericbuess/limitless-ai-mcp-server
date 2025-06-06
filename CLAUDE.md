@@ -68,6 +68,39 @@ await Task({
    - Single source of truth
    - Prevents documentation sprawl
 
+### Search Behavior for AI Assistants
+
+**AI pipeline for searches**
+
+When users ask you to search for information:
+
+1. **Always use**: `npm run search "query"` - This uses the full AI assistant pipeline
+
+   - Executes UnifiedSearchHandler for local file search
+   - Performs multiple Claude iterations to analyze results
+   - Ranks results by relevance and timestamps
+   - Generates natural language answers with confidence scores
+
+2. **How search works internally**:
+
+   - The search command creates a synthetic task (same as voice triggers)
+   - Passes it through TaskExecutor → IterativeMemorySearchTool
+   - IterativeMemorySearchTool calls UnifiedSearchHandler for local search
+   - Then uses Claude CLI to analyze and iterate on results
+
+3. **Claude CLI invocation**:
+
+   - Uses `claude --print --output-format json` with stdin (not `-p`)
+   - Iterates until 90%+ confidence or max iterations reached
+   - Requires Claude CLI authentication: `claude auth login`
+
+4. **Example**:
+   ```bash
+   # User asks: "What did I discuss about AI tools?"
+   npm run search "what did I discuss about AI tools"
+   # This triggers full pipeline with Claude analysis
+   ```
+
 ## Project Structure
 
 ```
@@ -75,7 +108,8 @@ limitless-ai-mcp-server/
 ├── scripts/                # Utility scripts (mixed organization)
 │   ├── *.js                # 27 scripts in root (various utilities)
 │   ├── utilities/          # Main user utilities
-│   │   ├── search.js       # Search lifelogs
+│   │   ├── ai-search.js    # Full AI-powered search (npm run search)
+│   │   ├── search.js       # Basic search (used internally by AI search)
 │   │   └── monitor-sync.js # Monitor sync status
 │   ├── maintenance/        # Data maintenance scripts
 │   │   ├── rebuild-vectordb.js
@@ -195,8 +229,9 @@ npm run sync:all -- --years=5 --batch=30 --delay=3000
 ### Utility Commands
 
 ```bash
-# Search lifelogs (local search - no API key required)
+# Search lifelogs (full AI pipeline with Claude analysis)
 npm run search "your search query"
+
 
 # Monitor sync status
 npm run sync:monitor
@@ -897,6 +932,18 @@ Answer returned to user with session ID
 ```
 
 This approach leverages our fast local search implementation while using Claude's language capabilities for natural, contextual answers.
+
+## Known Issues
+
+### Claude CLI Timeout
+
+If `npm run search` times out after finding results:
+
+- The search part is working correctly (finds 100+ results)
+- Claude CLI needs time to process and analyze results
+- Default timeout is 5 minutes (300000ms) configured in config/assistant.json
+- For AI assistants: YOU ARE Claude CLI - the timeout allows YOU time to think
+- The system sends top 10 results (or top 3 if scores are low) for assessment
 
 ## Current TODO List
 

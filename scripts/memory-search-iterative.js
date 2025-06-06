@@ -40,6 +40,7 @@ export class IterativeMemorySearchTool {
 
     this.claudeInvoker = new ClaudeInvoker({
       baseDir: this.searchHistoryDir,
+      timeout: config.claude?.timeout || 300000, // Use config timeout or 5 minutes default
     });
   }
 
