@@ -1,39 +1,37 @@
 # Limitless AI MCP Server - Claude Development Guide
 
-> 🤖 **Purpose**: This document provides essential information for Claude and other AI assistants to effectively work on this project. It includes project structure, development commands, implementation details, and troubleshooting guidance.
+This document provides information for Claude and other AI assistants to effectively work on this project. It includes project structure, development commands, implementation details, and troubleshooting guidance.
 
-## Critical Information for Context Reset
+## Project State Summary
 
-**Project State**: Production-ready MCP server with Phase 2 complete (v0.2.0)
-**Key Achievement**: 59x faster search using LanceDB vector store + intelligent caching
-**Current Focus**: Ready for Phase 3 (Voice-Activated Keywords) implementation
-**Repository**: Clean and organized - all docs consolidated, scripts organized
+**Current Version**: Local 0.2.0 / NPM Published 0.0.7
+**Status**: MCP server with enhanced search capabilities
+**Repository**: Clean state with consolidated documentation
 
-**Essential Context**:
+**Key Features**:
 
-- All planning/documentation MUST go in CLAUDE.md (never create new .md files)
-- Use sub-agents for multi-file analysis to preserve context
 - Background sync service downloads lifelogs every 60 seconds
-- Vector search works with LanceDB (no Docker needed)
-- Environment variables hardcoded in index.ts due to MCP CLI bug
+- Vector search using LanceDB (no Docker needed)
+- Local search functionality (no API calls during search)
+- All documentation consolidated in CLAUDE.md
 
 ## Project Overview
 
 This is a Model Context Protocol (MCP) server that enables AI assistants to interact with the Limitless AI API, specifically for accessing Pendant recordings (lifelogs). The server provides structured tools for searching, listing, and retrieving recording data.
 
-## Important AI Assistant Guidelines
+## AI Assistant Guidelines
 
 ### Using Sub-Agents to Preserve Context
 
-Since CLAUDE.md is comprehensive (~45KB), use sub-agents strategically to preserve context:
+Since CLAUDE.md is comprehensive, use sub-agents strategically to preserve context:
 
 **When to use sub-agents:**
 
-- **File Analysis**: When examining multiple files or large codebases
-- **Documentation Research**: When gathering information from multiple sources
-- **Complex Refactoring**: When planning large-scale changes
-- **Testing & Debugging**: When running multiple test scenarios
-- **Performance Analysis**: When collecting metrics from various sources
+- File Analysis: When examining multiple files or large codebases
+- Documentation Research: When gathering information from multiple sources
+- Complex Refactoring: When planning large-scale changes
+- Testing & Debugging: When running multiple test scenarios
+- Performance Analysis: When collecting metrics from various sources
 
 **How to use sub-agents effectively:**
 
@@ -42,33 +40,22 @@ Since CLAUDE.md is comprehensive (~45KB), use sub-agents strategically to preser
 await Task({
   description: 'Analyze search implementation',
   prompt:
-    'Review all files in src/search/ and summarize the search architecture, key patterns, and potential improvements. Focus on the query routing logic.',
+    'Review all files in src/search/ and summarize the search architecture, key patterns, and potential improvements.',
 });
-
-// The sub-agent reads all files and returns only the summary, preserving your context
 ```
-
-**Benefits:**
-
-- Sub-agent reads files and returns summaries only
-- Preserves main context for decision-making
-- Allows parallel analysis of multiple areas
-- Reduces context usage by 80-90%
 
 ### Documentation & Planning Rules
 
-**CRITICAL: CLAUDE.md is the ONLY place for documentation and planning**
+**CLAUDE.md is the primary documentation location**
 
-1. **Never create new .md files** for:
+1. **Avoid creating new .md files** for:
 
    - Planning documents
    - Status updates
    - Implementation notes
-   - TODO lists
    - Architecture decisions
-   - Meeting notes
 
-2. **Always update CLAUDE.md** with:
+2. **Update CLAUDE.md** with:
 
    - New implementation details
    - Changed architecture
@@ -77,43 +64,16 @@ await Task({
    - Future plans
 
 3. **Why this matters:**
-
    - CLAUDE.md persists across context resets
-   - Used for `/compact` command summaries
    - Single source of truth
    - Prevents documentation sprawl
-
-4. **If tempted to create a new .md file:**
-   - Add a new section to CLAUDE.md instead
-   - Use comments in code for implementation-specific notes
-   - Update existing sections rather than creating new files
-
-### Compact Command Preparation
-
-This file is critical for context preservation. When context gets full:
-
-- The `/compact` command (automatic or user-initiated) uses CLAUDE.md
-- Keep all important discoveries, decisions, and plans here
-- Remove outdated information during updates
-- Maintain clear section organization
-
-**Example update pattern:**
-
-```typescript
-// When discovering something new
-// ❌ WRONG: Create PERFORMANCE_FINDINGS.md
-// ✅ RIGHT: Update the "Performance Metrics" section in CLAUDE.md
-
-// When planning a feature
-// ❌ WRONG: Create FEATURE_PLAN.md
-// ✅ RIGHT: Add to "Phase 3" or "Future Enhancements" in CLAUDE.md
-```
 
 ## Project Structure
 
 ```
 limitless-ai-mcp-server/
-├── scripts/                # Utility scripts (organized 2025-06-04)
+├── scripts/                # Utility scripts (mixed organization)
+│   ├── *.js                # 27 scripts in root (various utilities)
 │   ├── utilities/          # Main user utilities
 │   │   ├── search.js       # Search lifelogs
 │   │   └── monitor-sync.js # Monitor sync status
@@ -125,38 +85,30 @@ limitless-ai-mcp-server/
 │       ├── inspect-lancedb.js
 │       └── check-vectordb.js
 ├── src/                    # Source code
-│   ├── cache/              # Intelligent caching (Phase 2)
+│   ├── cache/              # Intelligent caching
 │   │   └── intelligent-cache.ts
 │   ├── core/              # Core business logic
 │   │   ├── limitless-client.ts    # API client implementation
 │   │   └── cache.ts       # LRU cache with TTL support
-│   ├── search/            # Phase 2 search system
+│   ├── search/            # Search system
 │   │   ├── unified-search.ts     # Main search handler
 │   │   ├── query-router.ts       # Query classification
 │   │   ├── fast-patterns.ts      # Pattern matching
 │   │   └── claude-orchestrator.ts # Claude CLI integration
-│   ├── storage/           # Scalable file storage (Phase 2)
+│   ├── storage/           # File storage
 │   │   ├── file-manager.ts       # Date-based storage
 │   │   └── aggregation-service.ts # Data rollups
 │   ├── tools/             # MCP tool definitions
 │   │   ├── definitions.ts # Tool metadata and descriptions
 │   │   ├── handlers.ts    # Tool implementation handlers
 │   │   ├── schemas.ts     # Zod schemas for validation
-│   │   ├── enhanced-handlers.ts  # Phase 2 handlers
+│   │   ├── enhanced-handlers.ts  # Enhanced handlers
 │   │   ├── phase2-definitions.ts # Phase 2 tools
-│   │   ├── vector-search.js      # Executable tool
-│   │   ├── text-search.sh        # Ripgrep wrapper
-│   │   ├── get-lifelog.js        # Content fetcher
-│   │   ├── analyze-results.js    # Result merger
 │   │   └── sync-all-data-v3.ts  # Standalone sync script
 │   ├── vector-store/      # Vector Store implementations
 │   │   ├── vector-store.interface.ts  # Abstract interface
-│   │   ├── lancedb-store.ts          # LanceDB implementation (primary)
+│   │   ├── lancedb-store.ts          # LanceDB implementation
 │   │   ├── transformer-embeddings.ts  # 384-dim embeddings
-│   │   ├── chroma-manager.ts         # ChromaDB (optional)
-│   │   ├── simple-vector-store.ts    # Fallback in-memory store
-│   │   ├── sync-service.ts           # Original sync
-│   │   ├── sync-service-v2.ts        # Two-phase sync
 │   │   └── sync-service-v3.ts        # Batch-based sync
 │   ├── resources/         # MCP Resources feature
 │   │   ├── handlers.ts    # Resource request handlers
@@ -179,30 +131,10 @@ limitless-ai-mcp-server/
 │   │   └── retry.ts       # Retry logic with exponential backoff
 │   └── index.ts           # Main server entry point
 ├── tests/                 # Test files
-│   ├── core/
-│   │   └── cache.test.ts  # Cache tests (20 tests)
-│   ├── prompts/
-│   │   └── handlers.test.ts # Prompt tests (8 tests)
-│   ├── resources/
-│   │   └── manager.test.ts # Resource tests (11 tests)
-│   ├── sampling/
-│   │   └── handlers.test.ts # Sampling tests (8 tests)
-│   └── utils/
-│       └── retry.test.ts  # Retry utility tests
 ├── examples/              # Usage examples
-│   ├── basic-usage.ts     # Simple client usage
-│   ├── using-tools.ts     # Demonstrate all 5 tools
-│   ├── using-resources.ts # Show resource browsing
-│   ├── using-prompts.ts   # Use each prompt template
-│   ├── using-sampling.ts  # Content analysis demos
-│   ├── advanced-search.ts # Complex search patterns
-│   └── caching-strategies.ts # Performance optimization
 ├── archive-tests/         # Archived test scripts
-│   └── (old test scripts for reference)
 ├── docs/                  # Documentation
 │   └── references/        # Reference documentation
-│       ├── llms-full_model-context-protocol_20250601.md
-│       └── limitless-api-docs_20250601.md
 ├── dist/                  # Compiled JavaScript output
 ├── package.json           # Project dependencies and scripts
 ├── tsconfig.json          # TypeScript configuration
@@ -263,7 +195,7 @@ npm run sync:all -- --years=5 --batch=30 --delay=3000
 ### Utility Commands
 
 ```bash
-# Search lifelogs (ALWAYS LOCAL - no API key required)
+# Search lifelogs (local search - no API key required)
 npm run search "your search query"
 
 # Monitor sync status
@@ -280,6 +212,19 @@ npm run db:inspect
 
 # Test query preprocessing
 npm run test:preprocessing
+```
+
+### AI Assistant Commands
+
+```bash
+# Start monitoring service (polls every 30s for "Claudius" triggers)
+npm run assistant:start
+
+# Test memory search directly (without monitoring)
+npm run assistant:test:search
+
+# Check assistant status
+npm run assistant:status
 ```
 
 ### Git Commands
@@ -315,17 +260,16 @@ Cache Configuration:
 - `SEARCH_CACHE_MAX_SIZE` - Maximum items in search cache (default: 50)
 - `SEARCH_CACHE_TTL` - Search cache TTL in ms (default: 180000 / 3 minutes)
 
-Phase 2 Configuration:
+Advanced Features:
 
-- `LIMITLESS_ENABLE_VECTOR` - Enable ChromaDB semantic search (default: false)
+- `LIMITLESS_ENABLE_VECTOR` - Enable vector search (default: true)
 - `LIMITLESS_ENABLE_CLAUDE` - Enable Claude AI analysis (default: false)
 - `LIMITLESS_ENABLE_SYNC` - Enable background sync (default: false)
 - `LIMITLESS_DATA_DIR` - Storage location for embeddings (default: ./data)
-- `CHROMADB_URL` - ChromaDB server URL (default: http://localhost:8000)
 
 ## API Authentication
 
-The Limitless API uses `X-API-Key` header authentication (NOT Bearer tokens):
+The Limitless API uses `X-API-Key` header authentication:
 
 ```typescript
 headers: {
@@ -336,15 +280,15 @@ headers: {
 
 ## Available MCP Tools
 
-### Original Tools (Enhanced in Phase 2)
+### Core Tools
 
 1. **limitless_get_lifelog_by_id** - Get a specific recording by ID
 2. **limitless_list_lifelogs_by_date** - List recordings for a specific date
 3. **limitless_list_lifelogs_by_range** - List recordings within a date range
 4. **limitless_list_recent_lifelogs** - Get the most recent recordings
-5. **limitless_search_lifelogs** - Search for keywords (now 9x faster)
+5. **limitless_search_lifelogs** - Search for keywords
 
-### Phase 2 Tools
+### Enhanced Tools
 
 6. **limitless_advanced_search** - Intelligent search with auto-routing
 7. **limitless_semantic_search** - Find conceptually similar content
@@ -354,7 +298,7 @@ headers: {
 
 ## Testing the MCP Server
 
-### With Claude Code CLI
+### With Claude Desktop
 
 ```bash
 # Add the server
@@ -370,7 +314,7 @@ claude mcp list
 ### Direct Testing
 
 ```bash
-# Set API key and run (API key only needed for sync, not search)
+# Set API key and run
 LIMITLESS_API_KEY="your-key" node dist/index.js
 
 # Test search without API key
@@ -393,38 +337,15 @@ npm run search "your query"
 
 3. **Rate Limiting**: Be mindful of API rate limits. The retry logic handles 429 errors.
 
-4. **Search Functionality**: All searches are 100% local - no API key required for searching. Search uses local files downloaded during sync. Phase 2 implements multi-strategy search with automatic query routing.
-
-   **Key Points About Local Search:**
-
-   - **NO API calls during search** - UnifiedSearchHandler accepts null client
-   - **NO API key needed** - Search utilities work without LIMITLESS_API_KEY
-   - **Always uses local files** - FileManager.loadAllLifelogs() reads from disk
-   - **API only for sync** - API calls only happen in sync service for downloading
-
-   **Search Implementation Details:**
-
-   ```typescript
-   // Search handler - no API dependency
-   const searchHandler = new UnifiedSearchHandler(fileManager, {
-     enableVectorStore: true,
-     enableClaude: false,
-   });
-
-   // Fast search uses local index built from FileManager
-   await this.fastMatcher.buildIndex(localLifelogs);
-
-   // Vector search uses LanceDB with local embeddings
-   await this.vectorStore.searchByText(query);
-   ```
+4. **Search Functionality**: All searches are performed locally using downloaded files. No API calls are made during search operations.
 
 5. **Pagination**: The client handles pagination automatically when fetching multiple records.
 
-6. **Background Sync**: When `LIMITLESS_ENABLE_SYNC=true`, the server automatically:
+6. **Background Sync**: When enabled, the server automatically:
    - Performs bulk download of historical data on first run (365 days default)
    - Polls for new lifelogs every 60 seconds
    - Handles duplicates via ID tracking
-   - Stores data locally in LanceDB with Contextual RAG embeddings
+   - Stores data locally in LanceDB with embeddings
 
 ## Common Issues and Solutions
 
@@ -445,11 +366,10 @@ npm run search "your query"
 
 ## Current Status
 
-- **Version**: 0.2.0 (Phase 2 Complete)
-- **Tests**: 53 passing (more tests needed for Phase 2)
+- **Version**: Local 0.2.0 / NPM Published 0.0.7
+- **Tests**: 53 passing
 - **Node.js**: 22+ required
-- **All 5 MCP features + 4 Phase 2 enhancements implemented**
-- **Performance**: 59x faster search, semantic capabilities added
+- **All 5 MCP features + enhanced search implemented**
 
 ## Publishing to NPM
 
@@ -471,7 +391,6 @@ npm run search "your query"
    # Check executable permissions
    ls -la dist/index.js
    # Should show -rwxr-xr-x (executable)
-   # If not: chmod +x dist/index.js
    ```
 
 3. **Test locally**:
@@ -481,19 +400,17 @@ npm run search "your query"
    # Should run without errors (will timeout after 5s)
    ```
 
-4. **Critical: Dry run verification**:
+4. **Dry run verification**:
 
    ```bash
    npm pack --dry-run
-   # MUST show ~22 files including dist/, not just 3 files
-   # If only 3 files shown, run: npm run build
+   # Should show ~22 files including dist/
    ```
 
 5. **Test pack**:
    ```bash
    npm pack
    tar -tzf limitless-ai-mcp-server-*.tgz | grep dist/
-   # Should see dist/index.js and other dist files
    rm limitless-ai-mcp-server-*.tgz
    ```
 
@@ -516,7 +433,6 @@ npm run search "your query"
 
 4. **Build and publish**:
    ```bash
-   # CRITICAL: Always build first, then publish immediately
    npm run build
    ls -la dist/  # Verify dist exists
    npm publish
@@ -548,9 +464,9 @@ npm run search "your query"
 
 ### Common Publishing Issues
 
-- **Missing dist/ files**: Previous releases failed because dist/ wasn't included. Always verify with `npm pack --dry-run` shows ~22 files
-- **Not executable**: Ensure dist/index.js has executable permissions
-- **Build not current**: Always run `npm run build` immediately before `npm publish`
+- **Missing dist/ files**: Always build immediately before publish
+- **Wrong permissions**: Ensure dist/index.js is executable
+- **Stale build**: Delete dist/ and rebuild fresh
 
 ## Future Development
 
@@ -621,49 +537,21 @@ This will show:
 
 ## Reference Documentation Locations
 
-**Important**: Local reference docs are stored in `docs/references/`:
+Local reference docs are stored in `docs/references/`:
 
 - **MCP Protocol Specification**: `docs/references/llms-full_model-context-protocol_20250601.md`
 - **Limitless API Documentation**: `docs/references/limitless-api-docs_20250601.md`
 
-## Query Preprocessing (Implemented 2025-06-05)
+## Query Preprocessing
 
 ### Overview
 
-The `ParallelSearchExecutor` now includes advanced query preprocessing that significantly improves search accuracy:
+The `ParallelSearchExecutor` includes query preprocessing that improves search accuracy:
 
 1. **Temporal Normalization**: Converts relative time expressions to absolute dates
 2. **Intent Detection**: Identifies query type (search, question, command, navigation)
 3. **Named Entity Recognition**: Extracts person names, locations, and entities
 4. **Query Expansion**: Generates variations for comprehensive results
-
-### Implementation Details
-
-```typescript
-// In parallel-search-executor.ts
-private preprocessQuery(query: string): PreprocessedQuery {
-  const processed = {
-    originalQuery: query,
-    normalizedQuery: query,
-    temporalRefs: [],
-    intent: this.detectIntent(query),
-    entities: this.extractEntities(query),
-    expansions: this.generateQueryVariations(query)
-  };
-
-  // Temporal normalization with chrono-node
-  const parsedDates = chrono.parse(query);
-  if (parsedDates.length > 0) {
-    processed.temporalRefs = parsedDates.map(d => ({
-      text: d.text,
-      date: d.start.date(),
-      confidence: d.start.isCertain() ? 1.0 : 0.7
-    }));
-  }
-
-  return processed;
-}
-```
 
 ### Features
 
@@ -684,12 +572,11 @@ node scripts/utilities/test-preprocessing.js
 
 ## Local Search Architecture
 
-### IMPORTANT: Search is ALWAYS Local
+### Search is Always Local
 
-- **Search NEVER makes API calls** - it only uses locally downloaded files
+- **Search does not make API calls** - it only uses locally downloaded files
 - **No API key is required for search operations**
-- **There is no "local-only mode"** - search is inherently local by design
-- **API is used ONLY for initial download and continuous monitoring**
+- **API is used only for initial download and continuous monitoring**
 
 ### How It Works
 
@@ -708,28 +595,11 @@ await searchHandler.initialize();
 const results = await searchHandler.search('your query');
 ```
 
-### Why This Design?
+## Enhanced Search Implementation
 
-- **Performance**: Local search is 59x faster than API calls
-- **Reliability**: Works offline, no network latency
-- **Privacy**: Your data stays on your machine
-- **Scalability**: Can handle millions of lifelogs efficiently
+### Architecture Overview
 
-### Common Misconceptions
-
-- ❌ "I need to set a flag for local-only search" - No, search is always local
-- ❌ "Search requires API credentials" - No, only sync requires API key
-- ❌ "Search queries hit the Limitless API" - No, all queries run locally
-- ✅ "I need to sync data first before searching" - Yes, this is correct!
-
-## Phase 2: Intelligent Search & Voice Keywords Implementation
-
-> ⚡ **Phase 2 Status**: Complete ✅  
-> Phase 2 enhances the MCP server with AI-powered search capabilities and voice-activated keyword monitoring.
-
-### Phase 2 Architecture Overview
-
-Phase 2 introduces a multi-tier architecture for intelligent search and keyword monitoring:
+The search system uses a multi-tier architecture:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -747,108 +617,11 @@ Phase 2 introduces a multi-tier architecture for intelligent search and keyword 
     │  Fast Path  │  │Hybrid Search│    │Claude Agent │
     │   (<100ms)  │  │  (200-500ms)│    │   (2-3s)    │
     └─────────────┘  └─────────────┘    └─────────────┘
-          │                │                   │
-          ▼                ▼                   ▼
-    ┌─────────────────────────────────────────────────┐
-    │            Unified Response Handler              │
-    └─────────────────────────────────────────────────┘
 ```
 
-### Enabling Phase 2 Features
+### Parallel Search Architecture
 
-#### Environment Variables
-
-```bash
-# Phase 2 Core Features
-PHASE2_ENABLED=true                    # Enable Phase 2 features (default: false)
-CLAUDE_CLI_PATH=/usr/local/bin/claude  # Path to Claude CLI (auto-detected if not set)
-
-# Vector Store Configuration
-VECTOR_STORE_ENABLED=true              # Enable ChromaDB vector store
-VECTOR_STORE_PATH=./data/chroma        # ChromaDB storage location
-VECTOR_STORE_COLLECTION=lifelogs       # Collection name
-EMBEDDING_BATCH_SIZE=100               # Batch size for embedding generation
-EMBEDDING_MODEL=chromadb-default       # Use ChromaDB's default embeddings
-
-# Search Configuration
-SEARCH_STRATEGY=hybrid                 # Options: fast, vector, hybrid, claude
-SEARCH_FAST_THRESHOLD_MS=100          # Max time for fast path
-SEARCH_HYBRID_THRESHOLD_MS=500        # Max time for hybrid search
-SEARCH_MAX_RESULTS=50                  # Maximum results to return
-
-# Keyword Monitoring
-KEYWORD_MONITOR_ENABLED=true           # Enable keyword monitoring
-KEYWORD_POLL_INTERVAL_MS=30000         # Polling interval (30s default)
-KEYWORD_CONFIG_PATH=./config/keywords.json  # Keyword configuration file
-
-# Performance Tuning
-QUERY_CACHE_SIZE=1000                  # Query result cache size
-QUERY_CACHE_TTL_MS=600000              # Query cache TTL (10 minutes)
-PARALLEL_SEARCH_WORKERS=4              # Number of parallel search workers
-```
-
-### Phase 2 Tools
-
-Phase 2 adds new intelligent search tools while maintaining backward compatibility:
-
-#### 1. `limitless_intelligent_search`
-
-Advanced search with automatic strategy selection:
-
-```typescript
-{
-  query: string;              // Search query
-  strategy?: 'auto' | 'fast' | 'vector' | 'hybrid' | 'claude';
-  date_range?: { start: string; end: string };
-  limit?: number;
-  include_analysis?: boolean; // Include AI analysis of results
-}
-```
-
-#### 2. `limitless_semantic_search`
-
-Vector-based semantic search:
-
-```typescript
-{
-  query: string;              // Semantic query
-  similarity_threshold?: number; // 0.0-1.0 (default: 0.7)
-  date_filter?: string;       // Optional date filter
-  limit?: number;
-}
-```
-
-#### 3. `limitless_analyze_patterns`
-
-AI-powered pattern analysis:
-
-```typescript
-{
-  time_period: 'day' | 'week' | 'month' | 'custom';
-  pattern_types?: string[];   // e.g., ['meetings', 'tasks', 'decisions']
-  custom_range?: { start: string; end: string };
-}
-```
-
-#### 4. `limitless_monitor_keywords`
-
-Manage keyword monitoring:
-
-```typescript
-{
-  action: 'start' | 'stop' | 'status' | 'add_keyword' | 'remove_keyword';
-  keyword?: string;           // For add/remove actions
-  keyword_config?: {          // For add action
-    pattern: string;
-    action_type: string;
-    metadata?: object;
-  };
-}
-```
-
-### Parallel Search Architecture (V2 - Final Implementation)
-
-All searches now use the enhanced parallel execution system with inter-strategy communication:
+All searches use parallel execution with inter-strategy communication:
 
 #### Core Innovation: Shared SearchContext
 
@@ -867,567 +640,29 @@ interface SearchContext {
 1. **Fast-Keyword Strategy**
 
    - Finds initial keyword matches
-   - Shares top 5 document IDs as "hot documents"
+   - Shares top document IDs as "hot documents"
    - Extracts and shares dates from high-scoring results
-   - Other strategies boost scores for these hot documents
 
 2. **Vector-Semantic Strategy**
 
    - Uses keywords discovered by fast-keyword to enhance query
    - Filters results to prefer discovered dates when available
-   - Extracts keywords from semantic matches to share back
    - Identifies conceptually related documents
 
 3. **Smart-Date Strategy**
 
    - Searches dates from query AND dates discovered by other strategies
    - Can find related content even without explicit date in query
-   - Boosts scores for documents already identified as hot
 
 4. **Context-Aware Filter**
-   - Specifically looks for consensus documents (found by 2+ strategies)
+   - Looks for consensus documents (found by 2+ strategies)
    - Applies additional filtering based on shared context
-   - Future: Will search metadata files for hot documents
-
-#### Scoring Enhancements
-
-- **Base score**: Strategy weight × document score
-- **Consensus boost**: +20% if found by 2+ strategies
-- **Hot document boost**: +15% if identified as high-value
-- **Cross-strategy boost**: +10% for each additional strategy that finds it
-
-#### Performance Characteristics
-
-- All strategies execute simultaneously (5ms total vs 26ms sequential)
-- Early discoveries improve later strategy results
-- Failed strategies don't block others (Promise.allSettled)
-- Context sharing adds <1ms overhead
-
-#### Example Search Flow
-
-Query: "chess game last night"
-
-1. **Parallel Start** (T+0ms)
-
-   - All 4 strategies begin simultaneously
-   - Shared context initialized
-
-2. **Fast-Keyword** (T+2ms)
-
-   - Finds "chess" and "game" matches
-   - Shares: hotDocumentIds: {doc123, doc456}, dates: {2025-06-04}
-
-3. **Vector-Semantic** (T+3ms)
-
-   - Enhances query with discovered context
-   - Searches for "chess game last night 2025-06-04"
-   - Finds conceptually similar: "board game", "checkmate"
-
-#### Search Testing Results (2025-06-05)
-
-**Performance Benchmarks:**
-
-- Simple keyword search: **3.17x faster** (19ms → 6ms)
-- Temporal queries: **1.88x faster** (15ms → 8ms)
-- Complex analytical: **2.38x faster** (19ms → 8ms)
-
-**Key Findings:**
-
-1. Inter-strategy communication works effectively
-2. Consensus scoring improves relevance (documents found by 2+ strategies)
-3. Context sharing adds <1ms overhead but improves quality
-4. Hot document identification helps prioritize high-value results
-
-**Testing Insights for Unit Tests:**
-
-- Current architecture tightly couples components
-- Mocking requires full object instances, not simple stubs
-- Recommendation: Focus on integration tests over unit tests
-- Constructor requirements:
-  - `FileManager`: Needs full `StorageOptions` with 3 fields
-  - `UnifiedSearchHandler`: Expects `LimitlessClient` instance
-  - `ParallelSearchExecutor`: Expects `FastPatternMatcher` instance
-
-4. **Smart-Date** (T+2ms)
-
-   - Searches both "last night" AND discovered date "2025-06-04"
-   - Finds additional matches from that date
-
-5. **Final Merge** (T+5ms)
-   - Documents found by multiple strategies get boosted
-   - Consensus document scores increase significantly
-   - Results sorted by enhanced scores
-
-### File Structure for Phase 2
-
-```
-src/
-├── search/                    # Phase 2 Search System
-│   ├── query-router.ts       # Intelligent query routing
-│   ├── strategies/           # Search strategy implementations
-│   │   ├── fast-path.ts     # Direct/cached queries
-│   │   ├── vector-search.ts # ChromaDB semantic search
-│   │   ├── hybrid-search.ts # Combined search
-│   │   └── claude-agent.ts  # Claude CLI integration
-│   ├── claude-orchestrator.ts # Claude CLI wrapper
-│   └── search-cache.ts       # Intelligent result caching
-│
-├── vector-store/             # Vector Database Layer
-│   ├── chroma-client.ts      # ChromaDB implementation
-│   ├── vector-store.interface.ts # Abstract interface
-│   ├── embedding-service.ts  # Embedding generation
-│   └── sync-service.ts       # Incremental sync with API
-│
-├── monitoring/               # Keyword Monitoring System
-│   ├── keyword-monitor.ts    # Main monitoring service
-│   ├── keyword-detector.ts   # Pattern matching logic
-│   ├── action-registry.ts    # Action execution
-│   └── notification-service.ts # Alert system
-│
-├── storage/                  # Scalable Storage
-│   ├── file-manager.ts       # Date-hierarchical storage
-│   ├── metadata-index.ts     # Fast metadata lookups
-│   └── aggregation-service.ts # Monthly/yearly rollups
-│
-└── tools/                    # Phase 2 Tool Definitions
-    ├── intelligent-search.ts # New search tools
-    ├── keyword-tools.ts      # Monitoring tools
-    └── analysis-tools.ts     # Pattern analysis
-```
-
-### Performance Benchmarks
-
-Phase 2 performance improvements over Phase 1:
-
-| Query Type          | Phase 1                    | Phase 2            | Improvement     |
-| ------------------- | -------------------------- | ------------------ | --------------- |
-| Simple lookup       | 5.9s (cold) / 0ms (cached) | <100ms (always)    | 59x faster      |
-| Keyword search      | 1.8s                       | 200-300ms          | 6-9x faster     |
-| Complex search      | N/A                        | 2-3s               | New capability  |
-| Semantic search     | N/A                        | 100-300ms          | New capability  |
-| Pattern analysis    | N/A                        | 2-5s               | New capability  |
-| **Parallel search** | 26ms (sequential)          | **5ms (parallel)** | **5.2x faster** |
-
-#### Cache Performance
-
-- **L1 Cache**: In-memory LRU (0ms hits)
-- **L2 Cache**: Vector embeddings (5-10ms)
-- **L3 Cache**: Query results (10-20ms)
-- **Cold start**: 100-3000ms depending on strategy
-
-### Running with Phase 2 Features
-
-#### Initial Setup
-
-```bash
-# 1. Install Claude Code CLI (required)
-npm install -g @anthropic/claude-code
-claude auth login  # Authenticate with Claude.ai
-
-# 2. Install Phase 2 dependencies
-npm install chromadb                    # Vector database
-npm install @types/node-cron           # For monitoring service
-
-# 3. Build with Phase 2 features
-PHASE2_ENABLED=true npm run build
-
-# 4. Initialize vector store (one-time)
-npm run phase2:init
-```
-
-#### Running the Server
-
-```bash
-# Basic Phase 2 mode
-PHASE2_ENABLED=true LIMITLESS_API_KEY="your-key" node dist/index.js
-
-# Full Phase 2 with all features
-PHASE2_ENABLED=true \
-VECTOR_STORE_ENABLED=true \
-KEYWORD_MONITOR_ENABLED=true \
-SEARCH_STRATEGY=hybrid \
-LIMITLESS_API_KEY="your-key" \
-node dist/index.js
-
-# Development mode with hot reload
-PHASE2_ENABLED=true npm run dev
-```
-
-#### Testing Phase 2 Features
-
-```bash
-# Run Phase 2 specific tests
-npm run test:phase2
-
-# Test vector store integration
-npm run test:vector-store
-
-# Test Claude CLI integration
-npm run test:claude-integration
-
-# Benchmark search performance
-npm run benchmark:search
-```
-
-### Phase 2 Implementation Guide
-
-#### 1. Query Router Implementation
-
-```typescript
-// src/search/query-router.ts
-export class QueryRouter {
-  async route(query: string): Promise<SearchStrategy> {
-    // Fast path detection (<5ms)
-    if (this.isFastQuery(query)) {
-      return 'fast';
-    }
-
-    // Semantic query detection
-    if (this.isSemanticQuery(query)) {
-      return 'vector';
-    }
-
-    // Complex analytical query
-    if (this.isAnalyticalQuery(query)) {
-      return 'claude';
-    }
-
-    // Default to hybrid
-    return 'hybrid';
-  }
-}
-```
-
-#### 2. Claude CLI Integration
-
-```typescript
-// src/search/claude-orchestrator.ts
-export class ClaudeOrchestrator {
-  async search(query: string, context: SearchContext): Promise<SearchResult> {
-    const prompt = this.buildSearchPrompt(query, context);
-
-    // Execute with specific tools enabled
-    const result = await this.executeClaude({
-      prompt,
-      allowedTools: ['Read', 'Bash(rg:*)', 'ChromaSearch'],
-      outputFormat: 'json',
-      maxTurns: 3,
-      timeout: 30000,
-    });
-
-    return this.parseSearchResult(result);
-  }
-}
-```
-
-#### 3. Vector Store Sync
-
-```typescript
-// src/vector-store/sync-service.ts
-export class VectorSyncService {
-  async syncNewLifelogs(): Promise<void> {
-    // Fetch new lifelogs since last sync
-    const newLogs = await this.getUnprocessedLogs();
-
-    // Batch generate embeddings
-    for (const batch of this.batchItems(newLogs, 100)) {
-      const embeddings = await this.generateEmbeddings(batch);
-      await this.vectorStore.addDocuments(embeddings);
-    }
-
-    // Update sync timestamp
-    await this.updateSyncState();
-  }
-}
-```
-
-### Phase 2 Monitoring & Debugging
-
-#### Debug Environment Variables
-
-```bash
-# Enable detailed Phase 2 debugging
-DEBUG_PHASE2=true                  # General Phase 2 debug logs
-DEBUG_VECTOR_STORE=true           # Vector store operations
-DEBUG_QUERY_ROUTER=true           # Query routing decisions
-DEBUG_CLAUDE_CALLS=true           # Claude CLI interactions
-DEBUG_KEYWORD_MONITOR=true        # Keyword detection logs
-```
-
-#### Performance Monitoring
-
-```typescript
-// Performance metrics are exposed via:
-const metrics = await mcpClient.request({
-  method: 'limitless_get_metrics',
-  params: { category: 'search' }
-});
-
-// Returns:
-{
-  "search_performance": {
-    "avg_response_time_ms": 245,
-    "cache_hit_rate": 0.78,
-    "strategy_distribution": {
-      "fast": 0.65,
-      "vector": 0.20,
-      "hybrid": 0.10,
-      "claude": 0.05
-    }
-  }
-}
-```
-
-### Phase 2 Best Practices
-
-1. **Query Optimization**
-
-   - Use specific dates when possible
-   - Include keywords for hybrid search
-   - Cache complex query results
-
-2. **Vector Store Management**
-
-   - Run sync during off-peak hours
-   - Monitor embedding storage size
-   - Backup embeddings regularly
-
-3. **Claude CLI Usage**
-
-   - Set appropriate timeouts
-   - Use --max-turns to limit costs
-   - Cache Claude analysis results
-
-4. **Keyword Monitoring**
-   - Start with simple patterns
-   - Test actions before enabling
-   - Monitor false positive rate
-
-### Migration from Phase 1 to Phase 2
-
-Phase 2 is fully backward compatible. To migrate:
-
-1. **No Breaking Changes**: All Phase 1 tools continue to work
-2. **Gradual Adoption**: Enable Phase 2 features individually
-3. **Data Migration**: Run `npm run phase2:migrate` to build initial vector store
-4. **Performance Testing**: Use `npm run benchmark:compare` to verify improvements
-
-## Claude Code CLI Integration (Phase 2 Prerequisites)
-
-### Prerequisites
-
-For Phase 2 enhanced search features, this server requires Claude Code CLI:
-
-```bash
-# Users must have Claude Code CLI installed and authenticated
-claude --version  # Check installation
-
-# Authenticate with Claude Max subscription for unlimited tokens
-claude auth login  # Opens browser for SSO authentication
-```
-
-### Claude CLI Usage in the Project
-
-The server executes Claude CLI in headless mode using Node.js child_process:
-
-```typescript
-// Basic execution with JSON output
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
-
-async function runClaudeAnalysis(prompt: string) {
-  const { stdout } = await execAsync(`claude -p "${prompt}" --output-format json --max-turns 3`, {
-    timeout: 120000, // 2 minute timeout
-    maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-  });
-  return JSON.parse(stdout);
-}
-
-// Streaming for real-time feedback
-import { spawn } from 'child_process';
-
-function streamClaudeSearch(prompt: string) {
-  const child = spawn('claude', [
-    '-p',
-    prompt,
-    '--output-format',
-    'stream-json',
-    '--allowedTools',
-    'Read,Bash(rg:*)',
-  ]);
-
-  child.stdout.on('data', (chunk) => {
-    const message = JSON.parse(chunk.toString());
-    // Process each message as it arrives
-  });
-}
-```
-
-**Command Flags Used:**
-
-- `-p "prompt"` - Headless mode with prompt
-- `--output-format json` - Structured output for parsing
-- `--output-format stream-json` - Real-time streaming
-- `--max-turns 3` - Limit iterations for cost control
-- `--allowedTools` - Pre-approve safe tools
-
-**Important Notes:**
-
-- No need to specify model, temperature, or tokens (uses user's Claude settings)
-- Requires active Claude Max subscription for optimal performance
-- All processing uses the user's allocated Claude.ai tokens
-- SSO authentication links browser session to Claude Code
-- User must run `claude auth login` before first use
-
-### Context Management Strategy
-
-When implementing search features, use sub-agents to preserve context:
-
-```typescript
-// Good: Use Task tool for research (only summary enters context)
-await Task({
-  description: 'Research vector databases',
-  prompt: 'Compare vector databases for TypeScript...',
-});
-
-// Avoid: Direct searches that fill up context
-// await WebSearch(...) // Full results enter context
-```
-
-### Parallel Batch Embeddings Implementation Details
-
-**Current Pain Point**: Sequential embedding generation is the bottleneck in sync
-
-- 1000 lifelogs × 150ms average = 150 seconds just for embeddings
-- CPU underutilized (single-threaded processing)
-
-**Proposed Solution**:
-
-```typescript
-// In transformer-embeddings.ts
-async generateEmbeddingsParallel(texts: string[], options = {}) {
-  const { batchSize = 10, maxConcurrent = 4 } = options;
-
-  // Split into batches
-  const batches = chunk(texts, batchSize);
-
-  // Process batches with concurrency limit
-  const results = await pLimit(maxConcurrent, batches, async (batch) => {
-    return await this.pipeline(batch, {
-      pooling: 'mean',
-      normalize: true,
-    });
-  });
-
-  return results.flat();
-}
-```
-
-**Expected Improvements**:
-
-- Initial sync: 150s → 15-30s (5-10x faster)
-- Memory usage: Controlled via batch size
-- CPU usage: Better utilization across cores
-- User experience: Much faster "ready to search" time
-
-### Practical Sub-Agent Patterns
-
-**Pattern 1: Multi-File Analysis**
-
-```typescript
-// Instead of reading 20 test files individually
-await Task({
-  description: 'Analyze test coverage',
-  prompt:
-    'Review all files in tests/ directory. Identify which features lack tests, testing patterns used, and priority areas for new tests. Summarize findings.',
-});
-```
-
-**Pattern 2: Codebase Exploration**
-
-```typescript
-// When searching for implementation details
-await Task({
-  description: 'Find authentication logic',
-  prompt:
-    'Search the codebase for how API authentication is implemented. Look for API key handling, header configuration, and error handling. Report file locations and key patterns.',
-});
-```
-
-**Pattern 3: Parallel Information Gathering**
-
-```typescript
-// Launch multiple sub-agents for different aspects
-const [searchAnalysis, performanceData, errorPatterns] = await Promise.all([
-  Task({ description: 'Analyze search', prompt: 'Review search implementation...' }),
-  Task({ description: 'Gather metrics', prompt: 'Extract performance metrics...' }),
-  Task({ description: 'Find errors', prompt: 'Identify error handling patterns...' }),
-]);
-```
-
-**Pattern 4: Documentation Consolidation**
-
-```typescript
-// When consolidating multiple docs (like we just did!)
-await Task({
-  description: 'Consolidate documentation',
-  prompt:
-    'Read all .md files in root directory. Extract unique information from each. Organize by topic: setup, architecture, development, troubleshooting. Preserve all technical details.',
-});
-```
-
-**Pattern 5: Large-Scale Refactoring Planning**
-
-```typescript
-// When planning major changes
-await Task({
-  description: 'Plan refactoring',
-  prompt:
-    'Analyze src/vector-store/* files. Identify: 1) Current architecture, 2) Tight couplings, 3) Potential breaking changes, 4) Migration strategy. Create step-by-step refactoring plan.',
-});
-```
-
-**When NOT to use sub-agents:**
-
-- Simple file reads (1-2 files)
-- Quick searches with Grep/Glob
-- Direct code editing
-- Running simple commands
-
-### Scalability Considerations
-
-The system is designed to handle tens of thousands of days of lifelogs:
-
-**Storage Structure**:
-
-```
-/data/
-  /lifelogs/YYYY/MM/DD/    # Date-based hierarchy
-    - {id}.md              # Original transcript (preserves searchability)
-    - {id}.meta.json       # Metadata for filtering
-  /embeddings/             # Portable vector embeddings
-  /indexes/                # Vector DB files (swappable)
-```
-
-**Performance at Scale**:
-
-- 10K days: ~100MB memory (very fast)
-- 100K days: ~1GB memory (still performant)
-- 1M+ days: Implement sharding by year
-
-**Vector DB Portability**:
-
-- Abstract interface allows easy swapping between ChromaDB, Qdrant, etc.
-- Raw embeddings stored separately from vector DB
-- Original markdown files always preserved
 
 ## LanceDB Vector Store Implementation
 
 ### Overview
 
-The project now uses LanceDB as the primary vector store, replacing the simple in-memory implementation:
+The project uses LanceDB as the primary vector store:
 
 - **Package**: `@lancedb/lancedb` (not the deprecated `vectordb`)
 - **Location**: Persistent storage in `./data/lancedb/`
@@ -1462,20 +697,6 @@ private addContext(content: string, metadata?: any): string {
 }
 ```
 
-### Environment Variable Workaround
-
-Due to MCP CLI environment variable passing issues, the following is hardcoded in `src/index.ts`:
-
-```typescript
-// TEMPORARY: Hardcode vector store enablement
-const enableVector = process.env[ENABLE_VECTOR_ENV] === 'true' || true;
-
-// TEMPORARY: Force simple vector store mode
-if (!process.env.CHROMADB_MODE) {
-  process.env.CHROMADB_MODE = 'simple';
-}
-```
-
 ## Sync Service V3 - Respectful API Usage
 
 ### Key Features
@@ -1489,17 +710,7 @@ if (!process.env.CHROMADB_MODE) {
 
 ### API Limitation Workaround
 
-The Limitless API has a limitation where date range queries only return the 25 most recent lifelogs. The sync service works around this:
-
-```typescript
-// Instead of date ranges, query each day individually:
-for each date from oldest to newest:
-  const lifelogs = await client.listLifelogsByDate(dateStr, {
-    limit: 1000,
-    includeMarkdown: true,
-    includeHeadings: true
-  });
-```
+The Limitless API has a limitation where date range queries only return the 25 most recent lifelogs. The sync service works around this by querying each day individually.
 
 ### Sync Commands
 
@@ -1537,359 +748,27 @@ npm run sync:all -- --years=5 --batch=30 --delay=3000
 └── sync-checkpoint.json       # Resume information
 ```
 
-### Checkpoint System
+## Performance Characteristics
 
-The sync service saves progress after every batch:
+### Search Performance
 
-```json
-{
-  "phase": "download",
-  "currentDate": "2024-12-15",
-  "totalDownloaded": 1250,
-  "totalVectorized": 1250,
-  "lastCheckpoint": "2025-06-04T12:34:56.789Z",
-  "oldestDate": "2023-01-15",
-  "newestDate": "2025-06-04",
-  "storageSize": 125829120,
-  "errors": [],
-  "processedBatches": ["2025-05-01_2025-05-31", "2025-04-01_2025-04-30"]
-}
-```
+- Simple keyword search: ~6-20ms
+- Temporal queries: ~8-15ms
+- Complex analytical: ~8-20ms
+- Cached results: 0ms (instant)
 
-### Monitoring Mode
+### Sync Performance
 
-After initial sync, the service monitors for new lifelogs:
+- Initial bulk download: Depends on API rate limits and data volume
+- Embedding generation: ~150ms per lifelog (sequential)
+- Vector indexing: Fast after initial build
+- Background sync: Minimal impact (60s intervals)
 
-- Polls every 60 seconds (configurable)
-- Only downloads new lifelogs after last processed timestamp
-- Automatically updates vector embeddings
-- Never re-downloads existing files
+## AI Assistant Pipeline Architecture
 
-## Performance Optimizations
+The AI assistant uses a three-layer pipeline for processing voice-activated queries:
 
-### LanceDB Features
-
-- **Apache Arrow Format**: Efficient columnar storage
-- **Memory Mapping**: Handles large datasets efficiently
-- **Hybrid Search**: Supports vector + metadata filtering
-- **Native TypeScript**: No Python dependencies
-- **Scales to Millions**: Can handle 1M+ vectors efficiently
-
-### Embedding Generation
-
-- **Batch Processing**: Generates embeddings in batches of 100
-- **Fallback**: TF-IDF if transformer model fails
-- **Caching**: Embeddings stored separately for portability
-- **Progress Tracking**: Shows indexing progress
-
-## Testing and Debugging
-
-### Test Vector Store
-
-```bash
-# Simple test script
-node -e "
-import { LanceDBStore } from './dist/vector-store/lancedb-store.js';
-const store = new LanceDBStore({ collectionName: 'test' });
-await store.initialize();
-console.log('LanceDB initialized successfully');
-"
-```
-
-### Debug Environment Variables
-
-```bash
-# Enable detailed debugging
-export LOG_LEVEL=DEBUG
-export DEBUG_VECTOR_STORE=true
-export DEBUG_SYNC_SERVICE=true
-```
-
-### Common Issues
-
-1. **"No data in batch"**: Normal for date ranges without recordings
-2. **"Failed to process batch"**: Check API key and network connectivity
-3. **Slow Progress**: Normal - respects API with 2s delays
-4. **Storage Issues**: Ensure adequate disk space (~1-2MB per day of recordings)
-
-## Current Status
-
-**Version:** 0.2.0  
-**Status:** Phase 2 Complete ✅  
-**Last Updated:** 2025-06-05
-
-⚠️ **Note**: Phase 2 intelligent search is now complete. While core features are implemented and tested, real-world usage testing is needed. Please report issues!
-
-### Recent Changes (2025-06-04)
-
-- **Documentation Consolidation**: Merged 23 .md files into single CLAUDE.md (1,600+ lines)
-- **Test Script Organization**: Moved 26 .js files from root to organized structure:
-  - `scripts/utilities/` - Main user tools (search.js, monitor-sync.js)
-  - `scripts/maintenance/` - Database maintenance (7 scripts)
-  - `scripts/debug/` - Debug utilities (3 scripts)
-  - `archive-tests/` - Archived test scripts (12 scripts)
-- **Clean Root Directory**: Organized all files appropriately
-- **New npm Scripts**: Added convenient commands for common operations
-
-### Recent Changes (2025-06-05)
-
-- **Fixed Search System to Find Exact Matches**: Resolved critical search utility issue
-  - Fixed `search.js` to use `UnifiedSearchHandler` instead of direct vector store
-  - Now finds exact keyword matches using fast pattern matcher
-  - Shows content windows around matches with highlighting
-  - Works in local-only mode without API key
-  - Test case successful: "what did we eat for dinner yesterday" now finds McDonald's/DoorDash
-- **Query Preprocessing with Temporal Normalization**: Implemented advanced query preprocessing in `ParallelSearchExecutor`
-  - Converts relative time expressions ("yesterday", "last week") to absolute dates
-  - Handles various temporal formats with chrono-node library
-  - Automatically extracts and normalizes dates from queries
-- **Intent Detection and Named Entity Recognition**: Added intelligent query analysis
-  - Detects query intent (search, question, command, navigation)
-  - Identifies person names using NLP patterns
-  - Extracts locations and other entities
-  - Enhances search accuracy by understanding query context
-- **Parallel Query Expansion with Consensus Scoring**: Implemented query rewriting system
-  - Generates multiple query variations automatically
-  - Runs variations in parallel for comprehensive results
-  - Uses consensus scoring (documents found by multiple variations score higher)
-  - Examples:
-    - "meeting with Sarah" → ["meeting Sarah", "Sarah meeting", "discussion with Sarah"]
-    - "budget proposal" → ["budget plan", "financial proposal", "budget document"]
-- **Test Utility Created**: Added `scripts/utilities/test-preprocessing.js`
-  - Tests temporal normalization with various date formats
-  - Validates query expansion and variation generation
-  - Demonstrates intent detection capabilities
-  - Shows named entity extraction results
-
-### Root Directory Files (All Appropriate)
-
-Configuration files that belong in root:
-
-- `.env.example` - Example environment variables
-- `.eslintrc.json` - ESLint configuration
-- `.gitignore` - Git ignore patterns
-- `.npmignore` - NPM publish ignore patterns
-- `.prettierrc.json` - Prettier configuration
-- `codecov.yml` - Code coverage configuration
-- `eslint.config.mjs` - ESLint module configuration
-- `jest.config.js` - Jest test configuration
-- `tsconfig.json` - TypeScript configuration
-- `package.json` - NPM package configuration
-- `package-lock.json` - NPM dependency lock file
-
-Documentation files:
-
-- `README.md` - User documentation
-- `CLAUDE.md` - AI assistant reference (this file)
-- `LICENSE` - MIT license
-
-Build artifacts (git-ignored):
-
-- `tsconfig.tsbuildinfo` - TypeScript build cache
-- `.env` - Local environment variables (if present)
-
-### Performance Metrics
-
-Phase 2 Performance (2025-06-03):
-
-| Query Type       | Phase 1 | Phase 2 | Improvement    |
-| ---------------- | ------- | ------- | -------------- |
-| Simple lookup    | 5.9s    | 100ms   | **59x faster** |
-| Keyword search   | 1.8s    | 200ms   | **9x faster**  |
-| Semantic search  | N/A     | 300ms   | New capability |
-| Complex analysis | N/A     | 2-3s    | New capability |
-| Cached results   | 0ms     | 0ms     | Instant        |
-
-### Known Limitations
-
-1. **API Constraints**
-
-   - Only returns Pendant recordings (no app/extension data)
-   - Requires active internet connection
-   - Rate limiting applies to API calls
-
-2. **Search Capabilities** (Enhanced in Phase 2)
-
-   - Multi-strategy search system (fast, vector, hybrid, Claude)
-   - Semantic search using LanceDB embeddings
-   - Complex query analysis via Claude CLI
-   - Still limited by API (no server-side search)
-
-3. **Storage & Resources** (Enhanced in Phase 2)
-   - Scalable date-based file storage (YYYY/MM/DD)
-   - Persistent vector embeddings in LanceDB
-   - Background sync service (60s intervals)
-   - Still requires internet for API access
-
-## Publishing to NPM
-
-### Pre-Publish Verification
-
-1. **Clean Build**
-
-   ```bash
-   rm -rf dist/
-   npm run build
-   ```
-
-2. **Verify Dist Directory**
-
-   ```bash
-   ls -la dist/
-   # Should contain: index.js, all .ts files compiled to .js
-   ```
-
-3. **Check Executable Permissions**
-
-   ```bash
-   chmod +x dist/index.js
-   head -n 1 dist/index.js  # Should show: #!/usr/bin/env node
-   ```
-
-4. **Test Locally**
-
-   ```bash
-   LIMITLESS_API_KEY="your-key" node dist/index.js
-   ```
-
-5. **Critical Dry Run Check**
-
-   ```bash
-   npm publish --dry-run
-   # MUST show ~22 files being packaged, not just 3
-   # Should include all dist/ files
-   ```
-
-6. **Pack and Test**
-   ```bash
-   npm pack
-   tar -tzf limitless-ai-mcp-server-*.tgz | head -20
-   ```
-
-### Publishing Steps
-
-1. **Update Version**
-
-   ```bash
-   npm version patch  # or minor/major
-   ```
-
-2. **Commit Changes**
-
-   ```bash
-   git add -A
-   git commit -m "chore: release v0.2.1"
-   git push origin dev
-   ```
-
-3. **Login to NPM**
-
-   ```bash
-   npm login
-   ```
-
-4. **Build and Publish** (CRITICAL: Build immediately before publish)
-   ```bash
-   npm run build && npm publish
-   ```
-
-### Post-Publish Verification
-
-1. **Check NPM Registry**
-
-   ```bash
-   npm view limitless-ai-mcp-server
-   ```
-
-2. **Test Global Install**
-
-   ```bash
-   npm install -g limitless-ai-mcp-server
-   limitless-ai-mcp-server --version
-   ```
-
-3. **Tag Release**
-
-   ```bash
-   git tag v0.2.1
-   git push origin v0.2.1
-   ```
-
-4. **Create GitHub Release**
-   - Go to GitHub releases
-   - Create release from tag
-   - Add changelog
-
-### Common Publishing Issues
-
-1. **Missing dist/ files**: Always build immediately before publish
-2. **Wrong permissions**: Ensure dist/index.js is executable
-3. **Stale build**: Delete dist/ and rebuild fresh
-
-## Phase 3: Voice-Activated Keywords (Next Milestone)
-
-### Overview
-
-Transform the Pendant into a voice-command system by monitoring for keywords and triggering actions.
-
-### 6.1 Monitoring Service
-
-- Create background service polling recent lifelogs (30-60s intervals)
-- Implement efficient delta checking (only new content)
-- Add configurable polling intervals
-- Create monitoring dashboard/status
-- Implement pause/resume functionality
-
-### 6.2 Keyword Detection System
-
-- Define keyword configuration schema
-- Implement exact match detection ("Hey Limitless")
-- Add pattern matching ("Action item: _", "Remind me to _")
-- Support context-aware keywords ("urgent", "important")
-- Create keyword validation and testing tools
-
-### 6.3 Action Registry & Execution
-
-- Create action mapping system (keyword → action)
-- Implement action types:
-  - Create task/reminder
-  - Send notification
-  - Trigger webhook
-  - Execute MCP tool
-  - Calendar integration
-- Add action confirmation/logging
-- Support custom action plugins
-
-### 6.4 Notification System
-
-- Real-time alerts when keywords detected
-- Action execution confirmations
-- Error/failure notifications
-- Daily summary of triggered actions
-- Integration with notification services
-
-### Example Use Cases
-
-- "Hey Limitless, remind me to call John tomorrow" → Creates reminder
-- "Action item: review the budget proposal" → Adds to task list
-- "Note to self: great idea about..." → Saves to notes
-- "Urgent: need to fix the..." → High-priority notification
-- "Schedule meeting with Sarah next week" → Calendar event
-
-### Implementation Files
-
-- `src/monitoring/keyword-monitor.ts` - Main monitoring service
-- `src/monitoring/keyword-detector.ts` - Keyword detection logic
-- `src/monitoring/action-registry.ts` - Action mapping and execution
-- `src/monitoring/notification-service.ts` - Alert system
-- `src/types/monitoring.ts` - Type definitions
-- `config/keywords.json` - Default keyword configurations
-
-## CRITICAL: AI Assistant Pipeline Architecture (MUST READ)
-
-**WARNING**: The AI assistant uses a sophisticated multi-stage pipeline with numbered iteration files. DO NOT bypass or recreate this system. Always work within it.
-
-### Three-Layer Architecture That Must Be Preserved
+### Pipeline Components
 
 1. **TriggerMonitor** (`src/monitoring/trigger-monitor.js`)
 
@@ -1901,18 +780,14 @@ Transform the Pendant into a voice-command system by monitoring for keywords and
 
    - Routes tasks to appropriate handlers
    - Currently supports "memory_search" type
-   - Entry point for ALL assistant functionality
+   - Entry point for all assistant functionality
 
 3. **IterativeMemorySearchTool** (`scripts/memory-search-iterative.js`)
-   - Multi-stage Claude CLI pipeline with numbered files
+   - Multi-stage search with numbered iteration files
    - Creates search-results-{iteration}-{variant}.json
-   - Iterations folders: 001-assessment/, 002-assessment/, 999-final-answer/
-   - Uses multiple Claude invocations per search:
-     - Assessment: Evaluates if results answer the query (confidence scoring)
-     - Refinement: Generates better search queries when confidence < 0.9
-     - Final Answer: Synthesizes all results into comprehensive answer
+   - Uses multiple Claude invocations per search
 
-### File Structure for Each Search Session
+### Search Session File Structure
 
 ```
 data/search-history/YYYY-MM-DD/session-{timestamp}-{uuid}/
@@ -1923,7 +798,7 @@ data/search-history/YYYY-MM-DD/session-{timestamp}-{uuid}/
 │   ├── 001-assessment/         # First Claude assessment
 │   │   ├── prompt.txt
 │   │   └── response.json
-│   ├── 002-assessment/         # Second iteration
+│   ├── 002-assessment/         # Second iteration (if needed)
 │   │   ├── prompt.txt
 │   │   └── response.json
 │   └── 999-final-answer/       # Final synthesis
@@ -1932,17 +807,36 @@ data/search-history/YYYY-MM-DD/session-{timestamp}-{uuid}/
 └── results.json                # Final answer with metadata
 ```
 
-### Testing the Full Pipeline
+### Answer Caching
 
-**NEVER** call search utilities directly. Always test through the full pipeline:
+The system caches high-confidence answers (≥0.7) to avoid redundant searches:
+
+- Cache location: `data/answers/`
+- Cached by query hash
+- Prevents re-processing identical queries
+
+### Testing Methods
+
+#### Method 1: Full Pipeline Testing (via Monitoring Service)
+
+```bash
+# Start the monitoring service
+npm run assistant:start
+
+# Create test recordings with trigger phrases:
+# "Claudius, what did I eat for breakfast?"
+# "Hey Claudius, when did I last talk to Sarah?"
+```
+
+#### Method 2: Direct Testing (Synthetic Tasks)
 
 ```javascript
-// Create synthetic task object that mimics what TriggerMonitor creates
+// Create test-task.js with synthetic task object
 const task = {
   id: `test-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
   type: 'memory_search',
   trigger: {
-    text: 'Hey Claudius, what did I have for lunch?',
+    text: 'Claudius, what did I have for lunch?',
     assessment: {
       extractedRequest: 'what did I have for lunch?',
     },
@@ -1955,175 +849,37 @@ const task = {
   createdAt: new Date().toISOString(),
 };
 
-// Execute through TaskExecutor (NOT search utilities directly)
 const executor = new TaskExecutor();
 await executor.execute(task);
 ```
 
-### Enhancement Plan: Conversational Continuity
+### Claude CLI Headless Mode
 
-**Goal**: Support follow-up questions like "what else did we discuss?" without re-searching everything.
-
-#### 1. Session Linking (No Time Window Needed)
-
-- Add `previousSession` field to task objects
-- TaskExecutor checks for previous session and loads context
-- Pass previous Q&A pairs to IterativeMemorySearchTool
-- Explicit session references, not time-based
-
-#### 2. Follow-up Detection in Pipeline
-
-Enhance IterativeMemorySearchTool to detect:
-
-- "what else", "tell me more", "and then?"
-- Pronouns without clear antecedents ("it", "that", "they")
-- Questions referencing previous context
-
-#### 3. Context Integration for Assessment Claude
+The system uses Claude CLI in headless mode via Node.js spawn:
 
 ```javascript
-// In assessment prompt when previousSession exists:
-Previous Q&A from session ${previousSession}:
-Q: ${previousQuery}
-A: ${previousAnswer}
+// Correct usage with --print flag and stdin
+const { spawn } = require('child_process');
 
-Current question: ${currentQuery}
-Is this a follow-up question? If yes, what additional information is being requested?
-Include previous context in your assessment.
+const child = spawn('claude', ['--print', '--output-format', 'json']);
+child.stdin.write(prompt);
+child.stdin.end();
+
+// Parse JSON response
+child.stdout.on('data', (data) => {
+  const response = JSON.parse(data);
+});
 ```
 
-#### 4. Testing Follow-up Questions
+**Key Points:**
 
-```javascript
-// First question through pipeline
-const task1 = {
-  id: 'test-1',
-  type: 'memory_search',
-  trigger: {
-    text: 'Claudius, who did I meet today?',
-    assessment: { extractedRequest: 'who did I meet today?' },
-  },
-  lifelog: { id: 'synthetic', date: new Date().toISOString(), title: 'Test' },
-};
-await executor.execute(task1);
-// Get session ID from results
+- Use `--print` flag with prompt via stdin (not `-p` with args)
+- `--output-format json` for structured responses
+- Requires Claude CLI authentication: `claude auth login`
 
-// Follow-up with session reference
-const task2 = {
-  id: 'test-2',
-  type: 'memory_search',
-  trigger: {
-    text: 'Claudius, what did we discuss?',
-    assessment: { extractedRequest: 'what did we discuss?' },
-  },
-  previousSession: 'session-{timestamp}-{uuid}', // From task1 results
-  lifelog: { id: 'synthetic', date: new Date().toISOString(), title: 'Test' },
-};
-await executor.execute(task2);
-```
+### Hybrid Memory Search Approach
 
-### Integration Points for Recent Search Improvements
-
-The following improvements must be integrated into IterativeMemorySearchTool:
-
-1. **Phrase Detection** (fast-patterns.ts changes)
-
-   - Multi-word phrase recognition (e.g., "switch 2", "lunch today")
-   - 3x scoring weight for exact phrase matches
-   - Domain-agnostic patterns, not gaming-specific
-
-2. **Date Parsing Fix** (file-manager.ts)
-
-   - Fixed loading files from directories with leading zeros (01, 02, etc.)
-   - Now loads all 220 lifelogs including June 5 files
-
-3. **Better Score Filtering**
-   - Only send results with score > 0.7 to Claude assessment
-   - Prevent duplicate results across iterations
-   - Early termination if no high-scoring results
-
-### Testing Commands
-
-```bash
-# Test through monitoring service (full pipeline)
-npm run assistant:start
-
-# Test with synthetic task (for development)
-# Create test-task.js that calls TaskExecutor.execute()
-node test-task.js
-
-# View results in session directories
-ls -la data/search-history/YYYY-MM-DD/session-*/
-```
-
-### Critical Issues to Fix in Pipeline
-
-1. **Low-quality results** (scores < 0.5) being sent to Claude
-2. **Duplicate results** across iterations wasting Claude context
-3. **No minimum score threshold** before assessment
-4. **Poor query expansion** for meal/temporal queries
-5. **Excessive iterations** (6+ minutes for simple queries)
-
-## Current TODO List (as of 2025-06-05)
-
-### Recently Completed (2025-06-05)
-
-1. ✅ **Build AI-Powered Task System with Memory Search** - COMPLETED
-
-   - Implemented transcript deduplication to clean duplicate lines from API responses
-   - Created ClaudeInvoker utility for headless Claude CLI integration with session management
-   - Built TriggerMonitor service to detect "Claudius" keyword and process requests
-   - Developed TaskExecutor system with extensible task type architecture
-   - ~~Implemented MemorySearchTool with iterative search using Claude -p for better results~~ REPLACED with HybridMemorySearchTool
-   - Fixed Claude CLI hanging issue: use `--print` with stdin, not `-p` with args
-   - Implemented hybrid approach: UnifiedSearchHandler for search, Claude for answers
-   - Added pre-assessment to filter out non-actionable trigger detections
-   - Created complete audit trail system with session directories and iteration tracking
-   - Implemented answer caching to avoid redundant searches for same queries
-   - Added npm scripts: `assistant:start`, `assistant:test`, `assistant:status`
-   - Designed for future expansion with reminder, message, and other task types
-
-2. ✅ **Enable Local-Only Mode for Search** - COMPLETED
-
-   - Created LOCAL_ONLY_MODE environment variable
-   - Modified LimitlessClient to allow empty API key
-   - Updated UnifiedSearchHandler to work without API access
-   - Tested successfully with 185 local lifelogs
-   - Search performance: 5-14ms for parallel searches
-   - Documentation updated in README.md
-
-3. ✅ **Fix Search System to Find Exact Matches** - COMPLETED
-   - Fixed `search.js` to use `UnifiedSearchHandler` instead of direct vector store
-   - Now finds exact keyword matches using fast pattern matcher
-   - Shows content windows around matches with highlighting
-   - Works in local-only mode without API key
-   - Test case successful: "what did we eat for dinner yesterday" now finds McDonald's/DoorDash content
-
-## Testing the AI-Powered Assistant
-
-### System Status (2025-06-05) ✅ FIXED
-
-1. **Transcript Deduplication** ✅ Complete
-
-   - Successfully cleaned 109 duplicate transcript files
-   - Removed repeated lines caused by API response issues
-   - All lifelogs now contain clean, deduplicated content
-
-2. **Vector Database** ✅ Rebuilt
-
-   - Successfully indexed 198 documents
-   - LanceDB embeddings regenerated from deduplicated transcripts
-   - Ready for improved search accuracy
-
-3. **Hybrid Memory Search** ✅ Working
-   - Fixed Claude CLI hanging issue (use `--print` with stdin, not `-p` with args)
-   - Removed problematic `--dangerously-skip-permissions` flag
-   - Now uses hybrid approach: UnifiedSearchHandler for search, Claude for answers
-   - Successfully tested: Found "turkey lunch" info from lifelogs
-
-### Architecture: Hybrid Memory Search
-
-The AI assistant now uses a hybrid approach that combines our fast local search with Claude's answer generation:
+The system uses a hybrid approach that combines fast local search with Claude's answer generation:
 
 ```
 User says "Claudius, what did I have for lunch?"
@@ -2132,421 +888,94 @@ TriggerMonitor detects keyword
     ↓
 TaskExecutor creates task
     ↓
-HybridMemorySearchTool:
+IterativeMemorySearchTool:
     1. UnifiedSearchHandler searches local files (15ms)
-    2. Top 5 results passed to Claude
+    2. Top 5 results passed to Claude for assessment
     3. Claude generates natural language answer
     ↓
 Answer returned to user with session ID
 ```
 
-**Key Fix**: Claude CLI requires `--print` flag with prompt via stdin, not `-p` with command line args:
+This approach leverages our fast local search implementation while using Claude's language capabilities for natural, contextual answers.
+
+## Current TODO List
+
+### High Priority: Test Recent Improvements
+
+We've implemented several search improvements that now need comprehensive testing:
+
+1. **Test Phrase Detection & Domain-Agnostic Search**
+
+   - Verify 3x scoring weight for phrase matches works correctly
+   - Test removal of gaming-specific biases
+   - Confirm temporal phrases, numbered sequences, and proper nouns are detected
+
+2. **Test Date Parsing Fix**
+
+   - Verify June 5 files (and other dates with leading zeros) are now found
+   - Confirm all 220+ lifelogs load correctly
+
+3. **Test Search Quality Improvements**
+
+   - Verify minimum score threshold (>0.7) filters low-quality results
+   - Test context sharing between search strategies
+   - Confirm result deduplication prevents duplicate results across iterations
+   - Test query expansion for meal/temporal queries
+   - Verify early termination logic when no good results
+
+4. **Test Both Triggering Methods**
+
+   - **Via Monitoring Service**: `npm run assistant:start` and create recordings
+   - **Via Synthetic Tasks**: Direct TaskExecutor calls for rapid testing
+
+5. **Edge Cases to Test**
+   - Ambiguous queries: "what was that thing?"
+   - No results scenarios
+   - Follow-up questions: "what else did we discuss?"
+   - Multiple triggers in one transcript
+   - Long queries with multiple questions
+
+### Conversational Continuity
+
+The system supports follow-up questions through session linking:
 
 ```javascript
-// ❌ WRONG (hangs):
-spawn('claude', ['-p', prompt, '--output-format', 'json']);
+// First question
+const task1 = {
+  id: 'test-1',
+  type: 'memory_search',
+  trigger: {
+    text: 'Claudius, who did I meet today?',
+    assessment: { extractedRequest: 'who did I meet today?' },
+  },
+};
+const result1 = await executor.execute(task1);
+// Get session ID from result1
 
-// ✅ CORRECT:
-const child = spawn('claude', ['--print', '--output-format', 'json']);
-child.stdin.write(prompt);
-child.stdin.end();
+// Follow-up question with session reference
+const task2 = {
+  id: 'test-2',
+  type: 'memory_search',
+  trigger: {
+    text: 'Claudius, what did we discuss?',
+    assessment: { extractedRequest: 'what did we discuss?' },
+  },
+  previousSession: result1.sessionId, // Links to previous context
+  lifelog: {
+    /* ... */
+  },
+};
 ```
-
-### Running the AI Assistant
-
-1. **Start Monitoring Service**
-
-   ```bash
-   npm run assistant:start
-   ```
-
-   - Polls for new lifelogs every 30 seconds
-   - Detects "Claudius" keyword triggers
-   - Executes tasks automatically
-
-2. **Test Memory Search Directly**
-
-   ```bash
-   npm run assistant:test:search
-   ```
-
-   - Tests the memory search without monitoring
-   - Good for debugging and development
-
-3. **Check Status**
-
-   ```bash
-   npm run assistant:status
-   ```
-
-   - Shows monitoring status
-   - Lists recent triggers
-   - Displays task results
-
-4. **Monitor Logs**
-   - Task files: `data/tasks/YYYY-MM-DD/`
-   - Search sessions: `data/search-history/YYYY-MM-DD/`
-   - Answer cache: `data/answers/`
-
-### Testing Plan (Next Steps)
-
-#### Phase 1: Direct Testing (No Monitoring)
-
-Test the memory search functionality directly:
-
-```bash
-# Test with various queries
-npm run assistant:test:search
-
-# Examples to test:
-- "what did I have for lunch yesterday?"
-- "who did I meet with last week?"
-- "what did we discuss about the project?"
-- "when was my last doctor appointment?"
-```
-
-#### Phase 2: Live Monitoring Testing
-
-Test the full workflow with trigger detection:
-
-1. **Start monitoring**: `npm run assistant:start`
-2. **Create test triggers** by saying during recording:
-   - "Claudius, what did I eat for breakfast?"
-   - "Hey Claudius, when did I last talk to Sarah?"
-   - "Claudius, remind me what we decided in the meeting"
-3. **Verify detection** within 30-60 seconds
-4. **Check results** in task files and search sessions
-
-#### Phase 3: Edge Case Testing
-
-- Multiple triggers in one transcript
-- Ambiguous queries ("what was that thing?")
-- No results scenarios
-- Cache hit testing (repeat same query)
-- Long queries with multiple questions
-- Non-English or mixed language queries
-
-### Expected Test Results
-
-1. **Successful Query**
-
-   ```json
-   {
-     "answer": "Based on your lifelogs from yesterday...",
-     "confidence": 0.85,
-     "resultCount": 20,
-     "sessionId": "session-xxxxx"
-   }
-   ```
-
-2. **No Results**
-
-   ```json
-   {
-     "answer": "I couldn't find any information about that in your lifelogs.",
-     "confidence": 0,
-     "resultCount": 0
-   }
-   ```
-
-3. **Monitoring Detection**
-   - Task file created in `data/tasks/`
-   - Search session in `data/search-history/`
-   - Answer cached if confidence >= 0.7
-
-### 6. Root Cause Analysis
-
-The AI assistant was designed to let Claude handle the entire search process, but:
-
-- Claude CLI has compatibility issues with Node.js spawn()
-- We already have a perfect search implementation in UnifiedSearchHandler
-- We're duplicating effort and introducing complexity
-
-**Recommended Solution:**
-
-- Use UnifiedSearchHandler for search (proven to work)
-- Use Claude for answer generation only (simpler, more reliable)
-- This gives us the best of both worlds
-
-### High Priority Tasks (Next Up)
-
-1. **Improve Search Quality and Performance** - HIGHEST PRIORITY (NEXT TASK)
-
-   The current search implementation has critical issues that need immediate attention:
-
-   **Problems Identified:**
-
-   - Poor search relevance (scores 0.49-0.65 for irrelevant results)
-   - Same low-quality results sent to Claude multiple times across iterations
-   - No minimum score threshold (sending score < 0.5 results to Claude)
-   - Context sharing between search strategies not working properly
-   - Performance: 6+ minutes for 10 iterations is unacceptable
-   - Claude CLI showing cost_usd in responses (should be $0 for local)
-
-   **Implementation Plan:**
-
-   a) **Implement Minimum Score Threshold**
-
-   - Only include results with score > 0.7 in Claude assessment prompts
-   - Filter out low-relevance results before sending to Claude
-   - Add configuration for threshold in assistant.json
-
-   b) **Fix Context Sharing Between Strategies**
-
-   - Fast-keyword finds "breakfast" → share as hot keyword
-   - Smart-date finds June 5 → share date with other strategies
-   - Vector-semantic boosts documents with BOTH keywords AND dates
-   - Context-aware focuses on hot documents for meal content
-
-   c) **Implement Result Deduplication**
-
-   - Track which results have been sent to Claude
-   - Never send same result twice across iterations
-   - Stop iterating if no new high-scoring results
-
-   d) **Improve Query Expansion**
-
-   - "breakfast today" → "breakfast OR morning meal OR cereal OR eggs OR coffee AND June 5 2025"
-   - Use exact date for "today", "yesterday", etc.
-   - Expand meal terms: breakfast → [breakfast, morning meal, cereal, eggs, toast, coffee, ate morning]
-
-   e) **Add Early Termination Logic**
-
-   - Stop if no results with score > 0.7
-   - Stop if same results as previous iteration
-   - Stop if confidence hasn't improved in 3 iterations
-
-   f) **Fix Claude CLI Usage**
-
-   - Investigate why response.json has cost_usd field
-   - Ensure using local `claude` command, not API
-   - Check ClaudeInvoker spawn configuration
-
-   g) **Performance Optimizations**
-
-   - Cache embeddings for common query patterns
-   - Pre-filter results before Claude assessment
-   - Batch similar queries together
-   - **IMPORTANT**: When reducing prompt size, preserve full content windows
-     - Don't summarize the actual content
-     - Only reduce number of results shown (top 3-5)
-     - Keep full context windows around matches
-
-   h) **Better Result Ranking with Composite Scoring**
-
-   ```typescript
-   const enhancedScore =
-     baseScore * 0.4 +
-     temporalRelevance * 0.3 + // How close to query date
-     keywordDensity * 0.2 + // Number of query terms matched
-     contextBoost * 0.1; // Boost from other strategies
-   ```
-
-   i) **Smarter Prompt Construction**
-
-   - Group results by relevance tiers
-   - Only show top 3-5 HIGH SCORING results
-   - Include match reason for each result
-   - Explicit "no relevant results" when true
-
-   j) **Add Query Understanding for Meals**
-
-   - Detect meal queries (breakfast/lunch/dinner)
-   - Add time-of-day filtering:
-     - Breakfast: 6am-11am
-     - Lunch: 11am-2pm
-     - Dinner: 5pm-9pm
-   - Search in appropriate time windows
-
-   **Expected Outcomes:**
-
-   - Search results with scores > 0.7 only
-   - No duplicate results across iterations
-   - Total time < 1 minute (from 6+ minutes)
-   - Claude confidence > 0.9 for valid queries
-   - Early termination for impossible queries
-
-2. **Test AI Assistant with Live Monitoring**
-
-   Now that the hybrid memory search is working, we need comprehensive testing:
-
-   **Phase 1: Direct Testing (No Monitoring)**
-
-   - Test various query types with `npm run assistant:test:search`
-   - Verify answer quality and relevance
-   - Test cache behavior (repeat queries)
-   - Edge cases: no results, ambiguous queries, multiple questions
-
-   **Phase 2: Live Monitoring Testing**
-
-   - Start monitoring: `npm run assistant:start`
-   - Create test recordings with trigger phrases
-   - Verify detection within 30-60 seconds
-   - Test multiple triggers in one transcript
-   - Test non-memory search requests (should be filtered out)
-
-   **Phase 3: Performance & Reliability**
-
-   - Measure end-to-end latency
-   - Test with large result sets
-   - Verify error handling and recovery
-   - Test concurrent triggers
-
-   **Expected Outcomes:**
-
-   - Reliable trigger detection
-   - Accurate, contextual answers
-   - Consistent performance <5s per query
-   - Proper audit trail for all queries
-
-3. **Improve Search Query Understanding and Result Ranking**
-
-   Current Issues:
-
-   - Search for "lunch yesterday" didn't find "Smoothie King" even though it's in the transcripts
-   - Query expansion is too limited - doesn't try semantic variations
-   - Single query approach - should automatically try multiple query strategies
-   - Result ranking doesn't prioritize temporal matches well
-
-   Test Case: "what did I eat for lunch yesterday" should find:
-
-   - Smoothie King discussion at 5:16 PM on June 4
-   - Should understand "lunch" could be any meal/food/drink around midday
-   - Should expand "yesterday" to the actual date
-
-   Implementation Plan:
-
-   - Enhance query expansion to include semantic variations:
-     - "lunch" → ["lunch", "meal", "food", "eat", "drink", "smoothie", "midday"]
-     - "ate" → ["ate", "had", "got", "ordered", "bought"]
-   - Implement automatic multi-query strategy:
-     - Run multiple search variations in parallel automatically
-     - Don't require user to try different searches
-     - Merge results with smart deduplication
-   - Improve temporal understanding:
-     - When searching for meals, look at appropriate time windows
-     - Lunch = roughly 11am-2pm
-     - Better ranking for temporal matches
-   - Fix result ranking to consider:
-     - Time of day relevance for meal queries
-     - Keyword density in context
-     - Conversation continuity (multiple mentions = higher relevance)
-
-   Expected Outcome:
-
-   - Single search "what did I eat for lunch yesterday" returns Smoothie King as top result
-   - No need for user to try multiple search terms
-   - System automatically explores variations
-
-4. **Implement Parallel Batch Processing for Embeddings (#6)**
-
-   - Current: Sequential processing (100-200ms per lifelog)
-   - Target: Batch processing with 5-10x speedup
-   - Benefits: Faster initial sync, better CPU utilization
-   - Implementation approach:
-     - Use worker threads or batch pipeline
-     - Process embeddings in parallel batches of 10-20
-     - Control memory usage via batch size limits
-
-5. **Build Real-time Notification System (#7)**
-   - Monitor for keywords in new lifelogs
-   - Trigger actions based on detected patterns
-   - Foundation for Phase 3 voice commands
 
 ### Medium Priority Tasks
 
-- [ ] Implement BM25 scoring for better relevance
-- [ ] Add time-decay scoring (recent = more relevant)
-- [ ] Implement AI-powered automatic summaries (#8)
-- [ ] Full test suite implementation (requires refactoring for proper mocking)
+- Implement BM25 scoring for better relevance
+- Add time-decay scoring (recent = more relevant)
+- Implement AI-powered automatic summaries
+- Full test suite implementation
+- Implement session-based conversational continuity
 
-### Completed Today (2025-06-05)
-
-1. ✅ **Implement Query Preprocessing Improvements**
-
-   - Temporal normalization (convert "yesterday", "last week" to dates)
-   - Intent detection (question vs. command vs. search)
-   - Query expansion with synonyms
-   - Named entity recognition for people/places
-
-2. ✅ **Add Query Rewriting/Expansion (Parallel Queries)**
-
-   - Generate multiple query variations from original query
-   - Run all variations in parallel for better recall
-   - Merge and deduplicate results from all variations
-   - Use consensus scoring (documents found by multiple queries rank higher)
-
-3. ✅ **Fixed Search System to Use Local Files Only**
-
-   - Added `loadAllLifelogs()` method to FileManager
-   - Updated `buildFastSearchIndex()` to load from local storage
-   - Now loads 185 lifelogs from local files (not limited to API's 30 days)
-
-4. ✅ **Enhanced Contextual RAG Implementation**
-
-   - Keywords are now included in vector store metadata during sync
-   - `addContext()` method now prepends keywords to embeddings
-   - Both monitoring and vectorization phases include keywords
-
-5. ✅ **Verified No API Usage in Search**
-
-   - All search strategies now use local files exclusively
-   - Fast-keyword uses local index, vector uses LanceDB
-   - API calls only occur in sync service as intended
-
-6. ✅ **Fixed Search Implementation to Remove API Dependency**
-   - Updated UnifiedSearchHandler to accept null client parameter
-   - Removed LimitlessClient imports from all search utilities
-   - Updated search.js, parallel-search-test.js, and context-sharing-demo.js
-   - Search now works completely without LIMITLESS_API_KEY environment variable
-   - Verified all search utilities work with local files only
-
-### Previously Completed
-
-#### Phase 2 Core Features
-
-- [x] Implement parallel search execution (#2) - 5.2x speedup achieved
-- [x] Enable background sync service (#1)
-- [x] Add initial bulk download of ALL historical lifelogs (#3)
-- [x] Implement incremental sync for new lifelogs only (#4)
-- [x] Add sync status monitoring and progress tracking (#5)
-
-#### Bug Fixes & Improvements
-
-- [x] Fix sync service batch processing bug (#10)
-- [x] Download missing June 1st and 2nd data (#11)
-- [x] Test parallel search performance (3.17x-5.2x speedup confirmed)
-- [x] Create test suite structure (identified refactoring needs)
-- [x] Clean up and reorganize documentation (#9)
-
-## Success Metrics
-
-### Phase 2 (Achieved) ✅
-
-- ✅ Query response time: 100ms (simple), 2-3s (complex)
-- ✅ Support for 100K+ days without performance degradation
-- ✅ Storage efficiency: <10KB per day (including embeddings)
-- ✅ Local vector store sync < 60s
-- ✅ 59x performance improvement for simple queries
-- ✅ 9x performance improvement for keyword search
-- ✅ Abstract vector store interface for easy DB swapping
-- ✅ Learning cache system that improves over time
-
-### Phase 3 (Vision)
-
-- [ ] 10+ integrations
-- [ ] 1000+ active users
-- [ ] Sub-second response times
-- [ ] Full offline capability
-
-## Future Enhancements (Phase 4+)
-
-### Batch Operations
-
-- Batch fetch multiple lifelogs by IDs
-- Bulk export functionality
-- Parallel processing for large date ranges
-- Progress tracking for long operations
+## Future Enhancements
 
 ### CLI Tool
 
@@ -2576,11 +1005,4 @@ The AI assistant was designed to let Claude handle the entire search process, bu
 - [MCP Protocol Spec](https://github.com/anthropics/model-context-protocol)
 - [Project Repository](https://github.com/ericbuess/limitless-ai-mcp-server)
 - [Issue Tracker](https://github.com/ericbuess/limitless-ai-mcp-server/issues)
-- [Claude Code CLI](https://claude.ai/code)
-
-# important-instruction-reminders
-
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (\*.md) or README files. Only create documentation files if explicitly requested by the User.
+- [Claude Desktop](https://claude.ai/download)
