@@ -236,9 +236,10 @@ export class LanceDBStore extends BaseVectorStore {
       const searchResults: VectorSearchResult[] = [];
       for (const row of results) {
         // LanceDB returns L2 (Euclidean) distance, convert to similarity score
-        // Using exponential decay: score = exp(-distance)
+        // Using inverse distance with normalization: score = 1 / (1 + distance)
+        // This gives scores between 0 and 1, where closer = higher score
         const distance = row._distance || 0;
-        const score = Math.exp(-distance);
+        const score = 1 / (1 + distance);
         if (score >= threshold) {
           searchResults.push({
             id: row.id,
@@ -322,7 +323,7 @@ export class LanceDBStore extends BaseVectorStore {
       for (const row of results) {
         // LanceDB returns L2 (Euclidean) distance, convert to similarity score
         const distance = row._distance || 0;
-        const score = Math.exp(-distance);
+        const score = 1 / (1 + distance);
         if (score >= threshold) {
           searchResults.push({
             id: row.id,

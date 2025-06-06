@@ -4,7 +4,6 @@
   "description": "Intelligent MCP server for Limitless AI with 59x faster search, semantic understanding, and AI analysis",
   "author": "Eric Buess",
   "license": "MIT",
-  "type": "module",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ericbuess/limitless-ai-mcp-server.git"
