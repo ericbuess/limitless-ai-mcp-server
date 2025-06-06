@@ -7,12 +7,12 @@ import {
   QueryOptions,
   EmbeddingProvider,
 } from './vector-store.interface.js';
-import { TransformerEmbeddingProvider } from './transformer-embeddings.js';
+import { createBestEmbeddingProvider } from './ollama-embeddings.js';
 import { logger } from '../utils/logger.js';
 
 /**
  * Simple LanceDB implementation with Contextual RAG support
- * Uses TransformerEmbeddingProvider for high-quality embeddings
+ * Uses best available embedding provider (Ollama > Transformer)
  */
 export class LanceDBStore extends BaseVectorStore {
   private db: any = null;
@@ -21,9 +21,14 @@ export class LanceDBStore extends BaseVectorStore {
   private initialized: boolean = false;
 
   constructor(config: VectorStoreConfig, embeddingProvider?: EmbeddingProvider) {
-    // Use TransformerEmbeddingProvider by default for best results
-    super(config, embeddingProvider || new TransformerEmbeddingProvider());
+    // Use provided embedding provider or create the best available one
+    super(config, embeddingProvider);
     this.dbPath = config.persistPath || './data/lancedb';
+
+    // If no embedding provider was provided, we'll create one during initialization
+    if (!embeddingProvider) {
+      this.embeddingProvider = null as any; // Will be set in initialize()
+    }
   }
 
   async initialize(): Promise<void> {
@@ -35,6 +40,12 @@ export class LanceDBStore extends BaseVectorStore {
     });
 
     try {
+      // Create best embedding provider if not provided
+      if (!this.embeddingProvider) {
+        logger.info('Creating best available embedding provider...');
+        this.embeddingProvider = await createBestEmbeddingProvider();
+      }
+
       // Initialize embedding provider
       if (
         'initialize' in this.embeddingProvider &&

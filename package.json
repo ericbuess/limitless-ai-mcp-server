@@ -45,6 +45,7 @@
     "db:fix-duplicates": "node scripts/maintenance/fix-duplicates.js",
     "db:deduplicate": "node scripts/maintenance/deduplicate-transcripts.js",
     "db:inspect": "node scripts/debug/inspect-lancedb.js",
+    "embeddings:benchmark": "node scripts/benchmark-embeddings.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:integration": "jest tests/integration --runInBand",

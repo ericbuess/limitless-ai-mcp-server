@@ -969,6 +969,12 @@ The current consensus scoring is giving too much weight to "context-aware-filter
 - Reduce the dominance of context-aware-filter scores
 - Consider keyword density and exact phrase matches more heavily
 
+## Vector Database Upgrade Plan
+
+A comprehensive plan for upgrading the vector database and semantic retrieval capabilities has been developed. The plan focuses on using LOCAL models that work on the M4 MacBook Pro Max with 128GB RAM, avoiding the need to send data to external APIs.
+
+@docs/VECTOR_DB_UPGRADE_PLAN.md
+
 ## Current TODO List
 
 ### High Priority: Test Recent Improvements
