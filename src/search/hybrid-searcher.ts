@@ -1,5 +1,4 @@
 import { LanceDBStore } from '../vector-store/lancedb-store.js';
-import { FileManager } from '../storage/file-manager.js';
 import { logger } from '../utils/logger.js';
 import type { QueryOptions, VectorSearchResult } from '../vector-store/vector-store.interface.js';
 
@@ -19,14 +18,12 @@ export interface HybridSearchResult {
  */
 export class HybridSearcher {
   private vectorStore: LanceDBStore;
-  private fileManager: FileManager;
   private keywordIndex: Map<string, Set<string>> = new Map(); // term -> document IDs
   private documentIndex: Map<string, string> = new Map(); // doc ID -> content
   private initialized: boolean = false;
 
-  constructor(vectorStore: LanceDBStore, fileManager: FileManager) {
+  constructor(vectorStore: LanceDBStore) {
     this.vectorStore = vectorStore;
-    this.fileManager = fileManager;
   }
 
   async initialize(): Promise<void> {
@@ -179,7 +176,7 @@ export class HybridSearcher {
     }
 
     const limit = options.topK || 10;
-    const hybridWeight = options.hybridWeight || 0.5; // Balance between keyword and vector
+    const hybridWeight = 0.5; // Balance between keyword and vector
 
     logger.debug('Performing hybrid search', { query, limit });
 

@@ -7,6 +7,7 @@ import { ClaudeOrchestrator } from './claude-orchestrator.js';
 import { IntelligentCache } from '../cache/intelligent-cache.js';
 import { ParallelSearchExecutor } from './parallel-search-executor.js';
 import { QueryPreprocessor, PreprocessedQuery } from './query-preprocessor.js';
+import { HybridSearcher } from './hybrid-searcher.js';
 import { logger } from '../utils/logger.js';
 import type { Phase2Lifelog } from '../types/phase2.js';
 import type {
@@ -65,6 +66,7 @@ export class UnifiedSearchHandler {
   private claudeOrchestrator: ClaudeOrchestrator | null = null;
   private cache: IntelligentCache;
   private parallelExecutor: ParallelSearchExecutor | null = null;
+  private hybridSearcher: HybridSearcher | null = null;
   private isInitialized: boolean = false;
 
   constructor(
@@ -155,6 +157,16 @@ export class UnifiedSearchHandler {
       this.vectorStore,
       this.fileManager
     );
+
+    // Initialize hybrid searcher if we have LanceDB
+    if (this.vectorStore) {
+      const { LanceDBStore } = await import('../vector-store/lancedb-store.js');
+      if (this.vectorStore instanceof LanceDBStore) {
+        this.hybridSearcher = new HybridSearcher(this.vectorStore);
+        await this.hybridSearcher.initialize();
+        logger.info('Hybrid searcher initialized with BM25 + vector search');
+      }
+    }
 
     this.isInitialized = true;
     logger.info('Unified search handler initialized');
@@ -511,7 +523,51 @@ export class UnifiedSearchHandler {
   ): Promise<UnifiedSearchResult> {
     const limit = options.limit || 20;
 
-    // Execute both searches in parallel
+    // If we have a hybrid searcher, use it for better BM25 + vector fusion
+    if (this.hybridSearcher) {
+      const results = await this.hybridSearcher.search(query, {
+        topK: limit,
+        includeContent: options.includeContent,
+        includeMetadata: options.includeMetadata,
+        scoreThreshold: options.scoreThreshold,
+      });
+
+      // Load lifelogs for the results
+      const resultsWithLifelogs = await Promise.all(
+        results.map(async (result) => {
+          // Need to find the date for this ID - check metadata
+          let lifelog: Phase2Lifelog | null = null;
+          if (result.metadata?.date) {
+            lifelog = await this.fileManager.loadLifelog(result.id, new Date(result.metadata.date));
+          }
+          return {
+            id: result.id,
+            score: result.score,
+            lifelog: lifelog || undefined,
+            metadata: {
+              ...result.metadata,
+              source: result.source,
+              keywordScore: result.keywordScore,
+              vectorScore: result.vectorScore,
+            },
+          };
+        })
+      );
+
+      return {
+        query,
+        strategy: 'hybrid',
+        results: resultsWithLifelogs.filter((r) => r.lifelog !== undefined),
+        performance: {
+          totalTime: 0,
+          searchTime: 0,
+          strategy: 'hybrid',
+          cacheHit: false,
+        },
+      };
+    }
+
+    // Fallback to simple parallel search
     const [fastResults, vectorResults] = await Promise.all([
       this.fastMatcher.search(query, { maxResults: limit }),
       this.vectorStore?.searchByText(query, { topK: limit }) || Promise.resolve([]),

@@ -21,8 +21,8 @@ export class LanceDBStore extends BaseVectorStore {
   private initialized: boolean = false;
 
   constructor(config: VectorStoreConfig, embeddingProvider?: EmbeddingProvider) {
-    // Use provided embedding provider or create the best available one
-    super(config, embeddingProvider);
+    // Pass a temporary provider, will be replaced in initialize if needed
+    super(config, embeddingProvider || ({} as EmbeddingProvider));
     this.dbPath = config.persistPath || './data/lancedb';
 
     // If no embedding provider was provided, we'll create one during initialization
@@ -450,22 +450,6 @@ export class LanceDBStore extends BaseVectorStore {
     }
   }
 
-  /**
-   * List all document IDs
-   */
-  async listDocumentIds(): Promise<string[]> {
-    if (!this.table) return [];
-
-    try {
-      // Query all rows and get just the IDs
-      const rows = await this.table.query().toArray();
-      return rows.map((row: any) => row.id);
-    } catch (error) {
-      logger.error('Failed to list document IDs', { error });
-      return [];
-    }
-  }
-
   async getStats(): Promise<{ documentCount: number; indexSize?: number; lastUpdated?: Date }> {
     if (!this.table) {
       return { documentCount: 0 };
@@ -494,5 +478,21 @@ export class LanceDBStore extends BaseVectorStore {
     this.db = null;
     this.table = null;
     this.initialized = false;
+  }
+
+  /**
+   * List all document IDs (needed by HybridSearcher)
+   */
+  async listDocumentIds(): Promise<string[]> {
+    if (!this.table) return [];
+
+    try {
+      // Query all rows and get just the IDs
+      const rows = await this.table.query().toArray();
+      return rows.map((row: any) => row.id);
+    } catch (error) {
+      logger.error('Failed to list document IDs', { error });
+      return [];
+    }
   }
 }
