@@ -977,6 +977,19 @@ The consensus scoring was giving too much weight to "context-aware-filter" resul
 
 Fast-keyword scores are still saturating at 1.0 due to aggressive normalization. This doesn't affect the final answer quality but reduces ranking precision. The system still finds correct answers through consensus scoring across multiple strategies.
 
+### Fixed: LanceDB Vector Dimension Mismatch
+
+The system was experiencing "No vector column found" errors due to a dimension mismatch:
+
+- Database created with 768-dim vectors (Ollama nomic-embed-text)
+- System falling back to 384-dim vectors (Transformer all-MiniLM-L6-v2)
+
+**Solution implemented**: Created `PaddingEmbeddingProvider` that automatically pads 384-dim vectors to 768-dim by adding zeros. This allows the system to work with the existing database without rebuilding.
+
+**File**: `src/vector-store/lancedb-dimension-fix.ts`
+
+**Result**: Vector search now works correctly even when Ollama is unavailable.
+
 ## Vector Database Upgrade Plan
 
 A comprehensive plan for upgrading the vector database and semantic retrieval capabilities has been developed. The plan focuses on using LOCAL models that work on the M4 MacBook Pro Max with 128GB RAM, avoiding the need to send data to external APIs.

@@ -8,6 +8,7 @@ import {
   EmbeddingProvider,
 } from './vector-store.interface.js';
 import { createBestEmbeddingProvider } from './ollama-embeddings.js';
+import { createDimensionFixedProvider } from './lancedb-dimension-fix.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -43,7 +44,9 @@ export class LanceDBStore extends BaseVectorStore {
       // Create best embedding provider if not provided
       if (!this.embeddingProvider) {
         logger.info('Creating best available embedding provider...');
-        this.embeddingProvider = await createBestEmbeddingProvider();
+        const baseProvider = await createBestEmbeddingProvider();
+        // Apply dimension fix if needed (pad 384 to 768)
+        this.embeddingProvider = await createDimensionFixedProvider(baseProvider);
       }
 
       // Initialize embedding provider
