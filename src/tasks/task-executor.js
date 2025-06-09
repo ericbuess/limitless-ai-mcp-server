@@ -1,7 +1,18 @@
-import { IterativeMemorySearchTool as MemorySearchTool } from '../../scripts/memory-search-iterative.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { logger } from '../utils/logger.js';
+
+// Use optimized version if available, otherwise fall back to iterative
+let MemorySearchTool;
+try {
+  const { OptimizedMemorySearchTool } = await import('../../scripts/memory-search-optimized.js');
+  MemorySearchTool = OptimizedMemorySearchTool;
+  logger.info('Using optimized memory search tool');
+} catch {
+  const { IterativeMemorySearchTool } = await import('../../scripts/memory-search-iterative.js');
+  MemorySearchTool = IterativeMemorySearchTool;
+  logger.info('Using iterative memory search tool');
+}
 
 export class TaskExecutor {
   constructor(config) {

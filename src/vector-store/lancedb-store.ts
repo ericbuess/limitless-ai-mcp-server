@@ -9,7 +9,7 @@ import {
 } from './vector-store.interface.js';
 import { createBestEmbeddingProvider } from './ollama-embeddings.js';
 import { createDimensionFixedProvider } from './lancedb-dimension-fix.js';
-import { ContextualEmbeddingProvider } from './contextual-embeddings.js';
+import { ConfigurableContextualEmbeddingProvider } from './configurable-contextual-embeddings.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -47,17 +47,21 @@ export class LanceDBStore extends BaseVectorStore {
         logger.info('Creating best available embedding provider...');
         const baseProvider = await createBestEmbeddingProvider();
 
-        // Wrap with contextual embeddings for better semantic understanding
-        const contextualProvider = new ContextualEmbeddingProvider(baseProvider, {
+        // Wrap with configurable contextual embeddings for better semantic understanding
+        const contextualProvider = new ConfigurableContextualEmbeddingProvider(baseProvider, {
           includeEntities: true,
           includeTemporal: true,
           includeRelationships: true,
+          configPath: './config/entity-relationships.json',
         });
+
+        // Initialize the contextual provider (loads config)
+        await contextualProvider.initialize();
 
         // Apply dimension fix if needed (pad 384 to 768)
         this.embeddingProvider = await createDimensionFixedProvider(contextualProvider);
 
-        logger.info('Initialized contextual embedding provider', {
+        logger.info('Initialized configurable contextual embedding provider', {
           model: contextualProvider.getModelName(),
           dimensions: this.embeddingProvider.getDimension(),
         });

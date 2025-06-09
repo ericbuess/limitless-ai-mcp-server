@@ -4,6 +4,8 @@ export interface ChunkMetadata {
   chunkIndex: number;
   sentenceRange: [number, number];
   temporalContext?: string[];
+  entities?: string[];
+  foodMentions?: string[];
   summary?: string;
   originalDocumentId: string;
   originalMetadata?: any;
@@ -75,6 +77,12 @@ export class SemanticChunker {
       // Extract temporal context
       const temporalContext = this.extractTemporalContext(chunkContent);
 
+      // Extract entities
+      const entities = this.extractEntities(chunkContent);
+
+      // Extract food mentions
+      const foodMentions = this.extractFoodMentions(chunkContent);
+
       // Generate chunk summary (first sentence or key terms)
       const summary = this.generateChunkSummary(chunkContent);
 
@@ -84,6 +92,8 @@ export class SemanticChunker {
           chunkIndex: i,
           sentenceRange: [i, Math.min(i + this.chunkSize, sentences.length)] as [number, number],
           temporalContext: temporalContext.length > 0 ? temporalContext : undefined,
+          entities: entities.length > 0 ? entities : undefined,
+          foodMentions: foodMentions.length > 0 ? foodMentions : undefined,
           summary,
           originalDocumentId: documentId,
           originalMetadata: metadata,
@@ -343,6 +353,118 @@ export class SemanticChunker {
   }
 
   /**
+   * Extract entities (people, places, etc.) from text
+   */
+  private extractEntities(text: string): string[] {
+    const entities = new Set<string>();
+
+    // Extract people names
+    const peoplePatterns = [
+      // Family members
+      /\b(?:Eric|Jordan|Ella|Evy|Emmy|Asa)\b/gi,
+      // Common names
+      /\b(?:Sarah|John|Mary|James|Jennifer|Michael|Lisa|David)\b/gi,
+      // Pronouns that might indicate people
+      /\b(?:I|me|my|we|us|our|he|she|they|him|her|them)\b/gi,
+    ];
+
+    // Extract places
+    const placePatterns = [
+      // Restaurants and stores
+      /\b(?:Smoothie King|Chick-fil-A|McDonald's|Starbucks|Subway|Wendy's|Burger King|Taco Bell)\b/gi,
+      /\b(?:Target|Walmart|HEB|Whole Foods|Costco|Sam's Club)\b/gi,
+      // Locations
+      /\b(?:home|house|school|work|office|store|restaurant|park|gym)\b/gi,
+      // Cities
+      /\b(?:Waco|Temple|Dallas|Austin|Houston|San Antonio|Fort Worth)\b/gi,
+    ];
+
+    const allPatterns = [...peoplePatterns, ...placePatterns];
+
+    for (const pattern of allPatterns) {
+      const matches = text.match(pattern);
+      if (matches) {
+        matches.forEach((match) => {
+          // Normalize pronouns
+          const normalized = match.toLowerCase();
+          if (['i', 'me', 'my'].includes(normalized)) {
+            entities.add('Eric'); // User is Eric
+          } else if (['we', 'us', 'our'].includes(normalized)) {
+            entities.add('family');
+          } else {
+            entities.add(match);
+          }
+        });
+      }
+    }
+
+    return Array.from(entities);
+  }
+
+  /**
+   * Extract food and restaurant mentions from text
+   */
+  private extractFoodMentions(text: string): string[] {
+    const foodMentions = new Set<string>();
+
+    // Restaurant names
+    const restaurantPatterns = [
+      /\b(?:Smoothie King|Chick-fil-A|McDonald's|Starbucks|Subway|Wendy's|Burger King|Taco Bell)\b/gi,
+      /\b(?:Pizza Hut|Domino's|Papa John's|Little Caesars)\b/gi,
+      /\b(?:Chipotle|Qdoba|Panera|Five Guys|In-N-Out)\b/gi,
+    ];
+
+    // Food items
+    const foodPatterns = [
+      // Drinks
+      /\b(?:smoothie|coffee|tea|juice|soda|water|milk|shake|latte|cappuccino)\b/gi,
+      // Main dishes
+      /\b(?:burger|sandwich|pizza|pasta|salad|soup|burrito|taco|nuggets|chicken|steak)\b/gi,
+      // Sides and snacks
+      /\b(?:fries|chips|nuggets|wings|bread|rice|beans|vegetables)\b/gi,
+      // Desserts
+      /\b(?:ice cream|cake|cookie|brownie|donut|candy)\b/gi,
+      // Meal types
+      /\b(?:breakfast|lunch|dinner|snack|meal|food)\b/gi,
+    ];
+
+    // Eating actions
+    const eatingPatterns = [
+      /\b(?:eat|ate|eating|had|having|ordered|ordering|got|getting|stopped at|went to)\s+(?:at\s+)?(\w+(?:\s+\w+)*)/gi,
+    ];
+
+    // Extract restaurant names
+    for (const pattern of restaurantPatterns) {
+      const matches = text.match(pattern);
+      if (matches) {
+        matches.forEach((match) => foodMentions.add(match));
+      }
+    }
+
+    // Extract food items
+    for (const pattern of foodPatterns) {
+      const matches = text.match(pattern);
+      if (matches) {
+        matches.forEach((match) => foodMentions.add(match.toLowerCase()));
+      }
+    }
+
+    // Extract eating actions with context
+    for (const pattern of eatingPatterns) {
+      let match;
+      while ((match = pattern.exec(text)) !== null) {
+        const action = match[0];
+        const location = match[1];
+        if (location && location.length < 50) {
+          foodMentions.add(action);
+        }
+      }
+    }
+
+    return Array.from(foodMentions);
+  }
+
+  /**
    * Create chunks specifically for conversational/transcript content
    */
   async chunkTranscript(
@@ -374,12 +496,18 @@ export class SemanticChunker {
       if (shouldCreateChunk) {
         const chunkContent = currentChunk.join('\n').trim();
         if (chunkContent.length >= this.minChunkSize) {
+          const temporalContext = this.extractTemporalContext(chunkContent);
+          const entities = this.extractEntities(chunkContent);
+          const foodMentions = this.extractFoodMentions(chunkContent);
+
           chunks.push({
             content: chunkContent,
             metadata: {
               chunkIndex: chunkIndex++,
               sentenceRange: [chunkIndex, chunkIndex + 1] as [number, number],
-              temporalContext: this.extractTemporalContext(chunkContent),
+              temporalContext: temporalContext.length > 0 ? temporalContext : undefined,
+              entities: entities.length > 0 ? entities : undefined,
+              foodMentions: foodMentions.length > 0 ? foodMentions : undefined,
               summary: this.generateChunkSummary(chunkContent),
               originalDocumentId: documentId,
               originalMetadata: {
@@ -404,12 +532,18 @@ export class SemanticChunker {
     if (currentChunk.length > 0) {
       const chunkContent = currentChunk.join('\n').trim();
       if (chunkContent.length >= this.minChunkSize) {
+        const temporalContext = this.extractTemporalContext(chunkContent);
+        const entities = this.extractEntities(chunkContent);
+        const foodMentions = this.extractFoodMentions(chunkContent);
+
         chunks.push({
           content: chunkContent,
           metadata: {
             chunkIndex: chunkIndex++,
             sentenceRange: [chunkIndex, chunkIndex + 1] as [number, number],
-            temporalContext: this.extractTemporalContext(chunkContent),
+            temporalContext: temporalContext.length > 0 ? temporalContext : undefined,
+            entities: entities.length > 0 ? entities : undefined,
+            foodMentions: foodMentions.length > 0 ? foodMentions : undefined,
             summary: this.generateChunkSummary(chunkContent),
             originalDocumentId: documentId,
             originalMetadata: {

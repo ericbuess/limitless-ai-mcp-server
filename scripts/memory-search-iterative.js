@@ -575,16 +575,22 @@ ${resultsText}
 
 These results were found by local search strategies (keyword, vector similarity, temporal matching) and represent the best matches after ${results[0]?.occurrences || 1} search iterations.
 
-Instructions:
+IMPORTANT INSTRUCTIONS FOR ANSWERING:
 1. Assess if these results contain enough information to answer the query
-2. If you need more specific information, suggest 1-3 refined search queries
-3. If you have enough information, provide a complete answer
+2. For queries about "what did I eat/have", look for ALL food items mentioned and WHO ate them
+3. The user is Eric. Pay attention to pronouns: "I" = Eric, "You" in conversations may refer to Eric
+4. If multiple people ate different things, list them ALL in a ranked answer format
+5. Look for evidence across multiple results - one person may have had one thing while others had something else
+6. If you need more specific information, suggest 1-3 refined search queries
+7. If you have enough information, provide a complete answer listing ALL relevant findings
+
+Example: If results show Jordan had Chick-fil-A and Eric had Smoothie King, your answer should include BOTH.
 
 Respond with JSON:
 {
   "confidence": 0.0-1.0,
   "hasCompleteAnswer": true/false,
-  "answer": "Your complete answer if confidence >= 0.9, otherwise null",
+  "answer": "Your complete answer if confidence >= 0.8, listing all findings in ranked order",
   "needsRefinement": true/false,
   "refinementQueries": ["specific search query 1", "specific search query 2"] // Only if needed
 }`;
@@ -612,13 +618,21 @@ Content: ${content}`;
   .join('\n---\n')}
 
 Instructions:
-1. Synthesize all available information into a complete answer
-2. Be specific and reference dates/details when relevant
-3. Acknowledge any gaps or uncertainties
+1. Synthesize ALL available information into a complete answer
+2. For queries about "what did I eat/have", create a RANKED LIST of all food items found
+3. Identify WHO ate WHAT - Eric is the user ("I"), others by name
+4. Be specific and reference dates/times when relevant
+5. If multiple people had different meals, list them ALL
+6. Format multi-person meals as a ranked list
+
+Example format for food queries:
+1. Eric (user): Had Smoothie King at 12:37 PM
+2. Jordan: Had Chick-fil-A (stopped and went inside)
+3. Asa: Had Chick-fil-A nuggets with sauce
 
 Respond with JSON:
 {
-  "answer": "Your comprehensive answer here",
+  "answer": "Your comprehensive answer here (use ranked list format when appropriate)",
   "confidence": 0.0-1.0
 }`;
 

@@ -1,0 +1,114 @@
+{
+  "entities": {
+    "people": {
+      "Eric": {
+        "type": "person",
+        "aliases": ["You", "I", "me", "Dad", "Daddy"],
+        "relationships": {
+          "Jordan": "spouse",
+          "Ella": "child",
+          "Evy": "child",
+          "Emmy": "child",
+          "Asa": "child"
+        },
+        "context": "Primary user"
+      },
+      "Jordan": {
+        "type": "person",
+        "aliases": ["Mom", "Mommy", "Mother"],
+        "relationships": {
+          "Eric": "spouse",
+          "Ella": "child",
+          "Evy": "child",
+          "Emmy": "child",
+          "Asa": "child"
+        }
+      },
+      "Ella": {
+        "type": "person",
+        "aliases": ["kid", "child", "daughter"],
+        "relationships": {
+          "Eric": "parent",
+          "Jordan": "parent",
+          "Evy": "sibling",
+          "Emmy": "sibling",
+          "Asa": "sibling"
+        }
+      },
+      "Evy": {
+        "type": "person",
+        "aliases": ["kid", "child", "daughter"],
+        "relationships": {
+          "Eric": "parent",
+          "Jordan": "parent",
+          "Ella": "sibling",
+          "Emmy": "sibling",
+          "Asa": "sibling"
+        }
+      },
+      "Emmy": {
+        "type": "person",
+        "aliases": ["kid", "child", "daughter"],
+        "relationships": {
+          "Eric": "parent",
+          "Jordan": "parent",
+          "Ella": "sibling",
+          "Evy": "sibling",
+          "Asa": "sibling",
+          "Mimi": "grandchild"
+        }
+      },
+      "Asa": {
+        "type": "person",
+        "aliases": ["kid", "child", "son"],
+        "relationships": {
+          "Eric": "parent",
+          "Jordan": "parent",
+          "Ella": "sibling",
+          "Evy": "sibling",
+          "Emmy": "sibling"
+        }
+      },
+      "Mimi": {
+        "type": "person",
+        "aliases": ["grandmother", "grandma"],
+        "relationships": {
+          "Ella": "grandparent",
+          "Evy": "grandparent",
+          "Emmy": "grandparent",
+          "Asa": "grandparent"
+        },
+        "context": "Grandmother, frequent destination"
+      }
+    },
+    "places": {
+      "Mimi's house": {
+        "type": "place",
+        "aliases": ["grandmother's house", "grandma's house", "Mimi's place"],
+        "relationships": {
+          "Mimi": "residence"
+        }
+      }
+    }
+  },
+  "groupMappings": {
+    "kids": ["Ella", "Evy", "Emmy", "Asa"],
+    "children": ["Ella", "Evy", "Emmy", "Asa"],
+    "parents": ["Eric", "Jordan"],
+    "family": ["Eric", "Jordan", "Ella", "Evy", "Emmy", "Asa"]
+  },
+  "contextRules": [
+    {
+      "pattern": "kids.*go.*afternoon",
+      "implies": "Children activity/movement in afternoon"
+    },
+    {
+      "pattern": "I.*said|I.*told|I.*asked",
+      "implies": "Eric speaking"
+    },
+    {
+      "pattern": "You.*said|You.*told",
+      "implies": "Jordan or other person speaking to Eric"
+    }
+  ]
+}
