@@ -161,45 +161,108 @@ export class ParallelSearchExecutor {
       execute: async (_query, context, options) => {
         const preprocessed = options.preprocessed as InternalPreprocessedQuery;
 
-        // Convert temporal info to temporalRefs
-        if (preprocessed && preprocessed.temporalInfo.dates.length > 0) {
-          preprocessed.temporalRefs = preprocessed.temporalInfo.dates.map((dateStr) => ({
-            text: dateStr,
-            date: new Date(dateStr),
+        // Handle multi-temporal queries (e.g., "last week and today")
+        const dateRanges: Array<{ start: Date; end: Date; confidence: number; text?: string }> = [];
+
+        if (
+          preprocessed?.temporalInfo?.hasMultipleTemporal &&
+          preprocessed.temporalInfo.multiTemporal
+        ) {
+          // Process primary temporal reference
+          const primary = preprocessed.temporalInfo.multiTemporal.primary;
+          dateRanges.push({
+            start: new Date(primary.start + 'T00:00:00'),
+            end: new Date(primary.end + 'T23:59:59'),
             confidence: 1.0,
-          }));
+            text: primary.text,
+          });
+
+          // Process secondary temporal references
+          for (const secondary of preprocessed.temporalInfo.multiTemporal.secondary) {
+            dateRanges.push({
+              start: new Date(secondary.start + 'T00:00:00'),
+              end: new Date(secondary.end + 'T23:59:59'),
+              confidence: 0.9,
+              text: secondary.text,
+            });
+          }
+
+          logger.debug('Multi-temporal query detected', {
+            primary: primary.text,
+            secondary: preprocessed.temporalInfo.multiTemporal.secondary.map((s) => s.text),
+            rangeCount: dateRanges.length,
+          });
+        } else if (
+          preprocessed?.temporalInfo?.dateRanges &&
+          preprocessed.temporalInfo.dateRanges.length > 0
+        ) {
+          // Handle standard date ranges
+          for (const range of preprocessed.temporalInfo.dateRanges) {
+            dateRanges.push({
+              start: new Date(range.start + 'T00:00:00'),
+              end: new Date(range.end + 'T23:59:59'),
+              confidence: 0.95,
+            });
+          }
+        } else if (
+          preprocessed?.temporalInfo?.dates &&
+          preprocessed.temporalInfo.dates.length > 0
+        ) {
+          // Convert single dates to ranges
+          for (const dateStr of preprocessed.temporalInfo.dates) {
+            const date = new Date(dateStr);
+            dateRanges.push({
+              start: new Date(date.setHours(0, 0, 0, 0)),
+              end: new Date(date.setHours(23, 59, 59, 999)),
+              confidence: 1.0,
+            });
+          }
         }
-        if (!preprocessed?.temporalRefs || preprocessed.temporalRefs.length === 0) {
+
+        // Also check for discovered dates from other strategies
+        if (context.discoveredDates.size > 0 && dateRanges.length === 0) {
+          for (const dateStr of context.discoveredDates) {
+            const date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+              dateRanges.push({
+                start: new Date(date.setHours(0, 0, 0, 0)),
+                end: new Date(date.setHours(23, 59, 59, 999)),
+                confidence: 0.7,
+                text: 'discovered from context',
+              });
+            }
+          }
+        }
+
+        if (dateRanges.length === 0) {
           return [];
         }
 
-        const dateRanges = preprocessed.temporalRefs.map((ref) => {
-          const date = new Date(ref.date);
-          const start = new Date(date);
-          start.setHours(0, 0, 0, 0);
-          const end = new Date(date);
-          end.setHours(23, 59, 59, 999);
-          return { start, end, confidence: ref.confidence };
-        });
-
         const results: LifelogSearchResult[] = [];
+        const uniqueIds = new Set<string>();
 
         for (const range of dateRanges) {
           const dayResults = await this.fileManager.listLifelogsByDateRange(range.start, range.end);
 
           for (const { id, date } of dayResults) {
-            const lifelog = await this.fileManager.loadLifelog(id, date);
-            if (lifelog) {
-              results.push({
-                id,
-                lifelog,
-                score: 0.8 * range.confidence,
-                highlights: [`Date match: ${date.toLocaleDateString()}`],
-                metadata: {
-                  source: 'smart-date',
-                  matchedDate: date.toISOString(),
-                },
-              });
+            if (!uniqueIds.has(id)) {
+              uniqueIds.add(id);
+              const lifelog = await this.fileManager.loadLifelog(id, date);
+              if (lifelog) {
+                results.push({
+                  id,
+                  lifelog,
+                  score: 0.8 * range.confidence,
+                  highlights: [
+                    `Date match: ${date.toLocaleDateString()}${range.text ? ` (${range.text})` : ''}`,
+                  ],
+                  metadata: {
+                    source: 'smart-date',
+                    matchedDate: date.toISOString(),
+                    temporalText: range.text,
+                  },
+                });
+              }
             }
           }
         }
@@ -570,7 +633,12 @@ export class ParallelSearchExecutor {
     const strategies: string[] = ['fast-keyword']; // Always use fast-keyword
 
     // Add smart-date if temporal references exist
-    if (preprocessed.temporalInfo && preprocessed.temporalInfo.dates.length > 0) {
+    if (
+      preprocessed.temporalInfo &&
+      (preprocessed.temporalInfo.dates.length > 0 ||
+        preprocessed.temporalInfo.dateRanges.length > 0 ||
+        preprocessed.temporalInfo.hasMultipleTemporal)
+    ) {
       strategies.push('smart-date');
     }
 

@@ -1306,72 +1306,6 @@ const task2 = {
 - Full test suite implementation
 - Implement session-based conversational continuity
 
-## Semantic Chunking Implementation
-
-The project now includes semantic chunking to break large documents into smaller, more focused chunks that better capture specific content like meal information:
-
-### Architecture
-
-```typescript
-// src/search/semantic-chunker.ts
-export class SemanticChunker {
-  // Chunks documents into 5-sentence segments with 2-sentence overlap
-  // Extracts entities, temporal context, and food mentions
-  // Generates summaries for each chunk
-}
-```
-
-### Features
-
-1. **Smart Sentence Splitting**: Uses Intl.Segmenter when available, falls back to regex
-2. **Entity Extraction**: Identifies people (Eric, Jordan, kids), places, and organizations
-3. **Food Mention Detection**: Specifically extracts restaurant names and food items
-4. **Temporal Context**: Captures time expressions, dates, and meal times
-5. **Overlap Strategy**: 2-sentence overlap ensures context continuity
-
-### Chunk Metadata Structure
-
-```typescript
-export interface ChunkMetadata {
-  chunkIndex: number;
-  sentenceRange: [number, number];
-  temporalContext?: string[]; // ["lunch", "12:37 PM", "today"]
-  entities?: string[]; // ["Eric", "Jordan", "Chick-fil-A"]
-  foodMentions?: string[]; // ["Smoothie King", "nuggets", "lunch"]
-  summary?: string;
-  originalDocumentId: string;
-  originalMetadata?: any;
-}
-```
-
-### Testing Scripts
-
-```bash
-# Test chunking on specific document
-node scripts/test-chunking-lunch.js
-
-# Rebuild entire vector DB with chunking
-node scripts/rebuild-with-chunking.js
-```
-
-### Results
-
-- Documents are split into ~50-60 chunks each
-- Food mentions are captured even when buried in long transcripts
-- Both "Smoothie King" and "Chick-fil-A" now surface correctly in searches
-- Chunk metadata includes entities and temporal context for better retrieval
-
-### Integration with Vector Store
-
-When chunking is enabled:
-
-1. Each lifelog is split into semantic chunks
-2. Each chunk gets its own embedding with contextual enhancement
-3. Vector search operates on chunks, not full documents
-4. Search results include parent document information
-
-This significantly improves retrieval of specific information within long transcripts.
-
 ## Future Enhancements
 
 ### CLI Tool
@@ -1530,6 +1464,89 @@ interface PeopleInsights {
 
 The system generates natural language summaries like:
 "Found 3 meetings/conversations with: Eric (3 interactions), Jordan (2 interactions), Ella (1 interaction)"
+
+## Multi-Temporal Query Handling
+
+The system now supports queries with multiple temporal references (e.g., "I met with Eric B last week and we're meeting again today"):
+
+### Architecture
+
+```typescript
+// src/search/multi-temporal-parser.ts
+export class MultiTemporalParser {
+  parse(query: string): MultiTemporalResult {
+    // Detects multiple time references
+    // Returns primary and secondary timeframes
+    // Handles relative dates, absolute dates, and ranges
+  }
+}
+```
+
+### Features
+
+1. **Multiple Time References**: Detects and parses all temporal expressions in a query
+2. **Primary/Secondary Classification**: First mentioned time is primary, others are secondary
+3. **Smart Date Strategy Enhancement**: Searches across all detected time ranges
+4. **Deduplication**: Prevents overlapping temporal references
+
+### Example
+
+Query: "I met with Eric B last week and we're meeting again today"
+
+- Primary: "last week" (6/2/2025 to 6/8/2025)
+- Secondary: "today" (6/10/2025)
+
+The smart-date strategy searches both date ranges and returns results from both periods.
+
+### Testing
+
+```bash
+# Test multi-temporal search
+node scripts/test-multi-temporal-search.js
+
+# Test Eric B query specifically
+node scripts/test-eric-b-query.js
+```
+
+## Person Disambiguation
+
+The system now handles disambiguation of people who share names with the user:
+
+### Architecture
+
+```typescript
+// src/search/person-disambiguator.ts
+export class PersonDisambiguator {
+  disambiguate(query: string): DisambiguationResult {
+    // Identifies third-party people
+    // Distinguishes "Eric B" from "Eric" (the user)
+    // Generates specialized search terms
+  }
+}
+```
+
+### Features
+
+1. **Name with Qualifier Detection**: Recognizes patterns like "Eric B", "John Smith"
+2. **Explicit Disambiguation**: Handles phrases like "Eric (not me)"
+3. **Contextual Analysis**: Uses meeting context to identify third parties
+4. **Search Term Generation**: Creates variations like "Eric B", "Eric B.", "with Eric B"
+5. **Confidence Scoring**: Assigns confidence based on disambiguation clarity
+
+### Example
+
+Query: "I met with Eric B last week"
+
+- Detects "Eric B" as third-party (confidence: 0.90)
+- Generates search terms: ["Eric B", "Eric B.", "Eric B said", "with Eric B", "Eric B's"]
+
+### Integration
+
+Person disambiguation is integrated into query preprocessing and affects:
+
+- Query expansion with person-specific search terms
+- Entity extraction with third-party people identified
+- Search ranking that prioritizes disambiguated mentions
 
 ## Useful Links
 

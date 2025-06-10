@@ -9,6 +9,8 @@ import {
   endOfMonth,
 } from 'date-fns';
 import { speakerEnhancer } from './speaker-attribution-enhancer.js';
+import { MultiTemporalParser } from './multi-temporal-parser.js';
+import { personDisambiguator } from './person-disambiguator.js';
 
 export interface PreprocessedQuery {
   original: string;
@@ -18,15 +20,33 @@ export interface PreprocessedQuery {
     dates: string[];
     dateRanges: Array<{ start: string; end: string }>;
     relativeTime?: string;
+    // New: support for multiple temporal references
+    hasMultipleTemporal?: boolean;
+    multiTemporal?: {
+      primary: { start: string; end: string; text: string };
+      secondary: Array<{ start: string; end: string; text: string }>;
+    };
   };
   entities: {
     people: string[];
     places: string[];
     topics: string[];
     actions: string[];
+    // New: disambiguated third-party people
+    thirdPartyPeople?: Array<{
+      name: string;
+      confidence: number;
+      context?: string;
+    }>;
   };
   intent: QueryIntent;
   keywords: string[];
+  // New: person disambiguation info
+  personDisambiguation?: {
+    hasThirdPartyPeople: boolean;
+    modifiedQuery: string;
+    searchTerms: string[];
+  };
 }
 
 export enum QueryIntent {
@@ -141,11 +161,29 @@ export class QueryPreprocessor {
     const keywords = this.extractKeywords(normalized);
     const temporalInfo = this.extractTemporalInfo(query);
 
+    // Add person disambiguation
+    const disambiguationResult = personDisambiguator.disambiguate(query);
+    if (disambiguationResult.hasThirdPartyPeople) {
+      // Add third-party people to entities
+      entities.thirdPartyPeople = disambiguationResult.people
+        .filter((p) => p.isThirdParty)
+        .map((p) => ({
+          name: p.canonical,
+          confidence: p.confidence,
+          context: p.context,
+        }));
+
+      // Add search terms for third-party people to expanded queries
+      const thirdPartySearchTerms =
+        personDisambiguator.getThirdPartySearchTerms(disambiguationResult);
+      expandedQueries.push(...thirdPartySearchTerms);
+    }
+
     // Add speaker-enhanced query variations
     const speakerEnhancedQueries = speakerEnhancer.enhanceQuery(query);
     const allExpandedQueries = [...new Set([...expandedQueries, ...speakerEnhancedQueries])];
 
-    return {
+    const result: PreprocessedQuery = {
       original: query,
       normalized,
       expandedQueries: allExpandedQueries,
@@ -154,6 +192,17 @@ export class QueryPreprocessor {
       intent,
       keywords,
     };
+
+    // Add person disambiguation info if applicable
+    if (disambiguationResult.hasThirdPartyPeople) {
+      result.personDisambiguation = {
+        hasThirdPartyPeople: true,
+        modifiedQuery: disambiguationResult.modifiedQuery,
+        searchTerms: personDisambiguator.getThirdPartySearchTerms(disambiguationResult),
+      };
+    }
+
+    return result;
   }
 
   normalizeTemporalExpressions(query: string): string {
@@ -405,6 +454,10 @@ export class QueryPreprocessor {
     const dateRanges: Array<{ start: string; end: string }> = [];
     let relativeTime: string | undefined;
 
+    // Use MultiTemporalParser for advanced temporal extraction
+    const multiTemporalParser = new MultiTemporalParser();
+    const multiTemporalResult = multiTemporalParser.parse(query);
+
     // Extract explicit dates (YYYY-MM-DD)
     const datePattern = /\b(\d{4}-\d{2}-\d{2})\b/g;
     let match;
@@ -426,7 +479,37 @@ export class QueryPreprocessor {
       }
     }
 
-    return { dates, dateRanges, relativeTime };
+    // Add multi-temporal info if multiple time references found
+    const result: PreprocessedQuery['temporalInfo'] = { dates, dateRanges, relativeTime };
+
+    if (multiTemporalResult.hasMultiple) {
+      result.hasMultipleTemporal = true;
+      result.multiTemporal = {
+        primary: {
+          start: format(multiTemporalResult.primaryTimeframe!.startDate, 'yyyy-MM-dd'),
+          end: format(multiTemporalResult.primaryTimeframe!.endDate, 'yyyy-MM-dd'),
+          text: multiTemporalResult.primaryTimeframe!.text,
+        },
+        secondary: multiTemporalResult.secondaryTimeframes.map((ref) => ({
+          start: format(ref.startDate, 'yyyy-MM-dd'),
+          end: format(ref.endDate, 'yyyy-MM-dd'),
+          text: ref.text,
+        })),
+      };
+
+      // Also add to dateRanges for backward compatibility
+      for (const ref of multiTemporalResult.references) {
+        const range = {
+          start: format(ref.startDate, 'yyyy-MM-dd'),
+          end: format(ref.endDate, 'yyyy-MM-dd'),
+        };
+        if (!dateRanges.some((r) => r.start === range.start && r.end === range.end)) {
+          dateRanges.push(range);
+        }
+      }
+    }
+
+    return result;
   }
 
   private isCommonWord(word: string): boolean {
