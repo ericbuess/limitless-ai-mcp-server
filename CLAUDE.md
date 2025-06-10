@@ -1240,16 +1240,13 @@ When searching for "where did the kids go this afternoon":
 
 ✅ **Query Decomposition**: Complex multi-part queries are now broken down into sub-queries with dependency tracking for better results. See [Query Decomposition](#query-decomposition) below.
 
+✅ **Meeting Summary Integration with Chunking**: Meeting summaries are now extracted during the chunking process and embedded as metadata in relevant chunks. This makes action items, decisions, and meeting topics searchable via vector search.
+
 ### Remaining Tasks
-
-#### High Priority
-
-1. **Fix regex error with apostrophes** in search queries
 
 #### Medium Priority
 
 1. **Extract and index person background/ideas** from conversations
-2. **Add meeting summary extraction** to chunking
 
 #### Low Priority
 
@@ -1414,6 +1411,41 @@ When chunking is enabled:
 4. Search results include parent document information
 
 This significantly improves retrieval of specific information within long transcripts.
+
+### Meeting Summary Integration
+
+As of June 2025, the semantic chunker now includes meeting summary extraction:
+
+1. **Automatic Detection**: Identifies meeting content vs casual conversations
+2. **Metadata Enrichment**: Chunks containing meeting content include:
+   - `isMeetingContent`: Boolean flag
+   - `participants`: List of meeting participants
+   - `meetingTopics`: Main discussion topics
+   - `actionItems`: Extracted action items with owners
+   - `decisions`: Key decisions made
+3. **Smart Distribution**: Meeting metadata is attached to chunks that likely contain the relevant content
+4. **Searchability**: All meeting metadata is indexed and searchable via vector search
+
+### Usage
+
+```javascript
+// Enable meeting summaries in chunking
+const chunker = new SemanticChunker({
+  chunkSize: 5,
+  overlap: 2,
+  includeMeetingSummaries: true, // Default: true
+});
+
+// Rebuild vector DB with meeting summaries
+node scripts/rebuild-with-meeting-chunking.js
+```
+
+This enhancement makes it possible to search for:
+
+- "action items from last week's meeting"
+- "decisions made about the project"
+- "who participated in discussions"
+- "next steps for implementation"
 
 ## Temporal People Extraction
 
