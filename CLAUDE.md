@@ -1236,12 +1236,15 @@ When searching for "where did the kids go this afternoon":
 
 ✅ **Person Disambiguation**: Implemented disambiguation of third-party people from the user (e.g., "Eric B" vs "Eric"). Handles patterns like name qualifiers, explicit disambiguation, and contextual analysis. See [Person Disambiguation](#person-disambiguation) below.
 
+✅ **Meeting Summary Extraction**: Implemented sophisticated extraction of meeting summaries including participants, topics, action items, and decisions. Filters out casual conversations while extracting business/project content. See [Meeting Summary Extraction](#meeting-summary-extraction) below.
+
+✅ **Query Decomposition**: Complex multi-part queries are now broken down into sub-queries with dependency tracking for better results. See [Query Decomposition](#query-decomposition) below.
+
 ### Remaining Tasks
 
 #### High Priority
 
-1. **Create meeting summary extractor** for recap functionality
-2. **Implement query decomposition** for multi-part requests
+1. **Fix regex error with apostrophes** in search queries
 
 #### Medium Priority
 
@@ -1563,6 +1566,151 @@ Person disambiguation is integrated into query preprocessing and affects:
 - Query expansion with person-specific search terms
 - Entity extraction with third-party people identified
 - Search ranking that prioritizes disambiguated mentions
+
+## Meeting Summary Extraction
+
+The system now includes sophisticated meeting summary extraction that identifies meeting content and extracts structured information:
+
+### Architecture
+
+```typescript
+// src/search/meeting-summary-extractor.ts
+export class MeetingSummaryExtractor {
+  extractSummary(lifelog: Phase2Lifelog): MeetingSummary | null {
+    // Detects meeting content vs casual conversation
+    // Extracts participants, topics, action items, decisions
+    // Validates and scores extracted content
+  }
+}
+```
+
+### Features
+
+1. **Meeting Detection**: Uses strong/weak indicators to identify meeting content
+
+   - Strong: "action items", "next steps", "agenda", "project update"
+   - Weak: Multiple indicators like "discussed", "agreed", "reviewed"
+   - Filters out casual conversations (swimming, lunch, family)
+
+2. **Participant Extraction**: Identifies meeting participants
+
+   - Handles "Unknown" speakers with count
+   - Extracts names from "with X" patterns
+   - Identifies speakers from "X said/mentioned" patterns
+   - Recognizes possessive forms like "Eric's proposal"
+
+3. **Topic Extraction with Scoring**: Prioritizes business/technical topics
+
+   - Boosts technical terms: project, implementation, architecture
+   - Boosts action terms: develop, implement, optimize
+   - Penalizes casual topics: lunch, vacation, kids
+
+4. **Action Item Extraction**: Stringent validation for quality
+
+   - Must contain action verbs (update, create, implement, etc.)
+   - Filters out casual content (oreos, pool, etc.)
+   - Extracts owner and deadline when available
+   - Confidence scoring based on clarity
+
+5. **Decision Extraction**: Identifies agreed-upon decisions
+   - Patterns like "we decided", "it's been agreed"
+   - Filters short or generic statements
+
+### Extraction Patterns
+
+- **Action Items**: "action items:", "next steps:", "I will update..."
+- **Decisions**: "we decided", "agreed to", "resolution:"
+- **Topics**: "discussed the project", "talked about implementation"
+- **Questions**: "asked about", "wondered if", "how should we..."
+
+### Text Cleaning
+
+Enhanced text cleaning removes:
+
+- Filler words: um, uh, like, you know, yeah, well, just
+- Transcription artifacts: "Unknown (date):"
+- Repeated words and leading punctuation
+- Content that's too short (<15 chars) or too casual (>30% casual words)
+
+### Example Output
+
+```typescript
+{
+  participants: ["Eric B", "2 participants (identities unclear)"],
+  mainTopics: [
+    "project plan updates and code review process",
+    "state management implementation strategy"
+  ],
+  actionItems: [
+    {
+      description: "update the plan and add reminders to commit",
+      owner: "I",
+      deadline: "end of day",
+      confidence: 0.9
+    }
+  ],
+  decisions: [
+    "use outside state management library instead of internal state"
+  ],
+  keyPoints: [
+    "drawing tools need rectangle, circle, line, arrow, sticky note functionality"
+  ],
+  nextSteps: [
+    "implement core infrastructure with pan and zoom controls"
+  ]
+}
+```
+
+### Integration
+
+Meeting summary extraction is integrated into:
+
+1. **Search Results**: Each result can include extracted meeting summary
+2. **Query Recognition**: Detects "meeting recap" queries
+3. **Aggregated Insights**: Combines summaries across multiple meetings
+4. **Natural Language Output**: Formats summaries for readability
+
+## Query Decomposition
+
+The system breaks down complex multi-part queries into manageable sub-queries:
+
+### Architecture
+
+```typescript
+// src/search/query-decomposer.ts
+export class QueryDecomposer {
+  decompose(query: string): DecomposedQuery {
+    // Splits complex queries into sub-queries
+    // Identifies query types and dependencies
+    // Maintains context across parts
+  }
+}
+```
+
+### Features
+
+1. **Sub-Query Types**:
+
+   - SEARCH: Find information
+   - FILTER: Narrow results
+   - SUMMARIZE: Generate summaries
+   - COMPARE: Compare information
+   - ANALYZE: Deep analysis
+
+2. **Dependency Tracking**: Identifies which queries depend on others
+3. **Context Preservation**: Maintains entity/temporal context
+4. **Intent Classification**: Determines primary intent of each part
+
+### Example
+
+Query: "I met with Eric B last week and we're meeting again today. Can you give me a recap of our discussion and what I should know going into today's meeting?"
+
+Decomposed into:
+
+1. SEARCH: "I met with Eric B last week" (temporal: last week)
+2. FILTER: "meeting again today" (temporal: today, depends on #1)
+3. SUMMARIZE: "recap of our discussion" (depends on #1)
+4. ANALYZE: "what I should know going into today's meeting" (depends on #1, #2)
 
 ## Useful Links
 
