@@ -8,6 +8,7 @@ import {
   startOfMonth,
   endOfMonth,
 } from 'date-fns';
+import { speakerEnhancer } from './speaker-attribution-enhancer.js';
 
 export interface PreprocessedQuery {
   original: string;
@@ -140,10 +141,14 @@ export class QueryPreprocessor {
     const keywords = this.extractKeywords(normalized);
     const temporalInfo = this.extractTemporalInfo(query);
 
+    // Add speaker-enhanced query variations
+    const speakerEnhancedQueries = speakerEnhancer.enhanceQuery(query);
+    const allExpandedQueries = [...new Set([...expandedQueries, ...speakerEnhancedQueries])];
+
     return {
       original: query,
       normalized,
-      expandedQueries,
+      expandedQueries: allExpandedQueries,
       temporalInfo,
       entities,
       intent,

@@ -5,6 +5,7 @@
 
 import { EmbeddingProvider } from './vector-store.interface.js';
 import { logger } from '../utils/logger.js';
+import { speakerEnhancer } from '../search/speaker-attribution-enhancer.js';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -177,6 +178,16 @@ export class ConfigurableContextualEmbeddingProvider implements EmbeddingProvide
     // If metadata includes a title, add it as context
     if (metadata?.title) {
       contexts.push(`Topic: ${metadata.title.slice(0, 100)}`);
+    }
+
+    // Add speaker attribution context
+    const speakerContext = speakerEnhancer.addSpeakerContext(text, metadata);
+    if (speakerContext !== text) {
+      // Extract the context part that was added
+      const contextPart = speakerContext.split('\n\n')[0];
+      if (contextPart) {
+        contexts.push(contextPart);
+      }
     }
 
     // Prepend context to improve embeddings
