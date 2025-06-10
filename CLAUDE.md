@@ -640,6 +640,15 @@ node scripts/utilities/test-preprocessing.js
 3. **Search Execution**: All searches run against local data only
 4. **No Network Dependency**: Search works offline once data is downloaded
 
+### Chunked Database Configuration
+
+The search system now uses a chunked database (`limitless-chunks`) instead of full documents:
+
+- Collection name: `limitless-chunks` (previously `limitless-lifelogs`)
+- Each document is split into ~50-60 semantic chunks
+- Chunks include metadata about parent document, entities, and food mentions
+- Search results automatically load parent documents for context
+
 ### Code Example
 
 ```typescript
@@ -1294,6 +1303,72 @@ const task2 = {
 - Implement AI-powered automatic summaries
 - Full test suite implementation
 - Implement session-based conversational continuity
+
+## Semantic Chunking Implementation
+
+The project now includes semantic chunking to break large documents into smaller, more focused chunks that better capture specific content like meal information:
+
+### Architecture
+
+```typescript
+// src/search/semantic-chunker.ts
+export class SemanticChunker {
+  // Chunks documents into 5-sentence segments with 2-sentence overlap
+  // Extracts entities, temporal context, and food mentions
+  // Generates summaries for each chunk
+}
+```
+
+### Features
+
+1. **Smart Sentence Splitting**: Uses Intl.Segmenter when available, falls back to regex
+2. **Entity Extraction**: Identifies people (Eric, Jordan, kids), places, and organizations
+3. **Food Mention Detection**: Specifically extracts restaurant names and food items
+4. **Temporal Context**: Captures time expressions, dates, and meal times
+5. **Overlap Strategy**: 2-sentence overlap ensures context continuity
+
+### Chunk Metadata Structure
+
+```typescript
+export interface ChunkMetadata {
+  chunkIndex: number;
+  sentenceRange: [number, number];
+  temporalContext?: string[]; // ["lunch", "12:37 PM", "today"]
+  entities?: string[]; // ["Eric", "Jordan", "Chick-fil-A"]
+  foodMentions?: string[]; // ["Smoothie King", "nuggets", "lunch"]
+  summary?: string;
+  originalDocumentId: string;
+  originalMetadata?: any;
+}
+```
+
+### Testing Scripts
+
+```bash
+# Test chunking on specific document
+node scripts/test-chunking-lunch.js
+
+# Rebuild entire vector DB with chunking
+node scripts/rebuild-with-chunking.js
+```
+
+### Results
+
+- Documents are split into ~50-60 chunks each
+- Food mentions are captured even when buried in long transcripts
+- Both "Smoothie King" and "Chick-fil-A" now surface correctly in searches
+- Chunk metadata includes entities and temporal context for better retrieval
+
+### Integration with Vector Store
+
+When chunking is enabled:
+
+1. Each lifelog is split into semantic chunks
+2. Each chunk gets its own embedding with contextual enhancement
+3. Vector search operates on chunks, not full documents
+4. Search results include parent document information
+
+This significantly improves retrieval of specific information within long transcripts.
 
 ## Future Enhancements
 

@@ -118,7 +118,7 @@ export class UnifiedSearchHandler {
     if (!this.vectorStore && this.fileManager) {
       const { LanceDBStore } = await import('../vector-store/lancedb-store.js');
       this.vectorStore = new LanceDBStore({
-        collectionName: 'limitless-lifelogs',
+        collectionName: 'limitless-chunks',
         persistPath: './data/lancedb',
       });
     }
@@ -136,7 +136,7 @@ export class UnifiedSearchHandler {
           logger.info('ChromaDB failed, falling back to LanceDB');
           const { LanceDBStore } = await import('../vector-store/lancedb-store.js');
           this.vectorStore = new LanceDBStore({
-            collectionName: 'limitless-lifelogs',
+            collectionName: 'limitless-chunks',
             persistPath: './data/lancedb',
           });
           await this.vectorStore.initialize();
@@ -535,13 +535,23 @@ export class UnifiedSearchHandler {
       // Load lifelogs for the results
       const resultsWithLifelogs = await Promise.all(
         results.map(async (result) => {
-          // Need to find the date for this ID - check metadata
           let lifelog: Phase2Lifelog | null = null;
-          if (result.metadata?.date) {
+          let id = result.id;
+
+          // Check if this is a chunk result (has parentId in metadata)
+          if (result.metadata?.parentId) {
+            id = result.metadata.parentId;
+            const parentDate = result.metadata.parentDate || result.metadata.date;
+            if (parentDate) {
+              lifelog = await this.fileManager.loadLifelog(id, new Date(parentDate));
+            }
+          } else if (result.metadata?.date) {
+            // Regular result with date metadata
             lifelog = await this.fileManager.loadLifelog(result.id, new Date(result.metadata.date));
           }
+
           return {
-            id: result.id,
+            id,
             score: result.score,
             lifelog: lifelog || undefined,
             metadata: {
@@ -549,6 +559,7 @@ export class UnifiedSearchHandler {
               source: result.source,
               keywordScore: result.keywordScore,
               vectorScore: result.vectorScore,
+              chunkId: result.metadata?.parentId ? result.id : undefined,
             },
           };
         })
@@ -646,26 +657,73 @@ export class UnifiedSearchHandler {
   /**
    * Format vector search results
    */
-  private formatVectorSearchResults(
+  private async formatVectorSearchResults(
     query: string,
     results: VectorSearchResult[],
     strategy: 'vector' | 'hybrid'
   ): Promise<UnifiedSearchResult> {
-    return Promise.resolve({
+    // Handle chunked results - need to load parent documents
+    const formattedResults = await Promise.all(
+      results.map(async (r) => {
+        // Check if this is a chunk result (has parentId in metadata)
+        if (r.metadata?.parentId) {
+          try {
+            // Load the parent lifelog
+            const parentDate = r.metadata.parentDate ? new Date(r.metadata.parentDate) : null;
+            if (parentDate) {
+              const lifelog = await this.fileManager.loadLifelog(r.metadata.parentId, parentDate);
+              if (lifelog) {
+                return {
+                  id: r.metadata.parentId,
+                  score: r.score,
+                  lifelog,
+                  metadata: {
+                    ...r.metadata,
+                    chunkId: r.id,
+                    chunkContent: r.content,
+                  },
+                };
+              }
+            }
+          } catch (error) {
+            logger.warn('Failed to load parent lifelog for chunk', {
+              chunkId: r.id,
+              parentId: r.metadata.parentId,
+              error,
+            });
+          }
+        }
+
+        // Not a chunk or failed to load parent - return as is
+        return {
+          id: r.id,
+          score: r.score,
+          metadata: r.metadata,
+        };
+      })
+    );
+
+    // Deduplicate results by parent ID (multiple chunks might match from same document)
+    const uniqueResults = new Map<string, (typeof formattedResults)[0]>();
+    for (const result of formattedResults) {
+      const id = result.id;
+      const existing = uniqueResults.get(id);
+      if (!existing || result.score > existing.score) {
+        uniqueResults.set(id, result);
+      }
+    }
+
+    return {
       query,
       strategy,
-      results: results.map((r) => ({
-        id: r.id,
-        score: r.score,
-        metadata: r.metadata,
-      })),
+      results: Array.from(uniqueResults.values()).sort((a, b) => b.score - a.score),
       performance: {
         totalTime: 0,
         searchTime: 0,
         strategy,
         cacheHit: false,
       },
-    });
+    };
   }
 
   /**

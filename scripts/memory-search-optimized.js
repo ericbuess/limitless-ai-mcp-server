@@ -267,19 +267,44 @@ export class OptimizedMemorySearchTool {
 
         // Extract key sentences for food queries
         let excerpt = content;
-        if (query.toLowerCase().includes('lunch') || query.toLowerCase().includes('eat')) {
+        if (
+          query.toLowerCase().includes('lunch') ||
+          query.toLowerCase().includes('eat') ||
+          query.toLowerCase().includes('food') ||
+          query.toLowerCase().includes('smoothie') ||
+          query.toLowerCase().includes('chick')
+        ) {
           // Find sentences with food/restaurant mentions
-          const sentences = content.split(/[.!?]+/);
-          const foodSentences = sentences.filter((s) =>
-            /smoothie|chick|restaurant|eat|ate|lunch|food|nugget/i.test(s)
-          );
+          const sentences = content.split(/[.!?]+/).map((s) => s.trim());
+          const foodSentences = [];
+
+          // Include sentences with food keywords and their context
+          for (let i = 0; i < sentences.length; i++) {
+            if (
+              /smoothie|chick|restaurant|eat|ate|lunch|food|nugget|meal|order/i.test(sentences[i])
+            ) {
+              // Include previous sentence for context
+              if (i > 0 && !foodSentences.includes(sentences[i - 1])) {
+                foodSentences.push(sentences[i - 1]);
+              }
+              // Include the matching sentence
+              foodSentences.push(sentences[i]);
+              // Include next sentence for context
+              if (i < sentences.length - 1) {
+                foodSentences.push(sentences[i + 1]);
+              }
+            }
+          }
+
           if (foodSentences.length > 0) {
-            excerpt = foodSentences.join('. ');
+            excerpt = foodSentences.join('. ') + '.';
           }
         }
 
-        // Limit excerpt length
-        excerpt = excerpt.substring(0, 500);
+        // Limit excerpt length but increase limit for food queries
+        const maxLength =
+          query.toLowerCase().includes('lunch') || query.toLowerCase().includes('eat') ? 1000 : 500;
+        excerpt = excerpt.substring(0, maxLength);
 
         return `Result ${i + 1}:
 Title: ${title}
