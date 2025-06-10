@@ -9,6 +9,8 @@ import { QueryPreprocessor, PreprocessedQuery, QueryIntent } from './query-prepr
 import { temporalPeopleExtractor } from './temporal-people-extractor.js';
 import { HybridSearcher } from './hybrid-searcher.js';
 import { LanceDBStore } from '../vector-store/lancedb-store.js';
+import { meetingSummaryExtractor } from './meeting-summary-extractor.js';
+import { queryDecomposer } from './query-decomposer.js';
 import { logger } from '../utils/logger.js';
 import type { Phase2Lifelog } from '../types/phase2.js';
 import type {
@@ -60,6 +62,18 @@ export interface UnifiedSearchResult {
     extractedPeople: string[];
     timeframe: string;
     meetingCount: number;
+  };
+  meetingInsights?: {
+    meetingCount: number;
+    participants: string[];
+    mainTopics: string[];
+    decisions: string[];
+    confidence: number;
+  };
+  decompositionInsights?: {
+    subQueryCount: number;
+    complexity: number;
+    executedQueries: number;
   };
 }
 
@@ -303,6 +317,17 @@ export class UnifiedSearchHandler {
     // Check if this is a "who did I meet" type query and enhance results
     if (this.isPeopleQuery(preprocessed)) {
       result = this.enhanceWithPeopleInfo(result, preprocessed);
+    }
+
+    // Check if this is a meeting recap query and enhance with summaries
+    if (this.isMeetingRecapQuery(preprocessed)) {
+      result = await this.enhanceWithMeetingSummaries(result, preprocessed);
+    }
+
+    // Check if query needs decomposition
+    const decomposed = queryDecomposer.decompose(query);
+    if (decomposed.subQueries.length > 1) {
+      result = await this.executeDecomposedQuery(decomposed, result, preprocessed, options);
     }
 
     return result;
@@ -893,5 +918,288 @@ export class UnifiedSearchHandler {
     }
 
     return result;
+  }
+
+  /**
+   * Check if the query is asking for a meeting recap/summary
+   */
+  private isMeetingRecapQuery(preprocessed: PreprocessedQuery): boolean {
+    const query = preprocessed.original.toLowerCase();
+
+    // Check for recap-related patterns
+    const recapPatterns = [
+      /recap/i,
+      /summar/i,
+      /what did we discuss/i,
+      /what was discussed/i,
+      /meeting notes/i,
+      /key points/i,
+      /action items/i,
+      /next steps/i,
+      /decisions made/i,
+      /what should i know/i,
+      /prepare for.*meeting/i,
+    ];
+
+    return recapPatterns.some((pattern) => pattern.test(query));
+  }
+
+  /**
+   * Enhance search results with meeting summaries
+   */
+  private async enhanceWithMeetingSummaries(
+    result: UnifiedSearchResult,
+    preprocessed: PreprocessedQuery
+  ): Promise<UnifiedSearchResult> {
+    // Extract meeting summaries from top results
+    const summaries = [];
+    const allActionItems = [];
+    const allDecisions = [];
+    const allTopics = new Set<string>();
+
+    for (const item of result.results.slice(0, 10)) {
+      if (item.lifelog) {
+        const summary = meetingSummaryExtractor.extractSummary(item.lifelog);
+        if (summary && summary.metadata.confidence > 0.3) {
+          summaries.push(summary);
+          allActionItems.push(...summary.actionItems);
+          allDecisions.push(...summary.decisions);
+          summary.mainTopics.forEach((topic) => allTopics.add(topic));
+        }
+      }
+    }
+
+    if (summaries.length > 0) {
+      // Create aggregated summary
+      const aggregatedSummary = this.aggregateMeetingSummaries(summaries, preprocessed);
+
+      result.summary = aggregatedSummary.text;
+      result.actionItems = aggregatedSummary.actionItems;
+
+      // Add meeting insights
+      result.meetingInsights = {
+        meetingCount: summaries.length,
+        participants: aggregatedSummary.participants,
+        mainTopics: Array.from(allTopics).slice(0, 5),
+        decisions: allDecisions.slice(0, 5),
+        confidence: aggregatedSummary.confidence,
+      };
+
+      logger.debug('Enhanced with meeting summaries', {
+        summaryCount: summaries.length,
+        actionItems: allActionItems.length,
+        topics: allTopics.size,
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Aggregate multiple meeting summaries into a coherent response
+   */
+  private aggregateMeetingSummaries(
+    summaries: any[],
+    _preprocessed: PreprocessedQuery
+  ): {
+    text: string;
+    actionItems: string[];
+    participants: string[];
+    confidence: number;
+  } {
+    // Collect all unique participants
+    const participants = new Set<string>();
+    summaries.forEach((s) => s.participants.forEach((p: string) => participants.add(p)));
+
+    // Collect and deduplicate action items
+    const actionItemsMap = new Map<string, any>();
+    summaries.forEach((s) => {
+      s.actionItems.forEach((item: any) => {
+        const key = item.description.toLowerCase();
+        if (!actionItemsMap.has(key) || item.confidence > actionItemsMap.get(key).confidence) {
+          actionItemsMap.set(key, item);
+        }
+      });
+    });
+
+    // Format action items
+    const actionItems = Array.from(actionItemsMap.values())
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, 5)
+      .map((item) => {
+        let text = item.description;
+        if (item.owner) text += ` (${item.owner})`;
+        if (item.deadline) text += ` - Due: ${item.deadline}`;
+        return text;
+      });
+
+    // Build summary text
+    const parts = [];
+
+    if (summaries.length === 1) {
+      parts.push(meetingSummaryExtractor.formatSummaryAsText(summaries[0]));
+    } else {
+      parts.push(`Found ${summaries.length} relevant meetings/discussions.`);
+
+      // Add main topics
+      const allTopics = new Set<string>();
+      summaries.forEach((s) => s.mainTopics.forEach((t: string) => allTopics.add(t)));
+      if (allTopics.size > 0) {
+        parts.push(
+          `\nMain topics covered:\n${Array.from(allTopics)
+            .slice(0, 5)
+            .map((t) => `• ${t}`)
+            .join('\n')}`
+        );
+      }
+
+      // Add key decisions
+      const allDecisions: string[] = [];
+      summaries.forEach((s) => allDecisions.push(...s.decisions));
+      if (allDecisions.length > 0) {
+        parts.push(
+          `\nKey decisions:\n${allDecisions
+            .slice(0, 3)
+            .map((d) => `• ${d}`)
+            .join('\n')}`
+        );
+      }
+
+      // Add action items
+      if (actionItems.length > 0) {
+        parts.push(`\nAction items:\n${actionItems.map((a) => `• ${a}`).join('\n')}`);
+      }
+    }
+
+    // Calculate average confidence
+    const avgConfidence =
+      summaries.reduce((sum, s) => sum + s.metadata.confidence, 0) / summaries.length;
+
+    return {
+      text: parts.join('\n'),
+      actionItems,
+      participants: Array.from(participants),
+      confidence: avgConfidence,
+    };
+  }
+
+  /**
+   * Execute a decomposed multi-part query
+   */
+  private async executeDecomposedQuery(
+    decomposed: any,
+    initialResult: UnifiedSearchResult,
+    preprocessed: PreprocessedQuery,
+    options: UnifiedSearchOptions
+  ): Promise<UnifiedSearchResult> {
+    logger.debug('Executing decomposed query', {
+      original: decomposed.original,
+      parts: decomposed.subQueries.length,
+      complexity: decomposed.metadata.complexity,
+    });
+
+    const results = new Map<string, UnifiedSearchResult>();
+    results.set('initial', initialResult);
+
+    // Execute sub-queries in order
+    for (const queryId of decomposed.executionOrder) {
+      const subQuery = decomposed.subQueries.find((q: any) => q.id === queryId);
+      if (!subQuery) continue;
+
+      // Skip the first query if it's the same as our initial search
+      if (queryId === 'q1' && subQuery.text === decomposed.original) {
+        continue;
+      }
+
+      try {
+        // Execute the sub-query
+        const subResult = await this.search(subQuery.text, {
+          ...options,
+          enableCache: false, // Don't cache sub-queries
+          limit: Math.floor((options.limit || 20) / 2), // Use fewer results for sub-queries
+        });
+
+        results.set(queryId, subResult);
+      } catch (error) {
+        logger.warn('Sub-query execution failed', { queryId, error });
+      }
+    }
+
+    // Combine results based on query requirements
+    if (decomposed.requiresContextualSummary) {
+      return this.combineDecomposedResults(decomposed, results, preprocessed);
+    }
+
+    return initialResult;
+  }
+
+  /**
+   * Combine results from decomposed queries
+   */
+  private combineDecomposedResults(
+    decomposed: any,
+    results: Map<string, UnifiedSearchResult>,
+    _preprocessed: PreprocessedQuery
+  ): UnifiedSearchResult {
+    const combined: UnifiedSearchResult = {
+      query: decomposed.original,
+      strategy: 'parallel',
+      results: [],
+      performance: {
+        totalTime: 0,
+        searchTime: 0,
+        strategy: 'decomposed',
+        cacheHit: false,
+      },
+    };
+
+    // Collect all unique results
+    const seenIds = new Set<string>();
+    const allResults = [];
+
+    for (const [queryId, result] of results) {
+      for (const item of result.results) {
+        if (!seenIds.has(item.id)) {
+          seenIds.add(item.id);
+          allResults.push({
+            ...item,
+            sourceQuery: queryId,
+          });
+        }
+      }
+    }
+
+    // Sort by relevance
+    allResults.sort((a, b) => b.score - a.score);
+    combined.results = allResults.slice(0, 20);
+
+    // Combine summaries and insights
+    const summaries = [];
+    const actionItems = [];
+
+    for (const [, result] of results) {
+      if (result.summary) {
+        summaries.push(result.summary);
+      }
+      if (result.actionItems) {
+        actionItems.push(...result.actionItems);
+      }
+    }
+
+    if (summaries.length > 0) {
+      combined.summary = summaries.join('\n\n');
+    }
+
+    if (actionItems.length > 0) {
+      combined.actionItems = [...new Set(actionItems)];
+    }
+
+    combined.decompositionInsights = {
+      subQueryCount: decomposed.subQueries.length,
+      complexity: decomposed.metadata.complexity,
+      executedQueries: results.size,
+    };
+
+    return combined;
   }
 }
