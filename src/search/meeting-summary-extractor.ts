@@ -35,42 +35,79 @@ export interface MeetingSummary {
 }
 
 export class MeetingSummaryExtractor {
-  // Action item patterns
+  // Action item patterns - more specific to avoid casual conversation
   private actionPatterns = [
-    /\b(?:I|we|you|they?)\s+(?:will|should|need to|must|have to|got to|ought to)\s+(.+?)(?:\.|$)/gi,
-    /\b(?:action items?|todo|follow ups?):\s*(.+?)(?:\.|$)/gi,
+    // Explicit action items
+    /\b(?:action items?|todo|task|follow ups?):\s*(.+?)(?:\.|$)/gi,
     /\b(?:next steps?):\s*(.+?)(?:\.|$)/gi,
-    /\b(?:deadline|due|by)\s+(\w+\s+\d+|\d+\s+\w+|tomorrow|next week|end of day)/gi,
-    /\btake\s+(?:the\s+)?action\s+(?:to\s+)?(.+?)(?:\.|$)/gi,
     /\b(?:assigned|assign)\s+to\s+(\w+)\s*:?\s*(.+?)(?:\.|$)/gi,
+    /\btake\s+(?:the\s+)?action\s+(?:to\s+)?(.+?)(?:\.|$)/gi,
+
+    // Project/work commitments
+    /\b(?:I|we)\s+(?:will|need to|should|must)\s+(?:update|create|implement|fix|review|send|schedule|prepare|complete|finish)\s+(.+?)(?:\.|$)/gi,
+    /\b(?:make sure to|don't forget to|remember to)\s+(.+?)(?:\.|$)/gi,
+    /\b(?:deadline|due|by)\s+(\w+\s+\d+|\d+\s+\w+|tomorrow|next week|end of day|EOD|COB)/gi,
   ];
 
-  // Decision patterns
+  // Decision patterns - focus on business/project decisions
   private decisionPatterns = [
-    /\b(?:we|they?)\s+(?:decided|agreed|concluded|determined|resolved)\s+(?:to\s+)?(.+?)(?:\.|$)/gi,
-    /\b(?:decision|agreement|conclusion):\s*(.+?)(?:\.|$)/gi,
-    /\bit['']s\s+(?:been\s+)?(?:decided|agreed)\s+(?:that\s+)?(.+?)(?:\.|$)/gi,
+    /\b(?:we|the team)\s+(?:decided|agreed|concluded|determined|resolved)\s+(?:to\s+)?(.+?)(?:\.|$)/gi,
+    /\b(?:decision|agreement|conclusion|resolution):\s*(.+?)(?:\.|$)/gi,
+    /\bit['']s\s+(?:been\s+)?(?:decided|agreed|confirmed)\s+(?:that\s+)?(.+?)(?:\.|$)/gi,
     /\b(?:final|the)\s+decision\s+(?:is|was)\s+(?:to\s+)?(.+?)(?:\.|$)/gi,
-    /\bapproved\s+(.+?)(?:\.|$)/gi,
+    /\b(?:approved|confirmed|finalized)\s+(.+?)(?:\.|$)/gi,
+    /\bwe['']re\s+(?:going with|moving forward with|proceeding with)\s+(.+?)(?:\.|$)/gi,
   ];
 
-  // Topic patterns
+  // Topic patterns - focus on substantive topics
   private topicPatterns = [
-    /\b(?:discussed|talked about|reviewed|covered|went over)\s+(.+?)(?:\.|$)/gi,
+    // Technical/project discussions
+    /\b(?:discussed|talked about|reviewed|covered)\s+(?:the\s+)?(.+?(?:project|feature|implementation|design|architecture|plan|strategy|approach))(?:\.|$)/gi,
     /\b(?:topic|subject|agenda item):\s*(.+?)(?:\.|$)/gi,
     /\b(?:meeting|discussion|conversation)\s+about\s+(.+?)(?:\.|$)/gi,
-    /\bregarding\s+(.+?),?\s+(?:we|they|I)/gi,
+    /\bregarding\s+(?:the\s+)?(.+?(?:project|issue|problem|solution|proposal)),?\s+(?:we|they|I)/gi,
     /\b(?:presented|presenting|presentation)\s+(?:on|about)\s+(.+?)(?:\.|$)/gi,
+    /\b(?:working on|focusing on|prioritizing)\s+(.+?)(?:\.|$)/gi,
   ];
 
-  // Question patterns
+  // Question patterns - focus on substantive questions
   private questionPatterns = [
     /\b(?:asked|wondered|questioned|inquired)\s+(?:about\s+)?(.+?)(?:\?|\.|$)/gi,
-    /\b(?:question|clarification):\s*(.+?)(?:\?|\.|$)/gi,
-    /\bdo(?:es)?\s+(?:anyone|someone|we)\s+know\s+(.+?)(?:\?|\.|$)/gi,
-    /\bwhat\s+(?:about|if)\s+(.+?)(?:\?|\.|$)/gi,
-    /\bhow\s+(?:do|does|will|would|should)\s+(.+?)(?:\?|\.|$)/gi,
+    /\b(?:question|clarification|concern):\s*(.+?)(?:\?|\.|$)/gi,
+    /\b(?:can|could|should|would)\s+(?:we|you|they)\s+(.+?)(?:\?|\.|$)/gi,
+    /\bwhat\s+(?:about|if|are|is)\s+(.+?)(?:\?|\.|$)/gi,
+    /\bhow\s+(?:do|does|will|would|should|can|could)\s+(?:we|you|they)\s+(.+?)(?:\?|\.|$)/gi,
   ];
+
+  // Additional patterns to filter out
+  private casualPhrases = new Set([
+    'oreos',
+    'donuts',
+    'lunch',
+    'dinner',
+    'breakfast',
+    'snack',
+    'food',
+    'sunscreen',
+    'pool',
+    'swimming',
+    'beach',
+    'vacation',
+    'kids',
+    'children',
+    'family',
+    'home',
+    'house',
+    'yeah',
+    'okay',
+    'alright',
+    'sure',
+    'maybe',
+    'thing',
+    'stuff',
+    'something',
+    'whatever',
+  ]);
 
   /**
    * Extract meeting summary from a lifelog
@@ -128,28 +165,65 @@ export class MeetingSummaryExtractor {
    * Check if content appears to be meeting-related
    */
   private isMeetingContent(content: string): boolean {
-    const meetingIndicators = [
-      /\bmeeting\b/i,
-      /\bdiscussion\b/i,
-      /\bconversation\b/i,
-      /\btalked?\s+(?:with|to|about)\b/i,
-      /\bagenda\b/i,
+    // Strong meeting indicators (any one is sufficient)
+    const strongIndicators = [
       /\baction items?\b/i,
       /\bnext steps?\b/i,
+      /\bagenda\b/i,
+      /\bmeeting notes?\b/i,
+      /\bproject (?:update|review|planning|discussion)\b/i,
+      /\bstatus update\b/i,
+      /\bteam (?:meeting|sync|standup|discussion)\b/i,
+    ];
+
+    for (const pattern of strongIndicators) {
+      if (pattern.test(content)) {
+        return true;
+      }
+    }
+
+    // Weak indicators (need multiple)
+    const weakIndicators = [
+      /\bmeeting\b/i,
+      /\bdiscussion\b/i,
+      /\btalked?\s+about\b/i,
       /\bdecided\b/i,
       /\bagreed\b/i,
       /\breviewed\b/i,
       /\bpresented\b/i,
+      /\bproposal\b/i,
+      /\bproject\b/i,
+      /\bdeadline\b/i,
+      /\bdeliverable\b/i,
+      /\bupdate\b/i,
     ];
 
     let indicatorCount = 0;
-    for (const pattern of meetingIndicators) {
+    for (const pattern of weakIndicators) {
       if (pattern.test(content)) {
         indicatorCount++;
-        if (indicatorCount >= 2) {
-          return true;
+      }
+    }
+
+    // Need at least 3 weak indicators
+    if (indicatorCount >= 3) {
+      // But also check it's not purely casual conversation
+      const casualIndicators = [
+        /\b(?:breakfast|lunch|dinner|snack|food|meal)\b/i,
+        /\b(?:kids?|children|family|home)\b/i,
+        /\b(?:vacation|holiday|weekend|beach|pool)\b/i,
+        /\b(?:movie|show|game|sport)\b/i,
+      ];
+
+      let casualCount = 0;
+      for (const pattern of casualIndicators) {
+        if (pattern.test(content)) {
+          casualCount++;
         }
       }
+
+      // If too much casual content relative to meeting content, skip
+      return casualCount < indicatorCount / 2;
     }
 
     return false;
@@ -160,31 +234,56 @@ export class MeetingSummaryExtractor {
    */
   private extractParticipants(content: string): string[] {
     const participants = new Set<string>();
+    const unknownSpeakers = new Set<string>();
 
-    // Look for speaker patterns
-    const speakerPattern = /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*:/gm;
+    // First pass: count Unknown speakers
+    const unknownPattern = /Unknown\s*\(([^)]+)\)/g;
     let match;
+    while ((match = unknownPattern.exec(content)) !== null) {
+      unknownSpeakers.add(match[1]);
+    }
+
+    // Look for speaker patterns (but skip Unknown)
+    const speakerPattern = /^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s*(?:\([^)]+\))?\s*:/gm;
     while ((match = speakerPattern.exec(content)) !== null) {
-      if (!this.isCommonWord(match[1])) {
+      if (!this.isCommonWord(match[1]) && match[1] !== 'Unknown') {
         participants.add(match[1]);
       }
     }
 
     // Look for "with X" patterns
-    const withPattern = /\b(?:with|joined by)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b/g;
+    const withPattern =
+      /\b(?:with|joined by|meeting with)\s+([A-Z][a-z]+(?:\s+[A-Z]\.?)?(?:\s+[A-Z][a-z]+)?)\b/g;
     while ((match = withPattern.exec(content)) !== null) {
-      if (!this.isCommonWord(match[1])) {
-        participants.add(match[1]);
+      const name = match[1].trim();
+      if (!this.isCommonWord(name) && name !== 'Unknown') {
+        participants.add(name);
       }
     }
 
     // Look for "X said/mentioned" patterns
     const saidPattern =
-      /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:said|mentioned|suggested|proposed|asked)\b/g;
+      /\b([A-Z][a-z]+(?:\s+[A-Z]\.?)?(?:\s+[A-Z][a-z]+)?)\s+(?:said|mentioned|suggested|proposed|asked|presented|discussed)\b/g;
     while ((match = saidPattern.exec(content)) !== null) {
-      if (!this.isCommonWord(match[1])) {
-        participants.add(match[1]);
+      const name = match[1].trim();
+      if (!this.isCommonWord(name) && name !== 'Unknown') {
+        participants.add(name);
       }
+    }
+
+    // Look for names in possessive form
+    const possessivePattern =
+      /\b([A-Z][a-z]+(?:\s+[A-Z]\.?)?(?:\s+[A-Z][a-z]+)?)'s\s+(?:idea|proposal|suggestion|team|project)\b/g;
+    while ((match = possessivePattern.exec(content)) !== null) {
+      const name = match[1].trim();
+      if (!this.isCommonWord(name) && name !== 'Unknown') {
+        participants.add(name);
+      }
+    }
+
+    // If we only found Unknown speakers, include count info
+    if (participants.size === 0 && unknownSpeakers.size > 0) {
+      participants.add(`${unknownSpeakers.size} participants (identities unclear)`);
     }
 
     return Array.from(participants);
@@ -194,20 +293,55 @@ export class MeetingSummaryExtractor {
    * Extract main topics discussed
    */
   private extractTopics(content: string): string[] {
-    const topics = new Set<string>();
+    const topicScores = new Map<string, number>();
 
     for (const pattern of this.topicPatterns) {
       pattern.lastIndex = 0;
       let match;
       while ((match = pattern.exec(content)) !== null) {
         const topic = this.cleanExtractedText(match[1]);
-        if (topic && topic.length > 10 && topic.length < 100) {
-          topics.add(topic);
+        if (topic && topic.length > 15 && topic.length < 100) {
+          // Score topics based on keywords
+          let score = 1;
+          const topicLower = topic.toLowerCase();
+
+          // Boost for technical/business terms
+          if (
+            topicLower.match(
+              /\b(?:project|feature|implementation|design|architecture|strategy|plan|proposal|update|review|status)\b/
+            )
+          ) {
+            score += 2;
+          }
+
+          // Boost for action-oriented topics
+          if (
+            topicLower.match(
+              /\b(?:develop|implement|build|create|improve|optimize|refactor|migrate|deploy)\b/
+            )
+          ) {
+            score += 1;
+          }
+
+          // Penalize casual topics
+          if (topicLower.match(/\b(?:lunch|dinner|breakfast|pool|vacation|kids?|family)\b/)) {
+            score -= 2;
+          }
+
+          if (score > 0) {
+            topicScores.set(topic, (topicScores.get(topic) || 0) + score);
+          }
         }
       }
     }
 
-    return Array.from(topics);
+    // Sort by score and take top topics
+    const sortedTopics = Array.from(topicScores.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([topic]) => topic)
+      .slice(0, 5);
+
+    return sortedTopics;
   }
 
   /**
@@ -247,33 +381,76 @@ export class MeetingSummaryExtractor {
       pattern.lastIndex = 0;
       let match;
       while ((match = pattern.exec(content)) !== null) {
-        const description = this.cleanExtractedText(match[1] || match[2] || match[0]);
-        if (description && description.length > 10 && !seen.has(description)) {
-          seen.add(description);
+        const rawText = match[1] || match[2] || match[0];
+        const description = this.cleanExtractedText(rawText);
 
-          const actionItem: ActionItem = {
-            description,
-            confidence: 0.7,
-          };
-
-          // Try to extract owner
-          const ownerMatch = description.match(/\b(?:I|we|you|[A-Z][a-z]+)\b/);
-          if (ownerMatch) {
-            actionItem.owner = ownerMatch[0];
-          }
-
-          // Try to extract deadline
-          const deadlineMatch = description.match(/\b(?:by|before|until)\s+(.+?)(?:\.|,|$)/i);
-          if (deadlineMatch) {
-            actionItem.deadline = deadlineMatch[1];
-          }
-
-          actionItems.push(actionItem);
+        // More stringent validation
+        if (!description || description.length < 20 || seen.has(description)) {
+          continue;
         }
+
+        // Skip if it contains too many casual words
+        const descLower = description.toLowerCase();
+        if (
+          descLower.match(
+            /\b(?:oreos?|donuts?|lunch|dinner|breakfast|snack|pool|swimming|kids?|family)\b/
+          )
+        ) {
+          continue;
+        }
+
+        // Must contain at least one action verb
+        if (
+          !descLower.match(
+            /\b(?:update|create|implement|fix|review|send|schedule|prepare|complete|finish|develop|build|deploy|test|document|analyze|design|refactor|optimize|migrate|configure|setup|investigate|research|contact|follow\s*up|coordinate|organize|draft|submit|approve|verify|validate|check|ensure|monitor|track|report|present|discuss|meet|call|email)\b/
+          )
+        ) {
+          continue;
+        }
+
+        seen.add(description);
+
+        const actionItem: ActionItem = {
+          description,
+          confidence: 0.8,
+        };
+
+        // Try to extract owner (more specific patterns)
+        const ownerPatterns = [
+          /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:will|should|needs?\s+to|must)\b/,
+          /\bassigned?\s+to\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b/i,
+          /\b(?:owner|responsible):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b/i,
+        ];
+
+        for (const ownerPattern of ownerPatterns) {
+          const ownerMatch = description.match(ownerPattern);
+          if (ownerMatch) {
+            actionItem.owner = ownerMatch[1];
+            actionItem.confidence = 0.9;
+            break;
+          }
+        }
+
+        // Try to extract deadline
+        const deadlineMatch = description.match(/\b(?:by|before|until|due)\s+([^,.]+?)(?:\.|,|$)/i);
+        if (deadlineMatch) {
+          const deadline = deadlineMatch[1].trim();
+          // Validate deadline looks reasonable
+          if (
+            deadline.match(
+              /\b(?:monday|tuesday|wednesday|thursday|friday|tomorrow|next\s+week|end\s+of|EOD|COB|\d+)/i
+            )
+          ) {
+            actionItem.deadline = deadline;
+          }
+        }
+
+        actionItems.push(actionItem);
       }
     }
 
-    return actionItems;
+    // Sort by confidence
+    return actionItems.sort((a, b) => b.confidence - a.confidence).slice(0, 10);
   }
 
   /**
@@ -360,12 +537,32 @@ export class MeetingSummaryExtractor {
    * Clean extracted text
    */
   private cleanExtractedText(text: string): string {
-    return text
+    let cleaned = text
       .trim()
       .replace(/\s+/g, ' ')
       .replace(/^[,.\s]+|[,.\s]+$/g, '')
-      .replace(/\b(?:um|uh|like|you know)\b/gi, '')
+      // Remove filler words and fragments
+      .replace(
+        /\b(?:um|uh|like|you know|yeah|okay|alright|so|well|just|actually|basically|literally|obviously|clearly|simply|merely|really)\b/gi,
+        ''
+      )
+      // Remove transcription artifacts
+      .replace(/\b(?:Unknown|Speaker)\s*\([^)]+\):\s*/g, '')
+      // Remove leading dashes, commas, etc.
+      .replace(/^[-,.\s]+/, '')
+      // Remove repeated words
+      .replace(/\b(\w+)\s+\1\b/gi, '$1')
       .trim();
+
+    // Filter out if too short or too generic
+    if (cleaned.length < 15) return '';
+
+    // Check for too many casual phrases
+    const words = cleaned.toLowerCase().split(/\s+/);
+    const casualCount = words.filter((w) => this.casualPhrases.has(w)).length;
+    if (casualCount > words.length * 0.3) return ''; // Too casual
+
+    return cleaned;
   }
 
   /**
