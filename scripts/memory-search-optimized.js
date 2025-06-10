@@ -84,7 +84,14 @@ export class OptimizedMemorySearchTool {
       const localResults = await this.performOptimizedLocalSearch(query, sessionDir);
 
       // Check if we have high-quality results
-      if (localResults.confidence >= 0.8 && localResults.refinedResults.length >= 5) {
+      // For food queries, always use Claude to extract specific details
+      const isFoodQuery = /\b(eat|ate|food|lunch|dinner|breakfast|meal)\b/i.test(query);
+
+      if (
+        localResults.confidence >= 0.8 &&
+        localResults.refinedResults.length >= 5 &&
+        !isFoodQuery
+      ) {
         logger.info('High confidence local results, skipping Claude');
         const answer = this.generateDirectAnswer(query, localResults.refinedResults);
 
@@ -384,5 +391,4 @@ Provide a JSON response with this format:
 }
 
 // Export for use in task executor
-export { OptimizedMemorySearchTool };
 export default OptimizedMemorySearchTool;

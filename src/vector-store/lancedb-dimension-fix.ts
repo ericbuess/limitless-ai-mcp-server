@@ -82,10 +82,28 @@ export async function needsDimensionFix(): Promise<boolean> {
       return false; // No table, no problem
     }
 
-    // Try to get the schema or a sample
-    // Since direct inspection is difficult, we'll check by trying a query
-    // and seeing if it fails with dimension mismatch
-    return true; // For now, assume we need fixing if table exists
+    // Check actual vector dimensions by attempting searches
+    const table = await db.openTable('limitless-lifelogs');
+
+    try {
+      // Try a 384-dim search (what transformer uses)
+      const dummy384 = new Array(384).fill(0.1);
+      await table.vectorSearch(dummy384).limit(1).toArray();
+      // If this works, DB has 384-dim vectors, no fix needed
+      return false;
+    } catch (error384) {
+      // 384 failed, try 768
+      try {
+        const dummy768 = new Array(768).fill(0.1);
+        await table.vectorSearch(dummy768).limit(1).toArray();
+        // If this works, DB has 768-dim vectors, need to pad 384->768
+        return true;
+      } catch (error768) {
+        // Both failed, something else is wrong
+        logger.error('Cannot determine vector dimensions', { error384, error768 });
+        return false;
+      }
+    }
   } catch (error) {
     logger.debug('Error checking dimension fix need', { error });
     return false;

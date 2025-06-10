@@ -225,9 +225,30 @@ export class FileManager {
 
             // Load each lifelog
             for (const id of ids) {
-              const lifelog = await this.loadLifelog(id, date);
-              if (lifelog) {
-                allLifelogs.push(lifelog);
+              try {
+                // Directly load the files instead of using loadLifelog which expects metadata with date
+                const mdPath = path.join(dayPath, `${id}.md`);
+                const content = await fs.readFile(mdPath, 'utf8');
+
+                // Try to load metadata
+                let metadata: any = null;
+                if (this.enableMetadata) {
+                  try {
+                    const metaPath = path.join(dayPath, `${id}.meta.json`);
+                    const metaContent = await fs.readFile(metaPath, 'utf8');
+                    metadata = JSON.parse(metaContent);
+                  } catch {
+                    // No metadata file
+                  }
+                }
+
+                // Parse to lifelog
+                const lifelog = this.parseMarkdownToLifelog(content, metadata);
+                if (lifelog) {
+                  allLifelogs.push(lifelog);
+                }
+              } catch (error) {
+                logger.debug('Error loading lifelog', { id, error });
               }
             }
           }
