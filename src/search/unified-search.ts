@@ -5,7 +5,8 @@ import { FastPatternMatcher } from './fast-patterns.js';
 import { ClaudeOrchestrator } from './claude-orchestrator.js';
 import { IntelligentCache } from '../cache/intelligent-cache.js';
 import { ParallelSearchExecutor } from './parallel-search-executor.js';
-import { QueryPreprocessor, PreprocessedQuery } from './query-preprocessor.js';
+import { QueryPreprocessor, PreprocessedQuery, QueryIntent } from './query-preprocessor.js';
+import { temporalPeopleExtractor } from './temporal-people-extractor.js';
 import { HybridSearcher } from './hybrid-searcher.js';
 import { LanceDBStore } from '../vector-store/lancedb-store.js';
 import { logger } from '../utils/logger.js';
@@ -54,6 +55,11 @@ export interface UnifiedSearchResult {
     hotDocuments: number;
     discoveredDates: number;
     relevantKeywords: number;
+  };
+  peopleInsights?: {
+    extractedPeople: string[];
+    timeframe: string;
+    meetingCount: number;
   };
 }
 
@@ -293,6 +299,11 @@ export class UnifiedSearchHandler {
 
     // Update performance metrics
     this.queryRouter.updatePerformanceMetrics(classification.type, searchTime);
+
+    // Check if this is a "who did I meet" type query and enhance results
+    if (this.isPeopleQuery(preprocessed)) {
+      result = this.enhanceWithPeopleInfo(result, preprocessed);
+    }
 
     return result;
   }
@@ -828,5 +839,59 @@ export class UnifiedSearchHandler {
     }
 
     logger.info('Unified search handler stopped');
+  }
+
+  /**
+   * Check if the query is asking about people/meetings
+   */
+  private isPeopleQuery(preprocessed: PreprocessedQuery): boolean {
+    const query = preprocessed.original.toLowerCase();
+
+    // Check for people-related patterns
+    const peoplePatterns = [
+      /who did i meet/i,
+      /people i met/i,
+      /who was at/i,
+      /meeting with/i,
+      /conversation with/i,
+      /talked to/i,
+      /spoke with/i,
+      /who mentioned/i,
+      /who said/i,
+    ];
+
+    // Check if intent is PERSON_QUERY or if it matches people patterns
+    return (
+      preprocessed.intent === QueryIntent.PERSON_QUERY ||
+      peoplePatterns.some((pattern) => pattern.test(query))
+    );
+  }
+
+  /**
+   * Enhance search results with people information
+   */
+  private enhanceWithPeopleInfo(
+    result: UnifiedSearchResult,
+    preprocessed: PreprocessedQuery
+  ): UnifiedSearchResult {
+    // Extract people information from results
+    const peopleInfo = temporalPeopleExtractor.processTemporalPeopleQuery(
+      preprocessed.original,
+      result.results
+    );
+
+    // Add the people summary to the result
+    if (peopleInfo.meetings.length > 0) {
+      result.summary = peopleInfo.summary;
+
+      // Add people insights
+      result.peopleInsights = {
+        extractedPeople: peopleInfo.meetings.flatMap((m) => m.people).map((p) => p.name),
+        timeframe: peopleInfo.timeframe,
+        meetingCount: peopleInfo.meetings.length,
+      };
+    }
+
+    return result;
   }
 }
