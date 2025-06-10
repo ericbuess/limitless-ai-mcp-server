@@ -1230,6 +1230,8 @@ When searching for "where did the kids go this afternoon":
 
 ✅ **Semantic Chunking**: Implemented document chunking to break large transcripts into smaller, focused segments that better capture specific content like meal information. See [Semantic Chunking Implementation](#semantic-chunking-implementation) below.
 
+✅ **Temporal People Extraction**: Implemented people extraction for "who did I meet" queries with improved accuracy. The system now identifies people in meetings/conversations, generates summaries, and filters out false positives using strong context clues. See [Temporal People Extraction](#temporal-people-extraction) below.
+
 ### Low Priority Remaining Tasks
 
 1. **Implement knowledge graph layer** for entity relationships
@@ -1459,6 +1461,75 @@ When chunking is enabled:
 4. Search results include parent document information
 
 This significantly improves retrieval of specific information within long transcripts.
+
+## Temporal People Extraction
+
+The system now includes advanced people extraction for handling queries like "who did I meet today" or "what did my wife say". This feature enhances search results by identifying people mentioned in conversations and providing structured summaries.
+
+### Features
+
+1. **Intelligent People Detection**: Extracts people from transcripts using:
+
+   - Known people from `config/entity-relationships.json`
+   - Capitalized names with strong person context (e.g., "John said", "meeting with Sarah")
+   - Relationship mappings (e.g., "my wife" → "Jordan")
+
+2. **False Positive Filtering**: Reduces noise by:
+
+   - Extensive common word filtering (tech terms, business words, etc.)
+   - Requiring strong context clues for unknown names
+   - Only extracting single-word names for unrecognized people
+
+3. **Meeting Detection**: Identifies conversations and meetings by:
+   - Counting speaker exchanges (Unknown speaker patterns)
+   - Detecting meeting keywords ("discussion", "talked with", etc.)
+   - Merging meetings within 30 minutes of each other
+
+### Implementation
+
+```typescript
+// src/search/temporal-people-extractor.ts
+export class TemporalPeopleExtractor {
+  // Loads known people from config/entity-relationships.json
+  // Extracts people with confidence scores
+  // Generates meeting summaries
+}
+
+// Integration in UnifiedSearchHandler
+if (this.isPeopleQuery(preprocessed)) {
+  result = this.enhanceWithPeopleInfo(result, preprocessed);
+}
+```
+
+### Query Examples
+
+- "who did I meet today" → Lists people met with interaction counts
+- "meeting with Jordan" → Finds meetings/conversations with specific people
+- "what did Emmy say" → Searches for content from specific speakers
+- "people I talked to this week" → Temporal people queries
+
+### Testing
+
+```bash
+# Test people extraction
+node scripts/test-meeting-people-queries.js
+
+# Test improved extraction accuracy
+node scripts/test-people-extraction-improved.js
+```
+
+### Results Structure
+
+```typescript
+interface PeopleInsights {
+  extractedPeople: string[]; // Unique people found
+  timeframe: string; // Query timeframe (today, yesterday, etc.)
+  meetingCount: number; // Number of meetings/conversations
+}
+```
+
+The system generates natural language summaries like:
+"Found 3 meetings/conversations with: Eric (3 interactions), Jordan (2 interactions), Ella (1 interaction)"
 
 ## Useful Links
 
