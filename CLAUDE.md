@@ -1232,10 +1232,26 @@ When searching for "where did the kids go this afternoon":
 
 ✅ **Temporal People Extraction**: Implemented people extraction for "who did I meet" queries with improved accuracy. The system now identifies people in meetings/conversations, generates summaries, and filters out false positives using strong context clues. See [Temporal People Extraction](#temporal-people-extraction) below.
 
-### Low Priority Remaining Tasks
+✅ **Multi-Temporal Query Handling**: Implemented support for queries with multiple time references (e.g., "last week and today"). The system now properly parses primary and secondary timeframes and searches across all detected date ranges. See [Multi-Temporal Query Handling](#multi-temporal-query-handling) below.
+
+✅ **Person Disambiguation**: Implemented disambiguation of third-party people from the user (e.g., "Eric B" vs "Eric"). Handles patterns like name qualifiers, explicit disambiguation, and contextual analysis. See [Person Disambiguation](#person-disambiguation) below.
+
+### Remaining Tasks
+
+#### High Priority
+
+1. **Create meeting summary extractor** for recap functionality
+2. **Implement query decomposition** for multi-part requests
+
+#### Medium Priority
+
+1. **Extract and index person background/ideas** from conversations
+2. **Add meeting summary extraction** to chunking
+
+#### Low Priority
 
 1. **Implement knowledge graph layer** for entity relationships
-2. **Test all vector DB improvements** comprehensively
+2. **Add context-aware summarization** (requires Claude)
 3. **Consider removing VECTOR_DB_UPGRADE_PLAN.md** (implementation complete)
 
 ### Completed Tasks (December 2024)
