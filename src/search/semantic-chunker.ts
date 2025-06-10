@@ -1,4 +1,6 @@
 import { logger } from '../utils/logger.js';
+import { meetingSummaryExtractor, MeetingSummary } from './meeting-summary-extractor.js';
+import { Phase2Lifelog } from '../types/phase2.js';
 
 export interface ChunkMetadata {
   chunkIndex: number;
@@ -9,6 +11,12 @@ export interface ChunkMetadata {
   summary?: string;
   originalDocumentId: string;
   originalMetadata?: any;
+  // Meeting-specific metadata
+  isMeetingContent?: boolean;
+  meetingTopics?: string[];
+  actionItems?: Array<{ description: string; owner?: string }>;
+  decisions?: string[];
+  participants?: string[];
 }
 
 export interface SemanticChunk {
@@ -25,6 +33,7 @@ export class SemanticChunker {
   private overlap: number;
   private minChunkSize: number;
   private maxChunkSize: number;
+  private includeMeetingSummaries: boolean;
 
   constructor(
     options: {
@@ -32,12 +41,14 @@ export class SemanticChunker {
       overlap?: number;
       minChunkSize?: number;
       maxChunkSize?: number;
+      includeMeetingSummaries?: boolean;
     } = {}
   ) {
     this.chunkSize = options.chunkSize || 5; // 5 sentences by default
     this.overlap = options.overlap || 2; // 2 sentence overlap
     this.minChunkSize = options.minChunkSize || 50; // Min 50 characters
     this.maxChunkSize = options.maxChunkSize || 2000; // Max 2000 characters
+    this.includeMeetingSummaries = options.includeMeetingSummaries ?? true; // Default to true
   }
 
   /**
@@ -48,6 +59,21 @@ export class SemanticChunker {
     documentId: string,
     metadata?: any
   ): Promise<SemanticChunk[]> {
+    // Extract meeting summary if enabled
+    let meetingSummary: MeetingSummary | null = null;
+    if (this.includeMeetingSummaries) {
+      const lifelog: Phase2Lifelog = {
+        id: documentId,
+        content,
+        title: metadata?.title || '',
+        createdAt: metadata?.date || new Date().toISOString(),
+        duration: metadata?.duration || 0,
+        startTime: metadata?.date || new Date().toISOString(),
+        endTime: metadata?.date || new Date().toISOString(),
+      };
+      meetingSummary = meetingSummaryExtractor.extractSummary(lifelog);
+    }
+
     // Split into sentences
     const sentences = this.splitIntoSentences(content);
 
@@ -86,18 +112,68 @@ export class SemanticChunker {
       // Generate chunk summary (first sentence or key terms)
       const summary = this.generateChunkSummary(chunkContent);
 
+      // Create base metadata
+      const chunkMetadata: ChunkMetadata = {
+        chunkIndex: i,
+        sentenceRange: [i, Math.min(i + this.chunkSize, sentences.length)] as [number, number],
+        temporalContext: temporalContext.length > 0 ? temporalContext : undefined,
+        entities: entities.length > 0 ? entities : undefined,
+        foodMentions: foodMentions.length > 0 ? foodMentions : undefined,
+        summary,
+        originalDocumentId: documentId,
+        originalMetadata: metadata,
+      };
+
+      // Add meeting metadata if this document has meeting content
+      if (meetingSummary) {
+        chunkMetadata.isMeetingContent = true;
+
+        // Add relevant meeting metadata to chunks that might contain meeting content
+        // We'll check if this chunk contains any action items or decision keywords
+        const chunkLower = chunkContent.toLowerCase();
+        const hasMeetingIndicators =
+          chunkLower.includes('action') ||
+          chunkLower.includes('decided') ||
+          chunkLower.includes('agreed') ||
+          chunkLower.includes('next step') ||
+          chunkLower.includes('will') ||
+          chunkLower.includes('should');
+
+        if (hasMeetingIndicators || i === 0) {
+          // Include in first chunk always
+          chunkMetadata.participants = meetingSummary.participants;
+          chunkMetadata.meetingTopics = meetingSummary.mainTopics;
+
+          // Only include action items that might be in this chunk
+          const relevantActionItems = meetingSummary.actionItems
+            .filter((item) => {
+              const itemLower = item.description.toLowerCase();
+              return chunkLower.includes(itemLower.substring(0, 20)); // Check first 20 chars
+            })
+            .map((item) => ({
+              description: item.description,
+              owner: item.owner,
+            }));
+
+          if (relevantActionItems.length > 0) {
+            chunkMetadata.actionItems = relevantActionItems;
+          }
+
+          // Only include decisions that might be in this chunk
+          const relevantDecisions = meetingSummary.decisions.filter((decision) => {
+            const decisionLower = decision.toLowerCase();
+            return chunkLower.includes(decisionLower.substring(0, 20));
+          });
+
+          if (relevantDecisions.length > 0) {
+            chunkMetadata.decisions = relevantDecisions;
+          }
+        }
+      }
+
       chunks.push({
         content: chunkContent,
-        metadata: {
-          chunkIndex: i,
-          sentenceRange: [i, Math.min(i + this.chunkSize, sentences.length)] as [number, number],
-          temporalContext: temporalContext.length > 0 ? temporalContext : undefined,
-          entities: entities.length > 0 ? entities : undefined,
-          foodMentions: foodMentions.length > 0 ? foodMentions : undefined,
-          summary,
-          originalDocumentId: documentId,
-          originalMetadata: metadata,
-        },
+        metadata: chunkMetadata,
       });
     }
 
