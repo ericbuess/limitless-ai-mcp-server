@@ -125,13 +125,20 @@ export class ParallelSearchExecutor {
           });
 
           queryWords.forEach((word) => {
+            // Escape special regex characters in the word
+            const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             // Find word boundaries around matches
-            const regex = new RegExp(`\\b(\\w*${word}\\w*)\\b`, 'gi');
-            const matches = content.match(regex);
-            if (matches) {
-              matches.forEach((match) => {
-                if (match.length > 3) keywords.add(match);
-              });
+            try {
+              const regex = new RegExp(`\\b(\\w*${escapedWord}\\w*)\\b`, 'gi');
+              const matches = content.match(regex);
+              if (matches) {
+                matches.forEach((match) => {
+                  if (match.length > 3) keywords.add(match);
+                });
+              }
+            } catch (e) {
+              // Skip this word if regex fails
+              logger.debug('Regex construction failed for word', { word, error: e });
             }
           });
         });
