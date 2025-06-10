@@ -63,9 +63,7 @@ async function main() {
   const dataDir = process.env[DATA_DIR_ENV] || './data';
 
   // TEMPORARY: Force simple vector store mode
-  if (!process.env.CHROMADB_MODE) {
-    process.env.CHROMADB_MODE = 'simple';
-  }
+  // Always use LanceDB for vector store
 
   logger.info('Server configuration', {
     mode: isLocalOnlyMode ? 'local-only' : 'full',

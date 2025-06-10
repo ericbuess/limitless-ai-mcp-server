@@ -1,6 +1,5 @@
 // Search is always local - no API client needed
 import { FileManager } from '../storage/file-manager.js';
-import { ChromaVectorStore } from '../vector-store/chroma-manager.js';
 import { QueryRouter, QueryType } from './query-router.js';
 import { FastPatternMatcher } from './fast-patterns.js';
 import { ClaudeOrchestrator } from './claude-orchestrator.js';
@@ -8,6 +7,7 @@ import { IntelligentCache } from '../cache/intelligent-cache.js';
 import { ParallelSearchExecutor } from './parallel-search-executor.js';
 import { QueryPreprocessor, PreprocessedQuery } from './query-preprocessor.js';
 import { HybridSearcher } from './hybrid-searcher.js';
+import { LanceDBStore } from '../vector-store/lancedb-store.js';
 import { logger } from '../utils/logger.js';
 import type { Phase2Lifelog } from '../types/phase2.js';
 import type {
@@ -83,19 +83,12 @@ export class UnifiedSearchHandler {
     this.fastMatcher = new FastPatternMatcher();
     this.cache = new IntelligentCache(options.cacheOptions);
 
-    if (options.enableVectorStore) {
-      // Try ChromaDB first
-      if (process.env.CHROMADB_MODE !== 'simple') {
-        this.vectorStore = new ChromaVectorStore({
-          collectionName: 'limitless-lifelogs',
-          persistPath: process.env.CHROMA_PATH || 'http://localhost:8000',
-        });
-      } else {
-        // Use LanceDB with Contextual RAG for best performance
-        logger.info('Initializing LanceDB with Contextual RAG');
-        // Dynamic import in constructor not async, so defer to initialize()
-        this.vectorStore = null; // Will be set in initialize()
-      }
+    // Always use LanceDB for vector store (when enabled)
+    if (options.enableVectorStore !== false) {
+      this.vectorStore = new LanceDBStore({
+        collectionName: 'limitless-chunks',
+        persistPath: './data/lancedb',
+      });
     }
 
     if (options.enableClaude) {
@@ -114,37 +107,14 @@ export class UnifiedSearchHandler {
     // Initialize components
     await this.fileManager.initialize();
 
-    // Initialize LanceDB if needed - no client dependency for vector store
-    if (!this.vectorStore && this.fileManager) {
-      const { LanceDBStore } = await import('../vector-store/lancedb-store.js');
-      this.vectorStore = new LanceDBStore({
-        collectionName: 'limitless-chunks',
-        persistPath: './data/lancedb',
-      });
-    }
-
+    // Initialize vector store if present
     if (this.vectorStore) {
       try {
         await this.vectorStore.initialize();
       } catch (error) {
-        logger.warn('Vector store initialization failed, falling back to simple vector store', {
-          error,
-        });
-
-        // If ChromaDB fails, fall back to LanceDB
-        if (this.vectorStore instanceof ChromaVectorStore) {
-          logger.info('ChromaDB failed, falling back to LanceDB');
-          const { LanceDBStore } = await import('../vector-store/lancedb-store.js');
-          this.vectorStore = new LanceDBStore({
-            collectionName: 'limitless-chunks',
-            persistPath: './data/lancedb',
-          });
-          await this.vectorStore.initialize();
-          logger.info('Fallback to LanceDB successful');
-        } else {
-          // If simple vector store also fails, disable it
-          this.vectorStore = null;
-        }
+        logger.error('Vector store initialization failed', { error });
+        // Vector store is critical for search quality, don't silently fail
+        throw error;
       }
     }
 
@@ -158,14 +128,11 @@ export class UnifiedSearchHandler {
       this.fileManager
     );
 
-    // Initialize hybrid searcher if we have LanceDB
-    if (this.vectorStore) {
-      const { LanceDBStore } = await import('../vector-store/lancedb-store.js');
-      if (this.vectorStore instanceof LanceDBStore) {
-        this.hybridSearcher = new HybridSearcher(this.vectorStore);
-        await this.hybridSearcher.initialize();
-        logger.info('Hybrid searcher initialized with BM25 + vector search');
-      }
+    // Initialize hybrid searcher if we have vector store
+    if (this.vectorStore && this.vectorStore instanceof LanceDBStore) {
+      this.hybridSearcher = new HybridSearcher(this.vectorStore);
+      await this.hybridSearcher.initialize();
+      logger.info('Hybrid searcher initialized with BM25 + vector search');
     }
 
     this.isInitialized = true;
@@ -810,41 +777,8 @@ export class UnifiedSearchHandler {
         source: 'local',
       });
 
-      // Also populate vector store if available
-      if (this.vectorStore && localLifelogs.length > 0) {
-        try {
-          const vectorDocs = localLifelogs.map((log) => ({
-            id: log.id,
-            content: log.content,
-            metadata: {
-              title: log.title,
-              date: log.createdAt,
-              duration: log.duration,
-            },
-          }));
-
-          // Add documents in batches with progress logging
-          const batchSize = 50;
-          const totalDocs = vectorDocs.length;
-          logger.info(`Starting vector store indexing of ${totalDocs} documents...`);
-
-          for (let i = 0; i < vectorDocs.length; i += batchSize) {
-            const batch = vectorDocs.slice(i, Math.min(i + batchSize, vectorDocs.length));
-            await this.vectorStore.addDocuments(batch);
-
-            const progress = Math.min(i + batchSize, totalDocs);
-            const percentage = Math.round((progress / totalDocs) * 100);
-            logger.info(`Indexing progress: ${progress}/${totalDocs} (${percentage}%)`);
-          }
-
-          logger.info('Vector store indexing completed', {
-            documentCount: vectorDocs.length,
-            indexSize: await this.vectorStore.getStats().then((s) => s.documentCount),
-          });
-        } catch (error) {
-          logger.warn('Failed to populate vector store', { error });
-        }
-      }
+      // Vector store is pre-populated with chunks via rebuild-with-chunking.js
+      // No need to populate here
     } catch (error) {
       logger.warn('Failed to build initial search index', { error });
       // Initialize with empty index
